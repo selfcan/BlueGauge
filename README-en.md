@@ -87,9 +87,13 @@ Welcome contributions from developers who can help us extend support for these d
 
 ## Other Bluetooth battery display software
 
- - Supports more devices：[Bluetooth Battery Monitor](https://www.bluetoothgoodies.com/) (**Purchase**)
+ - Supports more devices：
 
- - Apple: [MagicPods](https://apps.microsoft.com/detail/9P6SKKFKSHKM) (**Purchase**)
+    - [MagicPods](https://apps.microsoft.com/detail/9P6SKKFKSHKM) (**Purchase**)   
+
+    - [Bluetooth Battery Monitor](https://www.bluetoothgoodies.com/) (**Purchase**)   
+
+ - Apple: [AirPodsDesktop](https://github.com/SpriteOvO/AirPodsDesktop)
 
  - Huawei: [OpenFreebuds](https://github.com/melianmiko/OpenFreebuds)
 
@@ -98,3 +102,7 @@ Welcome contributions from developers who can help us extend support for these d
     - [Galaxy Buds](https://apps.microsoft.com/detail/9NHTLWTKFZNB)
 
     - [Galaxy Buds Client](https://github.com/timschneeb/GalaxyBudsClient)  
+
+- Logitech: [elem](https://github.com/Fuwn/elem)   
+
+- SteelSeries Arctis: [Arctis Battery Indicator](https://github.com/aarol/arctis-battery-indicator)   

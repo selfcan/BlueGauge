@@ -92,9 +92,13 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 ## 其他蓝牙电量软件
 
- - 支持较多设备：[Bluetooth Battery Monitor](https://www.bluetoothgoodies.com/) (**付费**)
+ - 支持较多设备：
 
- - 苹果：[MagicPods](https://apps.microsoft.com/detail/9P6SKKFKSHKM) (**付费**)
+    - [MagicPods](https://apps.microsoft.com/detail/9P6SKKFKSHKM) (**付费**)   
+
+    - [Bluetooth Battery Monitor](https://www.bluetoothgoodies.com/) (**付费**)   
+
+ - 苹果：[AirPodsDesktop](https://github.com/SpriteOvO/AirPodsDesktop)
 
  - 华为：[OpenFreebuds](https://github.com/melianmiko/OpenFreebuds)
 
@@ -103,3 +107,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
     - [Galaxy Buds](https://apps.microsoft.com/detail/9NHTLWTKFZNB)   
 
     - [Galaxy Buds Client](https://github.com/timschneeb/GalaxyBudsClient)  
+
+- 罗技: [elem](https://github.com/Fuwn/elem)   
+
+- 赛睿: [Arctis Battery Indicator](https://github.com/aarol/arctis-battery-indicator)   
