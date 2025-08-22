@@ -68,6 +68,8 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
     - Notification when adding a new device
     - Notification when moving a new device
 
+## Download: [Github](https://github.com/iKineticate/BlueGauge/releases/latest)
+
 ## Known Issues & Suggested Solutions
 
 ### 1. Currently, BlueGauge successfully retrieves battery levels from Bluetooth low-energy devices and Bluetooth Classic devices. However, we are unable to fetch the battery status from devices like AirPods and Xbox controllers, which operate on proprietary communication protocols.
@@ -81,9 +83,11 @@ Welcome contributions from developers who can help us extend support for these d
 
 **Solution:**
 
-1. Limit Device Name Length: Implement a character limit for device names that ensures they fit within the available space of the tray notification. This may require shortening longer names to prevent truncation.
+1. **Custom Bluetooth Name**：Shorten the length of the name by giving the Bluetooth name alias.
 
-2. Hide Disconnected Devices: Consider not displaying disconnected devices in the tray notifications. This approach would reduce clutter and ensure that only relevant information is shown, thereby preventing text overflow.
+2. **Limit Device Name Length**: Implement a character limit for device names that ensures they fit within the available space of the tray notification. This may require shortening longer names to prevent truncation.
+
+3. **Hide Disconnected Devices**: Consider not displaying disconnected devices in the tray notifications. This approach would reduce clutter and ensure that only relevant information is shown, thereby preventing text overflow.
 
 ## Other Bluetooth battery display software
 
