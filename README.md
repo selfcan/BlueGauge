@@ -43,7 +43,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
     1. 打开托盘菜单-`设置`-`打开配置`   
 
-    2. 在`[device_aliases]`下方添加需要的蓝牙设备别名（注意使用英文引号包裹名称）
+    2. 在`[device_aliases]`下方添加需要别名的蓝牙设备（注意使用英文引号包裹名称）
 
         - 例如 `"蓝牙设备名称" = "蓝牙别名"`
         - 例如 `"WH-1000XM6" = "Sony Headphones"`
@@ -72,6 +72,12 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
     - 添加设备时通知
     - 移除设备时通知
 
+## 下载
+
+1. [Github](https://github.com/iKineticate/BlueGauge/releases/latest)
+
+2. [蓝奏云](https://wwxv.lanzoul.com/b009hchxrc)（密码：6666）
+
 ## 已知问题与建议
 
 ### 1. 无法获取某些设备电量信息
@@ -80,15 +86,17 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 - **解决方案：**: 欢迎有能力的开发者贡献代码或提供思路，帮助扩展对这些设备的支持。
 
-### 2. 托盘提示文本被截断
+### 2. 托盘提示内容不全
 
-托盘提示的字符长度有限，当设备名称过长时，提示文本会被截断，导致无法完整显示设备名称。尤其在连接多个设备时，设备名称可能不完整。
+托盘提示的字符长度有限，当设备过多和（或）设备名称过长时，提示文本会被截断，导致无法完整显示设备信息。
 
 **建议的解决办法：**
 
-1. **设置设备名称长度限制**：对设备名称的字符长度进行限制，确保其在托盘通知区域内完整显示。
+1. **自定义蓝牙设备名称**：通过给蓝牙名称别名缩短其名称长度。
 
-2. **隐藏未连接的设备**：对于未连接的设备，可以考虑不在托盘通知中显示，从而减少杂乱，避免文本溢出。
+2. **限制设备名称长度**：对设备名称的字符长度进行限制，确保其在托盘通知区域内完整显示。
+
+3. **隐藏未连接的设备**：对于未连接的设备，可以考虑不在托盘通知中显示，从而减少杂乱，避免文本溢出。
 
 ## 其他蓝牙电量软件
 
