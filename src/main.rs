@@ -9,6 +9,7 @@ mod language;
 mod menu_handlers;
 mod notify;
 mod startup;
+mod theme;
 mod tray;
 
 use crate::bluetooth::info::{
@@ -17,12 +18,14 @@ use crate::bluetooth::info::{
 };
 use crate::bluetooth::listen::{Watcher, listen_bluetooth_devices_info};
 use crate::config::*;
-use crate::icon::{SystemTheme, load_battery_icon};
+use crate::icon::load_battery_icon;
 use crate::menu_handlers::MenuHandlers;
 use crate::notify::app_notify;
+use crate::theme::{listen_system_theme, SystemTheme};
 use crate::tray::{convert_tray_info, create_menu, create_tray};
 
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use log::{error, info};
@@ -67,11 +70,13 @@ struct App {
     config: Arc<Config>,
     watcher: Option<Watcher>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
+    exit_threads: Arc<AtomicBool>,
     /// 存储已经通知过的低电量设备，避免再次通知
     notified_low_battery_devices: Arc<Mutex<HashSet<u64>>>,
     system_theme: Arc<RwLock<SystemTheme>>,
     tray: Mutex<Option<TrayIcon>>,
     tray_check_menus: Mutex<Option<Vec<CheckMenuItem>>>,
+    worker_threads: Vec<std::thread::JoinHandle<()>>,
 }
 
 impl Default for App {
@@ -91,16 +96,19 @@ impl Default for App {
             config: Arc::new(config),
             watcher: None,
             event_loop_proxy: None,
+            exit_threads: Arc::new(AtomicBool::new(false)),
             notified_low_battery_devices: Arc::new(Mutex::new(HashSet::new())),
             system_theme: Arc::new(RwLock::new(SystemTheme::get())),
             tray: Mutex::new(Some(tray)),
             tray_check_menus: Mutex::new(Some(tray_check_menus)),
+            worker_threads: Vec::new(),
         }
     }
 }
 
 #[derive(Debug)]
 enum UserEvent {
+    Exit,
     MenuEvent(MenuEvent),
     StopWatcher,
     UpdateTray(/* Force Update */ bool), // bool: Force Update
@@ -132,6 +140,19 @@ impl App {
             error!("Stop the previous watch failed: {e}");
         }
     }
+
+    fn exit(&mut self) {
+        self.stop_watch_device();
+
+        self.exit_threads.store(true, Ordering::Relaxed);
+
+        self.worker_threads
+            .drain(..)
+            .into_iter()
+            .for_each(|handle| {
+                handle.join().expect("Failed to clean thread");
+            });
+    }
 }
 
 impl ApplicationHandler<UserEvent> for App {
@@ -156,40 +177,27 @@ impl ApplicationHandler<UserEvent> for App {
             }
         }
 
-        listen_bluetooth_devices_info(config.clone(), proxy.clone());
-
         let system_theme = Arc::clone(&self.system_theme);
-        std::thread::spawn(move || {
-            loop {
-                let original_system_theme = {
-                    let system_theme = system_theme.read().unwrap();
-                    *system_theme
-                };
-
-                let current_system_theme = SystemTheme::get();
-
-                if original_system_theme != current_system_theme {
-                    let mut system_theme = system_theme.write().unwrap();
-                    *system_theme = current_system_theme;
-
-                    proxy
-                        .send_event(UserEvent::UpdateTray(true))
-                        .expect("Failed to send UpdateTray Event");
-                }
-
-                std::thread::sleep(std::time::Duration::from_secs(5));
-            }
-        });
+        let exit_threads = Arc::clone(&self.exit_threads);
+        let info_handle = listen_bluetooth_devices_info(config, exit_threads.clone(), proxy.clone());
+        let theme_handle = listen_system_theme(exit_threads, proxy, system_theme);
+        self.worker_threads.push(info_handle);
+        self.worker_threads.push(theme_handle);
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         if event == WindowEvent::CloseRequested {
-            event_loop.exit()
+            self.exit();
+            event_loop.exit();
         }
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
         match event {
+            UserEvent::Exit => {
+                self.exit();
+                event_loop.exit();
+            },
             UserEvent::MenuEvent(event) => {
                 let config = Arc::clone(&self.config);
                 let tray_check_menus = self
@@ -201,8 +209,9 @@ impl ApplicationHandler<UserEvent> for App {
 
                 let menu_event_id = event.id().as_ref();
                 match menu_event_id {
-                    "quit" => MenuHandlers::qpp_quit(event_loop),
+                    "quit" => MenuHandlers::exit(self.event_loop_proxy.clone().unwrap()),
                     "force_update" => MenuHandlers::force_update(&config),
+                    "restart" => MenuHandlers::restart(self.event_loop_proxy.clone().unwrap()),
                     "startup" => MenuHandlers::startup(tray_check_menus),
                     "open_config" => MenuHandlers::open_config(),
                     "set_icon_connect_color" => MenuHandlers::set_icon_connect_color(

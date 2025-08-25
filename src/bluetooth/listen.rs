@@ -10,8 +10,7 @@ use crate::{
 };
 
 use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, Ordering}, Arc
 };
 
 use anyhow::{Result, anyhow};
@@ -19,7 +18,11 @@ use log::{error, info};
 use windows::Devices::Bluetooth::BluetoothConnectionStatus;
 use winit::event_loop::EventLoopProxy;
 
-pub fn listen_bluetooth_devices_info(config: Arc<Config>, proxy: EventLoopProxy<UserEvent>) {
+pub fn listen_bluetooth_devices_info(
+    config: Arc<Config>,
+    exit_threads: Arc<AtomicBool>,
+    proxy: EventLoopProxy<UserEvent>,
+) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         loop {
             let update_interval = config.get_update_interval();
@@ -27,7 +30,10 @@ pub fn listen_bluetooth_devices_info(config: Arc<Config>, proxy: EventLoopProxy<
 
             for _ in 0..update_interval {
                 std::thread::sleep(std::time::Duration::from_secs(1));
-                if config.force_update.swap(false, Ordering::SeqCst) {
+                if exit_threads.load(Ordering::Relaxed) {
+                    return;
+                }
+                if config.force_update.swap(false, Ordering::Relaxed) {
                     need_force_update = true;
                     break;
                 }
@@ -35,7 +41,7 @@ pub fn listen_bluetooth_devices_info(config: Arc<Config>, proxy: EventLoopProxy<
 
             let _ = proxy.send_event(UserEvent::UpdateTray(need_force_update));
         }
-    });
+    })
 }
 
 pub struct Watcher {

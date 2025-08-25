@@ -20,6 +20,7 @@ impl Localization {
 pub struct Localization {
     pub quit: &'static str,
     pub about: &'static str,
+    pub restart: &'static str,
     pub force_update: &'static str,
     pub startup: &'static str,
     pub open_config: &'static str,
@@ -48,6 +49,7 @@ pub struct Localization {
 const ZH_CN: Localization = Localization {
     quit: "退出",
     about: "关于",
+    restart: "重启应用",
     force_update: "更新信息",
     startup: "开机自启",
     open_config: "打开配置",
@@ -80,6 +82,7 @@ const ZH_CN: Localization = Localization {
 const ZH_HANT: Localization = Localization {
     quit: "退出",
     about: "關于",
+    restart: "重啟應用",
     force_update: "更新資訊",
     startup: "開機自啓",
     open_config: "開啟配置",
@@ -108,6 +111,7 @@ const ZH_HANT: Localization = Localization {
 const EN_US: Localization = Localization {
     quit: "quit",
     about: "About",
+    restart: "Restart Application",
     force_update: "Update Info",
     startup: "Launch at Startup",
     open_config: "Open Config",
@@ -136,6 +140,7 @@ const EN_US: Localization = Localization {
 const JA_JP: Localization = Localization {
     quit: "終了",
     about: "約",
+    restart: "アプリを再起動する",
     force_update: "情報を更新",
     startup: "スタートアップで起動",
     open_config: "設定ファイルを開く",
@@ -164,6 +169,7 @@ const JA_JP: Localization = Localization {
 const KO_KR: Localization = Localization {
     quit: "종료",
     about: "정보",
+    restart: "애플리케이션 다시 시작",
     force_update: "정보 업데이트",
     startup: "시작 시 실행",
     open_config: "구성 열기",
@@ -192,6 +198,7 @@ const KO_KR: Localization = Localization {
 const DE_DE: Localization = Localization {
     quit: "Beenden",
     about: "Über",
+    restart: "Anwendung neu starten",
     force_update: "Informationen aktualisieren",
     startup: "Beim Start ausführen",
     open_config: "Konfiguration öffnen",
@@ -220,6 +227,7 @@ const DE_DE: Localization = Localization {
 const RU_RU: Localization = Localization {
     quit: "Выход",
     about: "О программе",
+    restart: "Перезапустить приложение",
     force_update: "Обновить информацию",
     startup: "Запуск при старте",
     open_config: "Открыть конфигурацию",
@@ -248,6 +256,7 @@ const RU_RU: Localization = Localization {
 const AR_SA: Localization = Localization {
     quit: "خروج",
     about: "حول",
+    restart: "إعادة تشغيل التطبيق",
     force_update: "تحديث المعلومات",
     startup: "تشغيل عند بدء التشغيل",
     open_config: "فتح التهيئة",
@@ -276,6 +285,7 @@ const AR_SA: Localization = Localization {
 const FR_FR: Localization = Localization {
     quit: "Quitter",
     about: "À propos",
+    restart: "Redémarrer l’application",
     force_update: "Mettre à jour les infos",
     startup: "Lancer au démarrage",
     open_config: "Ouvrir la configurationة",

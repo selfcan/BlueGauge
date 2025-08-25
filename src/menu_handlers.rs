@@ -1,5 +1,10 @@
 use std::{collections::HashSet, ops::Deref, path::Path, sync::atomic::Ordering};
+use std::{
+    ffi::OsString,
+    process::Command,
+};
 
+use crate::UserEvent;
 use crate::{
     bluetooth::info::BluetoothInfo,
     config::{Config, TrayIconSource},
@@ -7,18 +12,30 @@ use crate::{
     startup::set_startup,
 };
 
+use log::error;
 use tray_icon::menu::CheckMenuItem;
-use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::EventLoopProxy;
 
 pub struct MenuHandlers;
 
 impl MenuHandlers {
-    pub fn qpp_quit(event_loop: &ActiveEventLoop) {
-        event_loop.exit()
+    pub fn exit(proxy: EventLoopProxy<UserEvent>) {
+        let _ = proxy.send_event(UserEvent::Exit);
+    }
+
+    pub fn restart(proxy: EventLoopProxy<UserEvent>) {
+        let exe_path = std::env::current_exe().expect("Failed to get path of app");
+        let args_os: Vec<OsString> = std::env::args_os().collect();
+
+        let _ = proxy.send_event(UserEvent::Exit);
+
+        if let Err(e) = Command::new(exe_path).args(args_os.iter().skip(1)).spawn() {
+            error!("Failed to restart app: {e}");
+        }
     }
 
     pub fn force_update(config: &Config) {
-        config.force_update.store(true, Ordering::SeqCst)
+        config.force_update.store(true, Ordering::Relaxed)
     }
 
     pub fn startup(tray_check_menus: Vec<CheckMenuItem>) {
@@ -53,7 +70,7 @@ impl MenuHandlers {
             }
 
             config.save();
-            config.force_update.store(true, Ordering::SeqCst);
+            config.force_update.store(true, Ordering::Relaxed);
         }
     }
 
@@ -122,7 +139,7 @@ impl MenuHandlers {
         }
 
         config.save();
-        config.force_update.store(true, Ordering::SeqCst);
+        config.force_update.store(true, Ordering::Relaxed);
     }
 
     pub fn set_notify_low_battery(
@@ -217,7 +234,7 @@ impl MenuHandlers {
             }
         }
 
-        config.force_update.store(true, Ordering::SeqCst);
+        config.force_update.store(true, Ordering::Relaxed);
     }
 
     pub fn set_tray_icon_source(
@@ -317,7 +334,7 @@ impl MenuHandlers {
         // 更新配置
         drop(original_tray_icon_source); // 释放锁，避免在Config的svae发生死锁.
         config.save();
-        config.force_update.store(true, Ordering::SeqCst);
+        config.force_update.store(true, Ordering::Relaxed);
         need_watch
     }
 }

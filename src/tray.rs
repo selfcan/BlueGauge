@@ -38,6 +38,10 @@ impl CreateMenuItem {
         )
     }
 
+    fn restart(text: &str) -> MenuItem {
+        MenuItem::with_id("restart", text, true, None)
+    }
+
     fn force_update(text: &str) -> MenuItem {
         MenuItem::with_id("force_update", text, true, None)
     }
@@ -189,6 +193,8 @@ pub fn create_menu(
 
     let menu_about = CreateMenuItem::about(loc.about);
 
+    let menu_restart = CreateMenuItem::restart(loc.restart);
+
     let menu_force_update = CreateMenuItem::force_update(loc.force_update);
 
     let menu_bluetooth_devicess =
@@ -276,6 +282,12 @@ pub fn create_menu(
         .context("Failed to apped 'Separator' to Tray Menu")?;
     tray_menu
         .append(&menu_force_update)
+        .context("Failed to apped 'Force Update' to Tray Menu")?;
+    tray_menu
+        .append(&menu_separator)
+        .context("Failed to apped 'Separator' to Tray Menu")?;
+    tray_menu
+        .append(&menu_restart)
         .context("Failed to apped 'Force Update' to Tray Menu")?;
     tray_menu
         .append(&menu_separator)
