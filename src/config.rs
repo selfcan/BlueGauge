@@ -377,52 +377,52 @@ impl Config {
     }
 
     pub fn get_update_interval(&self) -> u64 {
-        self.tray_options.update_interval.load(Ordering::Acquire)
+        self.tray_options.update_interval.load(Ordering::Relaxed)
     }
 
     pub fn get_prefix_battery(&self) -> bool {
         self.tray_options
             .tooltip_options
             .prefix_battery
-            .load(Ordering::Acquire)
+            .load(Ordering::Relaxed)
     }
 
     pub fn get_show_disconnected(&self) -> bool {
         self.tray_options
             .tooltip_options
             .show_disconnected
-            .load(Ordering::Acquire)
+            .load(Ordering::Relaxed)
     }
 
     pub fn get_truncate_name(&self) -> bool {
         self.tray_options
             .tooltip_options
             .truncate_name
-            .load(Ordering::Acquire)
+            .load(Ordering::Relaxed)
     }
 
     pub fn get_mute(&self) -> bool {
-        self.notify_options.mute.load(Ordering::Acquire)
+        self.notify_options.mute.load(Ordering::Relaxed)
     }
 
     pub fn get_low_battery(&self) -> u8 {
-        self.notify_options.low_battery.load(Ordering::Acquire)
+        self.notify_options.low_battery.load(Ordering::Relaxed)
     }
 
     pub fn get_disconnection(&self) -> bool {
-        self.notify_options.disconnection.load(Ordering::Acquire)
+        self.notify_options.disconnection.load(Ordering::Relaxed)
     }
 
     pub fn get_reconnection(&self) -> bool {
-        self.notify_options.reconnection.load(Ordering::Acquire)
+        self.notify_options.reconnection.load(Ordering::Relaxed)
     }
 
     pub fn get_added(&self) -> bool {
-        self.notify_options.added.load(Ordering::Acquire)
+        self.notify_options.added.load(Ordering::Relaxed)
     }
 
     pub fn get_removed(&self) -> bool {
-        self.notify_options.removed.load(Ordering::Acquire)
+        self.notify_options.removed.load(Ordering::Relaxed)
     }
 
     pub fn get_tray_battery_icon_bt_address(&self) -> Option<u64> {
