@@ -1,6 +1,6 @@
 use crate::{
     bluetooth::info::BluetoothInfo,
-    config::{Config, TrayIconSource},
+    config::{Config, TrayIconSource}, theme::SystemTheme,
 };
 
 use std::collections::HashSet;
@@ -10,16 +10,9 @@ use piet_common::{
     Color, Device, FontFamily, ImageFormat, RenderContext, Text, TextLayout, TextLayoutBuilder,
 };
 use tray_icon::Icon;
-use winreg::{
-    RegKey,
-    enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE},
-};
 
 pub const LOGO_DATA: &[u8] = include_bytes!("../assets/logo.ico");
 const UNPAIRED_ICON_DATA: &[u8] = include_bytes!("../assets/unpaired.png");
-const PERSONALIZE_REGISTRY_KEY: &str =
-    r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
-const SYSTEM_USES_LIGHT_THEME_REGISTRY_KEY: &str = "SystemUsesLightTheme";
 
 pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) = {
@@ -208,34 +201,4 @@ fn build_text_layout(
         .text_color(Color::from_hex_str(font_color)?)
         .build()
         .map_err(|e| anyhow!("Failed to build text layout - {e}"))
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SystemTheme {
-    Light,
-    Dark,
-}
-
-impl SystemTheme {
-    pub fn get() -> Self {
-        let personalize_reg_key = RegKey::predef(HKEY_CURRENT_USER)
-            .open_subkey_with_flags(PERSONALIZE_REGISTRY_KEY, KEY_READ | KEY_WRITE)
-            .expect("This program requires Windows 10 14393 or above");
-
-        let theme_reg_value: u32 = personalize_reg_key
-            .get_value(SYSTEM_USES_LIGHT_THEME_REGISTRY_KEY)
-            .expect("This program requires Windows 10 14393 or above");
-
-        match theme_reg_value {
-            0 => SystemTheme::Dark,
-            _ => SystemTheme::Light,
-        }
-    }
-
-    fn get_font_color(&self) -> String {
-        match self {
-            Self::Dark => "#FFFFFF".to_owned(),
-            Self::Light => "#1F1F1F".to_owned(),
-        }
-    }
 }
