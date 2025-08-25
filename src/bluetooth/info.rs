@@ -55,7 +55,7 @@ pub fn get_bluetooth_info(
                 app_notify(format!("Warning: Failed to get BLE info: {e}"));
                 Ok(HashSet::new())
             })
-        },
+        }
         (_, 0) => {
             let btc_result = get_btc_info(btc_devices);
             info!("{btc_result:#?}");
@@ -64,7 +64,7 @@ pub fn get_bluetooth_info(
                 app_notify(format!("Warning: Failed to get BTC info: {e}"));
                 Ok(HashSet::new())
             })
-        },
+        }
         (_, _) => {
             let btc_result = get_btc_info(btc_devices);
             let ble_result = get_ble_info(ble_devices);

@@ -6,14 +6,17 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow};
+use log::{error, info};
 use scopeguard::defer;
 use windows::{
     Devices::Bluetooth::{
         BluetoothConnectionStatus, BluetoothLEDevice,
         GenericAttributeProfile::{
-            GattCharacteristicProperties, GattCharacteristicUuids,
+            GattCharacteristicProperties,
+            GattCharacteristicUuids,
             // GattClientCharacteristicConfigurationDescriptorValue, GattCommunicationStatus,
-            GattServiceUuids, GattValueChangedEventArgs,
+            GattServiceUuids,
+            GattValueChangedEventArgs,
         },
     },
     Devices::Enumeration::DeviceInformation,
@@ -55,7 +58,7 @@ pub fn get_ble_info(ble_devices: &[BluetoothLEDevice]) -> Result<HashSet<Bluetoo
 
     results.for_each(|r_ble_info| {
         let _ = r_ble_info
-            .inspect_err(|e| println!("\n{e}\n"))
+            .inspect_err(|e| error!("{e}"))
             .is_ok_and(|bt_info| devices_info.insert(bt_info));
     });
 
@@ -136,7 +139,7 @@ pub enum BluetoothLEDeviceUpdate {
 pub async fn watch_ble_device(
     ble_device: BluetoothLEDevice,
     exit_flag: &Arc<AtomicBool>,
-) -> Result<BluetoothLEDeviceUpdate> {
+) -> Result<Option<BluetoothLEDeviceUpdate>> {
     // 0000180F-0000-1000-8000-00805F9B34FB
     let battery_services_uuid: GUID = GattServiceUuids::Battery()?;
     // 00002A19-0000-1000-8000-00805F9B34FB
@@ -224,7 +227,7 @@ pub async fn watch_ble_device(
     tokio::select! {
         maybe_update = rx.recv() => {
             if let Some(update) = maybe_update {
-                Ok(update)
+                Ok(Some(update))
             } else {
                 Err(anyhow!(
                     "Channel closed while watching BLE Battery: {}",
@@ -240,7 +243,8 @@ pub async fn watch_ble_device(
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         } => {
-            Err(anyhow!("Watch operation was cancelled by exit flag."))
+            info!("Watch operation was cancelled by exit flag.");
+            Ok(None)
         }
     }
 }

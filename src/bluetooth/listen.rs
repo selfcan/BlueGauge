@@ -1,11 +1,9 @@
 use crate::{
-    UserEvent,
     bluetooth::{
-        ble::{BluetoothLEDeviceUpdate, find_ble_device, watch_ble_device},
+        ble::{find_ble_device, watch_ble_device, BluetoothLEDeviceUpdate},
         btc::{find_btc_device, get_pnp_device_info},
         info::{BluetoothInfo, BluetoothType},
-    },
-    config::Config,
+    }, config::Config, notify::app_notify, UserEvent
 };
 
 use std::sync::{
@@ -14,6 +12,7 @@ use std::sync::{
 };
 
 use anyhow::{Result, anyhow};
+use log::{error, info};
 use windows::Devices::Bluetooth::BluetoothConnectionStatus;
 use winit::event_loop::EventLoopProxy;
 
@@ -37,56 +36,68 @@ pub fn listen_bluetooth_devices_info(config: Arc<Config>, proxy: EventLoopProxy<
 }
 
 pub struct Watcher {
-    handle: Option<std::thread::JoinHandle<()>>,
+    wathc_handle: Option<std::thread::JoinHandle<()>>,
+    // check_hadle: Option<std::thread::JoinHandle<()>>,
     exit_flag: Arc<AtomicBool>,
-    device_name: String,
+    device: BluetoothInfo,
 }
 
 impl Watcher {
-    pub fn start(device: BluetoothInfo, proxy: EventLoopProxy<UserEvent>) -> Result<Self> {
-        println!("[{}]: Starting the watch thread...", device.name);
+    pub fn start(device: BluetoothInfo, thread_proxy: EventLoopProxy<UserEvent>) -> Result<Self> {
+        info!("[{}]: Starting the watch thread...", device.name);
         let exit_flag = Arc::new(AtomicBool::new(false));
-        let thread_exit_flag = exit_flag.clone();
-        let device_name = device.name.clone();
 
-        let handle = std::thread::spawn(move || {
-            watch_loop(device, proxy, thread_exit_flag);
+        let thread_device = device.clone();
+        let thread_exit_flag = exit_flag.clone();
+        let wathc_handle = std::thread::spawn(move || {
+            watch_loop(thread_device, thread_proxy, thread_exit_flag);
         });
 
         Ok(Self {
-            handle: Some(handle),
+            wathc_handle: Some(wathc_handle),
             exit_flag,
-            device_name,
+            device,
         })
     }
 
     pub fn stop(mut self) -> Result<()> {
-        println!("[{}]: Stopping the watch thread...", self.device_name);
-        if let (Some(handle), exit_flag) = (self.handle.take(), &self.exit_flag) {
+        info!("[{}]: Stopping the watch thread...", self.device.name);
+
+        if let (Some(wathc_handle), 
+        // Some(check_handle), 
+        exit_flag) = (
+            self.wathc_handle.take(),
+            // self.check_hadle.take(),
+            &self.exit_flag,
+        ) {
             exit_flag.store(true, Ordering::Relaxed);
 
-            if let Err(_) = handle.join() {
-                return Err(anyhow!(
-                    "[{}]: Panic occurs during thread cleaning",
-                    self.device_name
-                ));
+            // let finish_result = (, check_handle.join());
+
+            match wathc_handle.join() {
+                Ok(_) => {
+                    info!("[{}]: The watch thread has been stopped.", self.device.name)
+                }
+                _ => {
+                    return Err(anyhow!(
+                        "[{}]: Panic occurs during thread cleaning",
+                        self.device.name
+                    ));
+                }
             }
-            println!("[{}]: The watch thread has been stopped.", self.device_name);
         }
+
         Ok(())
     }
 }
 
 fn watch_loop(
-    initial_device_info: BluetoothInfo,
+    watch_device: BluetoothInfo,
     proxy: EventLoopProxy<UserEvent>,
     exit_flag: Arc<AtomicBool>,
 ) {
-    println!(
-        "[{}]: The watch thread is started。",
-        initial_device_info.name
-    );
-    let mut current_device_info = initial_device_info;
+    info!("[{}]: The watch thread is started.", watch_device.name);
+    let mut current_device_info = watch_device;
 
     // 如果是 BLE 设备，则只创建一次 Tokio 运行时
     let runtime = if matches!(current_device_info.r#type, BluetoothType::LowEnergy) {
@@ -109,17 +120,21 @@ fn watch_loop(
 
         match processing_result {
             Ok(Some(new_info)) => {
-                println!(
+                info!(
                     "[{}]: Status -> {}, Battery -> {}",
                     new_info.name, new_info.status, new_info.battery
                 );
                 current_device_info = new_info;
             }
             Err(e) => {
-                eprintln!(
+                let err = format!(
                     "[{}]: Failed to process device - {e}",
                     current_device_info.name
                 );
+
+                app_notify(&err);
+                error!("{err}");
+
                 break; // 遇到严重错误时退出循环
             }
             _ => (), // 没有更新，继续循环
@@ -137,7 +152,10 @@ fn watch_loop(
         // 对于 BLE 设备, `watch_ble_device` 函数会自己处理等待，可立即进入下一次循环。
     }
 
-    println!(
+    // 发送错误并退出监听循环事件
+    let _ = proxy.send_event(UserEvent::StopWatcher);
+
+    info!(
         "[{}]: The watch thread has exited.",
         current_device_info.name
     );
@@ -156,7 +174,7 @@ fn process_classic_device(
     // 检查是否有必要更新
     if current_device_info.status != btc_status
         || current_device_info.battery != pnp_info.battery
-        && current_device_info.address == pnp_info.address
+            && current_device_info.address == pnp_info.address
     {
         let new_info = BluetoothInfo {
             status: btc_status,
@@ -181,7 +199,7 @@ fn process_le_device(
 
     // 异步函数现在会处理更新
     match runtime.block_on(watch_ble_device(ble_device, exit_flag)) {
-        Ok(update) => {
+        Ok(Some(update)) => {
             let mut new_info = current_device_info.clone();
             match update {
                 BluetoothLEDeviceUpdate::BatteryLevel(battery) => new_info.battery = battery,
@@ -192,5 +210,6 @@ fn process_le_device(
             Ok(Some(new_info))
         }
         Err(e) => Err(anyhow!("BLE device watch failed: {e}")),
+        Ok(None) => Ok(None)
     }
 }
