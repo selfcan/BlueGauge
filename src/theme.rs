@@ -1,4 +1,7 @@
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc, RwLock};
+use std::sync::{
+    Arc, RwLock,
+    atomic::{AtomicBool, Ordering},
+};
 
 use winit::event_loop::EventLoopProxy;
 use winreg::{
@@ -46,7 +49,7 @@ pub fn listen_system_theme(
     exit_threads: Arc<AtomicBool>,
     proxy: EventLoopProxy<UserEvent>,
     system_theme: Arc<RwLock<SystemTheme>>,
- ) -> std::thread::JoinHandle<()> {
+) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
         loop {
             let original_system_theme = {

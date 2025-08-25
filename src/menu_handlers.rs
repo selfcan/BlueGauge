@@ -1,8 +1,5 @@
 use std::{collections::HashSet, ops::Deref, path::Path, sync::atomic::Ordering};
-use std::{
-    ffi::OsString,
-    process::Command,
-};
+use std::{ffi::OsString, process::Command};
 
 use crate::UserEvent;
 use crate::{

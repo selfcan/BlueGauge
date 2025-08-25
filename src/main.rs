@@ -21,7 +21,7 @@ use crate::config::*;
 use crate::icon::load_battery_icon;
 use crate::menu_handlers::MenuHandlers;
 use crate::notify::app_notify;
-use crate::theme::{listen_system_theme, SystemTheme};
+use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{convert_tray_info, create_menu, create_tray};
 
 use std::collections::HashSet;
@@ -148,10 +148,7 @@ impl App {
 
         self.worker_threads
             .drain(..)
-            .into_iter()
-            .for_each(|handle| {
-                handle.join().expect("Failed to clean thread");
-            });
+            .for_each(|handle| handle.join().expect("Failed to clean thread"));
     }
 }
 
@@ -179,7 +176,8 @@ impl ApplicationHandler<UserEvent> for App {
 
         let system_theme = Arc::clone(&self.system_theme);
         let exit_threads = Arc::clone(&self.exit_threads);
-        let info_handle = listen_bluetooth_devices_info(config, exit_threads.clone(), proxy.clone());
+        let info_handle =
+            listen_bluetooth_devices_info(config, exit_threads.clone(), proxy.clone());
         let theme_handle = listen_system_theme(exit_threads, proxy, system_theme);
         self.worker_threads.push(info_handle);
         self.worker_threads.push(theme_handle);
@@ -197,7 +195,7 @@ impl ApplicationHandler<UserEvent> for App {
             UserEvent::Exit => {
                 self.exit();
                 event_loop.exit();
-            },
+            }
             UserEvent::MenuEvent(event) => {
                 let config = Arc::clone(&self.config);
                 let tray_check_menus = self

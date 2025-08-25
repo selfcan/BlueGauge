@@ -10,7 +10,8 @@ use crate::{
 };
 
 use std::sync::{
-    atomic::{AtomicBool, Ordering}, Arc
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use anyhow::{Result, anyhow};

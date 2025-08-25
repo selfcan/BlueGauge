@@ -1,6 +1,7 @@
 use crate::{
     bluetooth::info::BluetoothInfo,
-    config::{Config, TrayIconSource}, theme::SystemTheme,
+    config::{Config, TrayIconSource},
+    theme::SystemTheme,
 };
 
 use std::collections::HashSet;
