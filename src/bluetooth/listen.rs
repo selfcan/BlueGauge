@@ -1,9 +1,12 @@
 use crate::{
+    UserEvent,
     bluetooth::{
-        ble::{find_ble_device, watch_ble_device, BluetoothLEDeviceUpdate},
+        ble::{BluetoothLEDeviceUpdate, find_ble_device, watch_ble_device},
         btc::{find_btc_device, get_pnp_device_info},
         info::{BluetoothInfo, BluetoothType},
-    }, config::Config, notify::app_notify, UserEvent
+    },
+    config::Config,
+    notify::app_notify,
 };
 
 use std::sync::{
@@ -37,7 +40,6 @@ pub fn listen_bluetooth_devices_info(config: Arc<Config>, proxy: EventLoopProxy<
 
 pub struct Watcher {
     wathc_handle: Option<std::thread::JoinHandle<()>>,
-    // check_hadle: Option<std::thread::JoinHandle<()>>,
     exit_flag: Arc<AtomicBool>,
     device: BluetoothInfo,
 }
@@ -63,16 +65,8 @@ impl Watcher {
     pub fn stop(mut self) -> Result<()> {
         info!("[{}]: Stopping the watch thread...", self.device.name);
 
-        if let (Some(wathc_handle), 
-        // Some(check_handle), 
-        exit_flag) = (
-            self.wathc_handle.take(),
-            // self.check_hadle.take(),
-            &self.exit_flag,
-        ) {
+        if let (Some(wathc_handle), exit_flag) = (self.wathc_handle.take(), &self.exit_flag) {
             exit_flag.store(true, Ordering::Relaxed);
-
-            // let finish_result = (, check_handle.join());
 
             match wathc_handle.join() {
                 Ok(_) => {
@@ -153,12 +147,12 @@ fn watch_loop(
     }
 
     // 发送错误并退出监听循环事件
-    let _ = proxy.send_event(UserEvent::StopWatcher);
-
     info!(
         "[{}]: The watch thread has exited.",
         current_device_info.name
     );
+
+    let _ = proxy.send_event(UserEvent::StopWatcher);
 }
 
 fn process_classic_device(
@@ -210,6 +204,6 @@ fn process_le_device(
             Ok(Some(new_info))
         }
         Err(e) => Err(anyhow!("BLE device watch failed: {e}")),
-        Ok(None) => Ok(None)
+        Ok(None) => Ok(None),
     }
 }
