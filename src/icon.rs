@@ -1,10 +1,7 @@
 use crate::{
-    bluetooth::info::BluetoothInfo,
     config::{Config, TrayIconSource},
     theme::SystemTheme,
 };
-
-use std::collections::HashSet;
 
 use anyhow::{Context, Result, anyhow};
 use piet_common::{
@@ -12,8 +9,11 @@ use piet_common::{
 };
 use tray_icon::Icon;
 
-pub const LOGO_DATA: &[u8] = include_bytes!("../assets/logo.ico");
-const UNPAIRED_ICON_DATA: &[u8] = include_bytes!("../assets/unpaired.png");
+const LOGO_DATA: &[u8] = include_bytes!("../assets/logo.ico");
+
+pub fn load_app_icon() -> Result<Icon> {
+    load_icon(LOGO_DATA)
+}
 
 pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) = {
@@ -29,48 +29,36 @@ pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
 
 pub fn load_battery_icon(
     config: &Config,
-    bluetooth_devices_info: &HashSet<BluetoothInfo>,
+    bluetooth_battery: u8,
+    bluetooth_status: bool,
 ) -> Result<Icon> {
     let default_icon =
         || load_icon(LOGO_DATA).map_err(|e| anyhow!("Failed to load app icon - {e}"));
 
-    let tray_icon_source = {
-        let lock = config.tray_options.tray_icon_source.lock().unwrap();
-        lock.clone()
-    };
+    let tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap().clone();
 
     match tray_icon_source {
         TrayIconSource::App => default_icon(),
-        TrayIconSource::BatteryCustom { ref address }
-        | TrayIconSource::BatteryFont { ref address, .. } => bluetooth_devices_info
-            .iter()
-            .find(|i| i.address == *address)
-            .map_or_else(
-                || load_icon(UNPAIRED_ICON_DATA),
-                |i| match tray_icon_source {
-                    TrayIconSource::BatteryCustom { .. } => get_icon_from_custom(i.battery),
-                    TrayIconSource::BatteryFont {
-                        address: _,
-                        font_name,
-                        font_color,
-                        font_size,
-                    } => {
-                        let should_icon_connect_color = font_color
-                            .as_ref()
-                            .is_some_and(|c| c.eq("ConnectColor"))
-                            .then_some(i.status);
+        TrayIconSource::BatteryCustom { .. } => get_icon_from_custom(bluetooth_battery),
+        TrayIconSource::BatteryFont {
+            address: _,
+            font_name,
+            font_color,
+            font_size,
+        } => {
+            let should_icon_connect_color = font_color
+                .as_ref()
+                .is_some_and(|c| c.eq("ConnectColor"))
+                .then_some(bluetooth_status);
 
-                        get_icon_from_font(
-                            i.battery,
-                            &font_name,
-                            font_color,
-                            font_size,
-                            should_icon_connect_color,
-                        )
-                    }
-                    _ => load_icon(UNPAIRED_ICON_DATA),
-                },
-            ),
+            get_icon_from_font(
+                bluetooth_battery,
+                &font_name,
+                font_color,
+                font_size,
+                should_icon_connect_color,
+            )
+        }
     }
 }
 
