@@ -145,7 +145,6 @@ impl App {
         self.stop_watch_device();
 
         self.exit_threads.store(true, Ordering::Relaxed);
-
         self.worker_threads
             .drain(..)
             .for_each(|handle| handle.join().expect("Failed to clean thread"));
@@ -208,7 +207,6 @@ impl ApplicationHandler<UserEvent> for App {
                 let menu_event_id = event.id().as_ref();
                 match menu_event_id {
                     "quit" => MenuHandlers::exit(self.event_loop_proxy.clone().unwrap()),
-                    "force_update" => MenuHandlers::force_update(&config),
                     "restart" => MenuHandlers::restart(self.event_loop_proxy.clone().unwrap()),
                     "startup" => MenuHandlers::startup(tray_check_menus),
                     "open_config" => MenuHandlers::open_config(),
@@ -217,10 +215,6 @@ impl ApplicationHandler<UserEvent> for App {
                         menu_event_id,
                         tray_check_menus,
                     ),
-                    // 托盘设置：更新间隔
-                    "15" | "30" | "60" | "300" | "600" | "1800" => {
-                        MenuHandlers::set_update_interval(&config, menu_event_id, tray_check_menus);
-                    }
                     // 通知设置：低电量
                     "0.01" | "0.05" | "0.1" | "0.15" | "0.2" | "0.25" => {
                         MenuHandlers::set_notify_low_battery(
@@ -239,13 +233,20 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                     // 托盘设置：提示内容设置
                     "show_disconnected" | "truncate_name" | "prefix_battery" => {
-                        MenuHandlers::set_tray_tooltip(&config, menu_event_id, tray_check_menus);
+                        MenuHandlers::set_tray_tooltip(
+                            &config,
+                            menu_event_id,
+                            self.event_loop_proxy.clone().unwrap(),
+                            tray_check_menus,
+                        );
                     }
+                    // 托盘设置：选择图标
                     _ => {
                         let need_watch = MenuHandlers::set_tray_icon_source(
                             self.bluetooth_info.lock().unwrap().clone(),
                             &config,
                             menu_event_id,
+                            self.event_loop_proxy.clone().unwrap(),
                             tray_check_menus,
                         );
                         if let Some(info) = need_watch {
@@ -256,21 +257,12 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                 }
             }
-            UserEvent::StopWatcher => self.stop_watch_device(),
-            UserEvent::UpdateTray(need_force_update) => {
-                let bluetooth_devices = match find_bluetooth_devices() {
-                    Ok(devices) => devices,
-                    Err(e) => {
-                        app_notify(format!("Failed to find bluetooth devices - {e}"));
-                        return;
-                    }
-                };
 
-                let new_bt_info =
-                    match get_bluetooth_info((&bluetooth_devices.0, &bluetooth_devices.1)) {
-                        Ok(infos) => infos,
+                let (tray_menu, new_tray_check_menus) =
+                    match create_menu(&config, &cuurent_devices_info) {
+                        Ok(menu) => menu,
                         Err(e) => {
-                            app_notify(format!("Failed to get bluetooth devices info - {e}"));
+                            app_notify(format!("Failed to create tray menu - {e}"));
                             return;
                         }
                     };
@@ -314,54 +306,13 @@ impl ApplicationHandler<UserEvent> for App {
                 if let Some(tray_check_menus) = self.tray_check_menus.lock().unwrap().as_mut() {
                     *tray_check_menus = new_tray_check_menus;
                 }
-            }
-            UserEvent::UpdateTrayForBluetooth(bluetooth_info) => {
-                info!(
-                    "[{}]: Need to update the info immediately",
-                    bluetooth_info.name
-                );
-                let update_bt_info_address = bluetooth_info.address;
 
-                let current_bt_infos = {
-                    let mut original_bt_info = self.bluetooth_info.lock().unwrap();
-                    original_bt_info.retain(|i| i.address != bluetooth_info.address);
-                    original_bt_info.insert(bluetooth_info);
-                    original_bt_info.clone()
-                };
+                let bluetooth_tooltip_info = convert_tray_info(&cuurent_devices_info, &config);
 
-                let config = Arc::clone(&self.config);
-
-                let (tray_menu, new_tray_check_menus) =
-                    match create_menu(&config, &current_bt_infos) {
-                        Ok(menu) => menu,
-                        Err(e) => {
-                            app_notify(format!("Failed to create tray menu - {e}"));
-                            return;
-                        }
-                    };
-
-                if let Some(tray) = &self.tray.lock().unwrap().as_mut() {
-                    let bluetooth_tooltip_info = convert_tray_info(&current_bt_infos, &config);
+                if let Some(tray) = self.tray.lock().unwrap().as_mut() {
                     tray.set_menu(Some(Box::new(tray_menu)));
-                    let _update_tooltip = tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")));
 
-                    let tray_icon_bt_address = {
-                        self.config
-                            .tray_options
-                            .tray_icon_source
-                            .lock()
-                            .unwrap()
-                            .get_address()
-                    };
-
-                    if let Some(tray_icon_bt_address) = tray_icon_bt_address
-                        && tray_icon_bt_address == update_bt_info_address
-                    {
-                        let icon = load_battery_icon(&config, &current_bt_infos)
-                            .expect("Failed to load battery icon");
-                        let _update_icon = tray.set_icon(Some(icon));
-                    }
-                }
+                    let _ = tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")));
 
                 if let Some(tray_check_menus) = self.tray_check_menus.lock().unwrap().as_mut() {
                     *tray_check_menus = new_tray_check_menus;

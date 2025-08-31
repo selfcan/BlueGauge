@@ -81,7 +81,6 @@ impl CreateMenuItem {
         Ok(bluetooth_check_items)
     }
 
-    fn update_interval(
         update_interval: u64,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> [CheckMenuItem; 6] {
@@ -195,7 +194,6 @@ pub fn create_menu(
 
     let menu_restart = CreateMenuItem::restart(loc.restart);
 
-    let menu_force_update = CreateMenuItem::force_update(loc.force_update);
 
     let menu_bluetooth_devicess =
         CreateMenuItem::bluetooth_devices(config, &mut tray_check_menus, bluetooth_devices_info)?;
@@ -209,7 +207,6 @@ pub fn create_menu(
     let menu_open_config = &CreateMenuItem::open_config(loc.open_config);
 
     let menu_tray_options = {
-        let menu_update_interval =
             CreateMenuItem::update_interval(config.get_update_interval(), &mut tray_check_menus);
         let menu_update_interval: Vec<&dyn IsMenuItem> = menu_update_interval
             .iter()
@@ -280,7 +277,6 @@ pub fn create_menu(
     tray_menu
         .append(&menu_separator)
         .context("Failed to apped 'Separator' to Tray Menu")?;
-    tray_menu
         .append(&menu_force_update)
         .context("Failed to apped 'Force Update' to Tray Menu")?;
     tray_menu

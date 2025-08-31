@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use anyhow::{Result, anyhow};
 use log::warn;
@@ -23,7 +23,6 @@ struct ConfigToml {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TrayOptionsToml {
-    update_interval: u64,
     #[serde(rename = "tooltip")]
     tray_tooltip: TrayTooltipToml,
     #[serde(rename = "icon")]
@@ -157,7 +156,6 @@ pub struct TooltipOptions {
 
 #[derive(Debug)]
 pub struct TrayOptions {
-    pub update_interval: AtomicU64,
     pub tooltip_options: TooltipOptions,
     pub tray_icon_source: Mutex<TrayIconSource>,
 }
@@ -165,7 +163,6 @@ pub struct TrayOptions {
 impl Default for TrayOptions {
     fn default() -> Self {
         TrayOptions {
-            update_interval: AtomicU64::new(60),
             tooltip_options: TooltipOptions::default(),
             tray_icon_source: Mutex::new(TrayIconSource::App),
         }
@@ -195,7 +192,6 @@ impl TrayOptions {
 #[derive(Debug)]
 pub struct Config {
     pub config_path: PathBuf,
-    pub force_update: AtomicBool,
     pub tray_options: TrayOptions,
     pub notify_options: NotifyOptions,
     pub device_aliases: HashMap<String, String>,
@@ -225,7 +221,6 @@ impl Config {
         };
         let toml_config = ConfigToml {
             tray_options: TrayOptionsToml {
-                update_interval: self.tray_options.update_interval.load(Ordering::Relaxed),
                 tray_tooltip: TrayTooltipToml {
                     show_disconnected: self
                         .tray_options
@@ -268,7 +263,6 @@ impl Config {
 
         let default_config = ConfigToml {
             tray_options: TrayOptionsToml {
-                update_interval: 60,
                 tray_tooltip: TrayTooltipToml {
                     show_disconnected: false,
                     truncate_name: false,
@@ -292,9 +286,7 @@ impl Config {
 
         Ok(Config {
             config_path,
-            force_update: AtomicBool::new(false),
             tray_options: TrayOptions {
-                update_interval: AtomicU64::new(default_config.tray_options.update_interval),
                 tray_icon_source: Mutex::new(default_config.tray_options.tray_icon_source),
                 tooltip_options: TooltipOptions {
                     show_disconnected: AtomicBool::new(
@@ -339,9 +331,7 @@ impl Config {
 
         Ok(Config {
             config_path,
-            force_update: AtomicBool::new(false),
             tray_options: TrayOptions {
-                update_interval: AtomicU64::new(toml_config.tray_options.update_interval),
                 tray_icon_source: Mutex::new(tray_icon_source),
                 tooltip_options: TooltipOptions {
                     show_disconnected: AtomicBool::new(
@@ -374,10 +364,6 @@ impl Config {
             .get(device_name)
             .unwrap_or(device_name)
             .to_owned()
-    }
-
-    pub fn get_update_interval(&self) -> u64 {
-        self.tray_options.update_interval.load(Ordering::Relaxed)
     }
 
     pub fn get_prefix_battery(&self) -> bool {
