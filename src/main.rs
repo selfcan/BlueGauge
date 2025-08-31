@@ -12,23 +12,20 @@ mod startup;
 mod theme;
 mod tray;
 
-use crate::bluetooth::info::{
-    BluetoothInfo, compare_bt_info_to_send_notifications, find_bluetooth_devices,
-    get_bluetooth_info,
-};
-use crate::bluetooth::listen::{Watcher, listen_bluetooth_devices_info};
+use crate::bluetooth::info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info};
+use crate::bluetooth::listen::Watcher;
 use crate::config::*;
-use crate::icon::load_battery_icon;
+use crate::icon::{load_app_icon, load_battery_icon};
 use crate::menu_handlers::MenuHandlers;
 use crate::notify::app_notify;
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{convert_tray_info, create_menu, create_tray};
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use log::{error, info};
+use log::error;
 use tray_icon::{
     TrayIcon,
     menu::{CheckMenuItem, MenuEvent},
@@ -42,6 +39,7 @@ use winit::{
 
 fn main() -> anyhow::Result<()> {
     std::panic::set_hook(Box::new(|info| {
+        error!("⚠️ Panic: {info}");
         app_notify(format!("⚠️ Panic: {info}"));
     }));
 
@@ -65,13 +63,15 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+pub type BluetoothDevicesInfo = Arc<Mutex<HashMap<u64, BluetoothInfo>>>;
+
 struct App {
-    bluetooth_info: Arc<Mutex<HashSet<BluetoothInfo>>>,
+    bluetooth_devcies_info: BluetoothDevicesInfo,
     config: Arc<Config>,
     watcher: Option<Watcher>,
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
     exit_threads: Arc<AtomicBool>,
-    /// 存储已经通知过的低电量设备，避免再次通知
+    /// 存储已经通知过的低电量设备（地址），避免再次通知
     notified_low_battery_devices: Arc<Mutex<HashSet<u64>>>,
     system_theme: Arc<RwLock<SystemTheme>>,
     tray: Mutex<Option<TrayIcon>>,
@@ -83,16 +83,16 @@ impl Default for App {
     fn default() -> Self {
         let config = Config::open().expect("Failed to open config");
 
-        let bluetooth_devices = find_bluetooth_devices().expect("Failed to find bluetooth devices");
-        let bluetooth_devices_info =
-            get_bluetooth_info((&bluetooth_devices.0, &bluetooth_devices.1))
-                .expect("Failed to get bluetooth devices info");
+        let (btc_devices, ble_devices) =
+            find_bluetooth_devices().expect("Failed to find bluetooth devices");
+        let bluetooth_devices_info = get_bluetooth_devices_info((&btc_devices, &ble_devices))
+            .expect("Failed to get bluetooth devices info");
 
         let (tray, tray_check_menus) =
             create_tray(&config, &bluetooth_devices_info).expect("Failed to create tray");
 
         Self {
-            bluetooth_info: Arc::new(Mutex::new(bluetooth_devices_info)),
+            bluetooth_devcies_info: Arc::new(Mutex::new(bluetooth_devices_info)),
             config: Arc::new(config),
             watcher: None,
             event_loop_proxy: None,
@@ -110,9 +110,7 @@ impl Default for App {
 enum UserEvent {
     Exit,
     MenuEvent(MenuEvent),
-    StopWatcher,
-    UpdateTray(/* Force Update */ bool), // bool: Force Update
-    UpdateTrayForBluetooth(BluetoothInfo),
+    UnpdatTray,
 }
 
 impl App {
@@ -121,12 +119,12 @@ impl App {
         self
     }
 
-    fn start_watch_device(&mut self, device: BluetoothInfo) {
+    fn start_watch_device(&mut self, devices_info: BluetoothDevicesInfo) {
         // 如果已有一个监控任务在运行，先停止它
         self.stop_watch_device();
 
         if let Some(proxy) = &self.event_loop_proxy {
-            match Watcher::start(device, proxy.clone()) {
+            match Watcher::start(devices_info, proxy.clone()) {
                 Ok(watcher) => self.watcher = Some(watcher),
                 Err(e) => error!("Failed to start the bluetooth watch: {e}"),
             }
@@ -134,10 +132,8 @@ impl App {
     }
 
     fn stop_watch_device(&mut self) {
-        if let Some(watcher) = self.watcher.take()
-            && let Err(e) = watcher.stop()
-        {
-            error!("Stop the previous watch failed: {e}");
+        if let Some(watcher) = self.watcher.take() {
+            watcher.stop()
         }
     }
 
@@ -153,32 +149,13 @@ impl App {
 
 impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        let config = Arc::clone(&self.config);
         let proxy = self.event_loop_proxy.clone().expect("Failed to get proxy");
 
-        let watch_bt_address = {
-            config
-                .tray_options
-                .tray_icon_source
-                .lock()
-                .unwrap()
-                .get_address()
-        };
+        self.start_watch_device(Arc::clone(&self.bluetooth_devcies_info));
 
-        if let Some(address) = watch_bt_address {
-            let bt_devices = self.bluetooth_info.lock().unwrap().clone();
-
-            if let Some(i) = bt_devices.iter().find(|i| i.address == address) {
-                self.start_watch_device(i.clone());
-            }
-        }
-
-        let system_theme = Arc::clone(&self.system_theme);
         let exit_threads = Arc::clone(&self.exit_threads);
-        let info_handle =
-            listen_bluetooth_devices_info(config, exit_threads.clone(), proxy.clone());
+        let system_theme = Arc::clone(&self.system_theme);
         let theme_handle = listen_system_theme(exit_threads, proxy, system_theme);
-        self.worker_threads.push(info_handle);
         self.worker_threads.push(theme_handle);
     }
 
@@ -213,6 +190,7 @@ impl ApplicationHandler<UserEvent> for App {
                     "set_icon_connect_color" => MenuHandlers::set_icon_connect_color(
                         &config,
                         menu_event_id,
+                        self.event_loop_proxy.clone().unwrap(),
                         tray_check_menus,
                     ),
                     // 通知设置：低电量
@@ -242,21 +220,18 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                     // 托盘设置：选择图标
                     _ => {
-                        let need_watch = MenuHandlers::set_tray_icon_source(
-                            self.bluetooth_info.lock().unwrap().clone(),
+                        MenuHandlers::set_tray_icon_source(
                             &config,
                             menu_event_id,
                             self.event_loop_proxy.clone().unwrap(),
                             tray_check_menus,
                         );
-                        if let Some(info) = need_watch {
-                            self.start_watch_device(info);
-                        } else {
-                            self.stop_watch_device();
-                        }
                     }
                 }
             }
+            UserEvent::UnpdatTray => {
+                let cuurent_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
+                let config = self.config.clone();
 
                 let (tray_menu, new_tray_check_menus) =
                     match create_menu(&config, &cuurent_devices_info) {
@@ -266,42 +241,6 @@ impl ApplicationHandler<UserEvent> for App {
                             return;
                         }
                     };
-
-                let config = Arc::clone(&self.config);
-
-                if let Some(result) = compare_bt_info_to_send_notifications(
-                    &config,
-                    Arc::clone(&self.notified_low_battery_devices),
-                    Arc::clone(&self.bluetooth_info),
-                    &new_bt_info,
-                ) {
-                    result
-                        // .inspect(|_| self.start_watch_device())
-                        .expect("Failed to compare bluetooth info");
-                } else {
-                    // 避免菜单事件或配置更新后，因蓝牙信息无变化而不执行后续更新代码
-                    if !need_force_update {
-                        return;
-                    }
-                }
-
-                let (tray_menu, new_tray_check_menus) = match create_menu(&config, &new_bt_info) {
-                    Ok(menu) => menu,
-                    Err(e) => {
-                        app_notify(format!("Failed to create tray  menu - {e}"));
-                        return;
-                    }
-                };
-
-                if let Some(tray) = &self.tray.lock().unwrap().as_mut() {
-                    let icon = load_battery_icon(&config, &new_bt_info)
-                        .expect("Failed to load battery icon");
-                    let bluetooth_tooltip_info = convert_tray_info(&new_bt_info, &config);
-                    tray.set_menu(Some(Box::new(tray_menu)));
-                    tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")))
-                        .expect("Failed to update tray tooltip");
-                    tray.set_icon(Some(icon)).expect("Failed to set tray icon");
-                }
 
                 if let Some(tray_check_menus) = self.tray_check_menus.lock().unwrap().as_mut() {
                     *tray_check_menus = new_tray_check_menus;
@@ -314,8 +253,19 @@ impl ApplicationHandler<UserEvent> for App {
 
                     let _ = tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")));
 
-                if let Some(tray_check_menus) = self.tray_check_menus.lock().unwrap().as_mut() {
-                    *tray_check_menus = new_tray_check_menus;
+                    let tray_icon_bt_address = config
+                        .tray_options
+                        .tray_icon_source
+                        .lock()
+                        .unwrap()
+                        .get_address();
+
+                    let icon = tray_icon_bt_address
+                        .and_then(|address| cuurent_devices_info.get(&address))
+                        .and_then(|info| load_battery_icon(&config, info.battery, info.status).ok())
+                        .or_else(|| load_app_icon().ok());
+
+                    let _ = tray.set_icon(icon);
                 }
             }
         }

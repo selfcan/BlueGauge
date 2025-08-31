@@ -1,11 +1,10 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::ops::Deref;
 
 use crate::bluetooth::info::BluetoothInfo;
 use crate::config::{Config, TrayIconSource};
-use crate::icon::{LOGO_DATA, load_battery_icon, load_icon};
+use crate::icon::{load_app_icon, load_battery_icon};
 use crate::language::{Language, Localization};
-use crate::notify::app_notify;
 use crate::startup::get_startup_status;
 
 use anyhow::{Context, Result, anyhow};
@@ -30,7 +29,7 @@ impl CreateMenuItem {
             Some(text),
             Some(AboutMetadata {
                 name: Some("BlueGauge".to_owned()),
-                version: Some("0.2.7".to_owned()),
+                version: Some("0.3.0".to_owned()),
                 authors: Some(vec!["iKineticate".to_owned()]),
                 website: Some("https://github.com/iKineticate/BlueGauge".to_owned()),
                 ..Default::default()
@@ -40,10 +39,6 @@ impl CreateMenuItem {
 
     fn restart(text: &str) -> MenuItem {
         MenuItem::with_id("restart", text, true, None)
-    }
-
-    fn force_update(text: &str) -> MenuItem {
-        MenuItem::with_id("force_update", text, true, None)
     }
 
     fn open_config(text: &str) -> MenuItem {
@@ -60,12 +55,12 @@ impl CreateMenuItem {
     fn bluetooth_devices(
         config: &Config,
         tray_check_menus: &mut Vec<CheckMenuItem>,
-        bluetooth_devices_info: &HashSet<BluetoothInfo>,
+        bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
     ) -> Result<Vec<CheckMenuItem>> {
         let show_tray_battery_icon_bt_address = config.get_tray_battery_icon_bt_address();
         let bluetooth_check_items: Vec<CheckMenuItem> = bluetooth_devices_info
             .iter()
-            .map(|info| {
+            .map(|(_, info)| {
                 CheckMenuItem::with_id(
                     info.address,
                     config.get_device_aliases_name(&info.name),
@@ -79,21 +74,6 @@ impl CreateMenuItem {
         tray_check_menus.extend(bluetooth_check_items.iter().cloned());
 
         Ok(bluetooth_check_items)
-    }
-
-        update_interval: u64,
-        tray_check_menus: &mut Vec<CheckMenuItem>,
-    ) -> [CheckMenuItem; 6] {
-        let update_interval_items = [
-            CheckMenuItem::with_id("15", "15s", true, update_interval == 15, None),
-            CheckMenuItem::with_id("30", "30s", true, update_interval == 30, None),
-            CheckMenuItem::with_id("60", "1min", true, update_interval == 60, None),
-            CheckMenuItem::with_id("300", "5min", true, update_interval == 300, None),
-            CheckMenuItem::with_id("600", "10min", true, update_interval == 600, None),
-            CheckMenuItem::with_id("1800", "30min", true, update_interval == 1800, None),
-        ];
-        tray_check_menus.extend(update_interval_items.iter().cloned());
-        update_interval_items
     }
 
     #[rustfmt::skip]
@@ -177,7 +157,7 @@ impl CreateMenuItem {
 
 pub fn create_menu(
     config: &Config,
-    bluetooth_devices_info: &HashSet<BluetoothInfo>,
+    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
 ) -> Result<(Menu, Vec<CheckMenuItem>)> {
     let language = Language::get_system_language();
     let loc = Localization::get(language);
@@ -194,7 +174,6 @@ pub fn create_menu(
 
     let menu_restart = CreateMenuItem::restart(loc.restart);
 
-
     let menu_bluetooth_devicess =
         CreateMenuItem::bluetooth_devices(config, &mut tray_check_menus, bluetooth_devices_info)?;
     let menu_bluetooth_devicess: Vec<&dyn IsMenuItem> = menu_bluetooth_devicess
@@ -207,24 +186,12 @@ pub fn create_menu(
     let menu_open_config = &CreateMenuItem::open_config(loc.open_config);
 
     let menu_tray_options = {
-            CreateMenuItem::update_interval(config.get_update_interval(), &mut tray_check_menus);
-        let menu_update_interval: Vec<&dyn IsMenuItem> = menu_update_interval
-            .iter()
-            .map(|item| item as &dyn IsMenuItem)
-            .collect();
-        let menu_update_interval = &Submenu::with_id_and_items(
-            "update_interval",
-            loc.update_interval,
-            true,
-            &menu_update_interval,
-        )? as &dyn IsMenuItem;
         let menu_set_icon_connect_color =
             CreateMenuItem::set_icon_connect_color(config, loc, &mut tray_check_menus);
         let menu_set_tray_tooltip =
             CreateMenuItem::set_tray_tooltip(config, loc, &mut tray_check_menus);
 
         let mut menu_tray_options: Vec<&dyn IsMenuItem> = Vec::new();
-        menu_tray_options.push(menu_update_interval as &dyn IsMenuItem);
         menu_tray_options.push(&menu_set_icon_connect_color as &dyn IsMenuItem);
         menu_tray_options.extend(
             menu_set_tray_tooltip
@@ -277,11 +244,6 @@ pub fn create_menu(
     tray_menu
         .append(&menu_separator)
         .context("Failed to apped 'Separator' to Tray Menu")?;
-        .append(&menu_force_update)
-        .context("Failed to apped 'Force Update' to Tray Menu")?;
-    tray_menu
-        .append(&menu_separator)
-        .context("Failed to apped 'Separator' to Tray Menu")?;
     tray_menu
         .append(&menu_restart)
         .context("Failed to apped 'Force Update' to Tray Menu")?;
@@ -304,14 +266,26 @@ pub fn create_menu(
 #[rustfmt::skip]
 pub fn create_tray(
     config: &Config,
-    bluetooth_devices_info: &HashSet<BluetoothInfo>,
+    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
 ) -> Result<(TrayIcon, Vec<CheckMenuItem>)> {
     let (tray_menu, tray_check_menus) =
         create_menu(config, bluetooth_devices_info).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
 
-    let icon = load_battery_icon(config, bluetooth_devices_info)
-        .inspect_err(|e| app_notify(format!("Failed to get battery icon: {e}")))
-        .unwrap_or_else(|_| load_icon(LOGO_DATA).expect("Failed to load logo icon"));
+    let tray_icon_bt_address = {
+        config
+            .tray_options
+            .tray_icon_source
+            .lock()
+            .unwrap()
+            .get_address()
+    };
+
+    let icon = tray_icon_bt_address
+        .and_then(|address| bluetooth_devices_info.get(&address))
+        .map(|info| (info.battery, info.status))
+        .and_then(|(battery, status)| load_battery_icon(config, battery, status).ok())
+        .or_else(|| load_app_icon().ok())
+        .expect("Failed to create tray's icon");
 
     let bluetooth_tooltip_info = convert_tray_info(bluetooth_devices_info, config);
 
@@ -328,7 +302,7 @@ pub fn create_tray(
 
 /// 返回托盘提示及菜单内容
 pub fn convert_tray_info(
-    bluetooth_devices_info: &HashSet<BluetoothInfo>,
+    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
     config: &Config,
 ) -> Vec<String> {
     let should_truncate_name = config.get_truncate_name();
@@ -337,17 +311,17 @@ pub fn convert_tray_info(
 
     bluetooth_devices_info
         .iter()
-        .filter_map(|blue_info| {
+        .filter_map(|(_, info)| {
             // 根据配置和设备状态决定是否包含在提示中
-            let include_in_tooltip = blue_info.status || should_show_disconnected;
+            let include_in_tooltip = info.status || should_show_disconnected;
 
             if include_in_tooltip {
                 let name = {
-                    let name = config.get_device_aliases_name(&blue_info.name);
+                    let name = config.get_device_aliases_name(&info.name);
                     truncate_with_ellipsis(should_truncate_name, name, 10)
                 };
-                let battery = blue_info.battery;
-                let status_icon = if blue_info.status { "🟢" } else { "🔴" };
+                let battery = info.battery;
+                let status_icon = if info.status { "🟢" } else { "🔴" };
                 let info = if should_prefix_battery {
                     format!("{status_icon}{battery:3}% - {name}")
                 } else {

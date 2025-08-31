@@ -1,9 +1,8 @@
-use std::{collections::HashSet, ops::Deref, path::Path, sync::atomic::Ordering};
 use std::{ffi::OsString, process::Command};
+use std::{ops::Deref, path::Path, sync::atomic::Ordering};
 
 use crate::UserEvent;
 use crate::{
-    bluetooth::info::BluetoothInfo,
     config::{Config, TrayIconSource},
     notify::app_notify,
     startup::set_startup,
@@ -31,10 +30,6 @@ impl MenuHandlers {
         }
     }
 
-    pub fn force_update(config: &Config) {
-        config.force_update.store(true, Ordering::Relaxed)
-    }
-
     pub fn startup(tray_check_menus: Vec<CheckMenuItem>) {
         if let Some(item) = tray_check_menus.iter().find(|item| item.id() == "startup") {
             set_startup(item.is_checked()).expect("Failed to set Launch at Startup")
@@ -44,30 +39,23 @@ impl MenuHandlers {
     pub fn set_icon_connect_color(
         config: &Config,
         menu_event_id: &str,
+        proxy: EventLoopProxy<UserEvent>,
         tray_check_menus: Vec<CheckMenuItem>,
     ) {
         if let Some(item) = tray_check_menus
             .iter()
             .find(|item| item.id().as_ref() == menu_event_id)
         {
-            if item.is_checked() {
-                config
-                    .tray_options
-                    .tray_icon_source
-                    .lock()
-                    .unwrap()
-                    .update_connect_color(true);
-            } else {
-                config
-                    .tray_options
-                    .tray_icon_source
-                    .lock()
-                    .unwrap()
-                    .update_connect_color(false);
-            }
+            config
+                .tray_options
+                .tray_icon_source
+                .lock()
+                .unwrap()
+                .update_connect_color(item.is_checked());
 
             config.save();
-            config.force_update.store(true, Ordering::Relaxed);
+
+            let _ = proxy.send_event(UserEvent::UnpdatTray);
         }
     }
 
@@ -83,60 +71,6 @@ impl MenuHandlers {
         {
             app_notify(format!("Failed to open config file - {e}"));
         };
-    }
-
-    pub fn set_update_interval(
-        config: &Config,
-        menu_event_id: &str,
-        tray_check_menus: Vec<CheckMenuItem>,
-    ) {
-        // 只处理更新蓝牙信息间隔相关的菜单项
-        let update_interval_items: Vec<_> = tray_check_menus
-            .iter()
-            .filter(|item| ["15", "30", "60", "300", "600", "1800"].contains(&item.id().as_ref()))
-            .collect();
-
-        // 是否存在被点击且为勾选的项目
-        let is_checked = update_interval_items
-            .iter()
-            .any(|item| item.id().as_ref() == menu_event_id && item.is_checked());
-
-        // 更新所有菜单项状态
-        update_interval_items.iter().for_each(|item| {
-            let should_check = item.id().as_ref() == menu_event_id && is_checked;
-            item.set_checked(should_check);
-        });
-
-        // 获取当前勾选的项目对应的电量
-        let selected_update_interval = update_interval_items
-            .iter()
-            .find_map(|item| item.is_checked().then_some(item.id().as_ref()))
-            .and_then(|id| id.parse::<u64>().ok());
-
-        // 更新配置
-        if let Some(update_interval) = selected_update_interval {
-            config
-                .tray_options
-                .update_interval
-                .store(update_interval, Ordering::Relaxed);
-        } else {
-            let default_update_interval = 60;
-            config
-                .tray_options
-                .update_interval
-                .store(default_update_interval, Ordering::Relaxed);
-
-            // 找到并选中默认项
-            if let Some(default_item) = update_interval_items
-                .iter()
-                .find(|i| i.id().as_ref() == default_update_interval.to_string())
-            {
-                default_item.set_checked(true);
-            }
-        }
-
-        config.save();
-        config.force_update.store(true, Ordering::Relaxed);
     }
 
     pub fn set_notify_low_battery(
@@ -157,7 +91,7 @@ impl MenuHandlers {
             .iter()
             .any(|item| item.id().as_ref() == menu_event_id && item.is_checked());
 
-        // 更新所有菜单项状态
+        // 托盘菜单的其余电量项目设置为未勾选状态
         low_battery_items.iter().for_each(|item| {
             let should_check = item.id().as_ref() == menu_event_id && is_checked;
             item.set_checked(should_check);
@@ -198,17 +132,13 @@ impl MenuHandlers {
         menu_event_id: &str,
         tray_check_menus: Vec<CheckMenuItem>,
     ) {
-        // 找到对应的菜单（非子菜单），则更新结构体中的配置及配置文件的内容
         if let Some(item) = tray_check_menus
             .iter()
             .find(|item| item.id().as_ref() == menu_event_id)
         {
-            if item.is_checked() {
-                config.notify_options.update(menu_event_id, true);
-            } else {
-                config.notify_options.update(menu_event_id, false);
-            }
-
+            config
+                .notify_options
+                .update(menu_event_id, item.is_checked());
             config.save();
         }
     }
@@ -216,41 +146,29 @@ impl MenuHandlers {
     pub fn set_tray_tooltip(
         config: &Config,
         menu_event_id: &str,
+        proxy: EventLoopProxy<UserEvent>,
         tray_check_menus: Vec<CheckMenuItem>,
     ) {
         if let Some(item) = tray_check_menus
             .iter()
             .find(|item| item.id().as_ref() == menu_event_id)
         {
-            if item.is_checked() {
-                config.tray_options.update(menu_event_id, true);
-                config.save();
-            } else {
-                config.tray_options.update(menu_event_id, false);
-                config.save();
-            }
+            config.tray_options.update(menu_event_id, item.is_checked());
+            config.save();
+            let _ = proxy.send_event(UserEvent::UnpdatTray);
         }
-
-        config.force_update.store(true, Ordering::Relaxed);
     }
 
     pub fn set_tray_icon_source(
-        bluetooth_devices_info: HashSet<BluetoothInfo>,
         config: &Config,
         menu_event_id: &str,
+        proxy: EventLoopProxy<UserEvent>,
         tray_check_menus: Vec<CheckMenuItem>,
-    ) -> Option<BluetoothInfo> {
+    ) {
         let not_bluetooth_item_id = [
             "quit",
-            "force_update",
             "startup",
             "open_config",
-            "15",
-            "30",
-            "60",
-            "300",
-            "600",
-            "1800",
             "0.01",
             "0.05",
             "0.1",
@@ -269,69 +187,75 @@ impl MenuHandlers {
 
         let show_battery_icon_bt_address = menu_event_id.parse::<u64>().expect("Menu Event Id");
 
-        // 只处理显示蓝牙电量图标相关的菜单项
+        // 获取托盘中蓝牙设备菜单（排除其他设备）
         let bluetooth_menus: Vec<_> = tray_check_menus
             .iter()
             .filter(|item| !not_bluetooth_item_id.contains(&item.id().as_ref()))
             .collect();
 
-        let new_bt_menu_is_checked = bluetooth_menus
+        // 有无勾选新设备菜单
+        let have_new_device_menu_checkd = bluetooth_menus
             .iter()
             .any(|item| item.id().as_ref() == menu_event_id && item.is_checked());
 
+        // 托盘菜单的其余蓝牙设备设置为未勾选状态
         bluetooth_menus.iter().for_each(|item| {
-            let should_check = item.id().as_ref() == menu_event_id && new_bt_menu_is_checked;
+            let should_check = item.id().as_ref() == menu_event_id && have_new_device_menu_checkd;
             item.set_checked(should_check);
         });
 
-        let mut original_tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap();
+        let mut tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap();
 
-        let need_watch = match original_tray_icon_source.deref() {
-            TrayIconSource::App if new_bt_menu_is_checked => {
+        // · 若原来图标来源为应用图标，且有托盘菜单选择有设备时，根据有无自定义设置相应类型图标
+        // · 若原来图标来源指定设备电量图标，如果指定设备取消，则托盘图标变为应用图标，如果为其他设备图标，则更新图标来源中的蓝牙地址
+        match tray_icon_source.deref() {
+            TrayIconSource::App if have_new_device_menu_checkd => {
                 let have_custom_icons = std::env::current_exe()
                     .ok()
                     .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
-                    .map(|p| (0..=100).all(|i| p.join(format!("assets\\{i}.png")).is_file()))
+                    .map(|p| {
+                        if p.join("assets").is_dir() {
+                            let light_dir = p.join("assets\\light");
+                            let dark_dir = p.join("assets\\dark");
+                            match (light_dir.is_dir(), dark_dir.is_dir()) {
+                                (true, true) => true,   // 有主题图标
+                                (false, false) => true, //无主题图标
+                                _ => false,             // 主题图标文件夹缺某一个
+                            }
+                        } else {
+                            false
+                        }
+                    })
+                    // .map(|p| (0..=100).all(|i| p.join(format!("assets\\{i}.png")).is_file()))
                     .unwrap_or(false);
 
                 if have_custom_icons {
-                    *original_tray_icon_source = TrayIconSource::BatteryCustom {
+                    *tray_icon_source = TrayIconSource::BatteryCustom {
                         address: show_battery_icon_bt_address.to_owned(),
                     };
                 } else {
-                    *original_tray_icon_source = TrayIconSource::BatteryFont {
+                    *tray_icon_source = TrayIconSource::BatteryFont {
                         address: show_battery_icon_bt_address.to_owned(),
                         font_name: "Arial".to_owned(),
                         font_color: Some("FollowSystemTheme".to_owned()),
                         font_size: Some(64),
                     };
                 };
-
-                bluetooth_devices_info
-                    .iter()
-                    .find(|i| i.address == show_battery_icon_bt_address)
-                    .cloned()
             }
             TrayIconSource::BatteryCustom { .. } | TrayIconSource::BatteryFont { .. } => {
-                if new_bt_menu_is_checked {
-                    original_tray_icon_source.update_address(show_battery_icon_bt_address);
-                    bluetooth_devices_info
-                        .iter()
-                        .find(|i| i.address == show_battery_icon_bt_address)
-                        .cloned()
+                if have_new_device_menu_checkd {
+                    tray_icon_source.update_address(show_battery_icon_bt_address);
                 } else {
-                    *original_tray_icon_source = TrayIconSource::App;
-
-                    None
+                    *tray_icon_source = TrayIconSource::App;
                 }
             }
-            _ => None,
+            _ => (),
         };
 
-        // 更新配置
-        drop(original_tray_icon_source); // 释放锁，避免在Config的svae发生死锁.
+        // 优先释放锁，避免Config执行Svae时发生死锁
+        drop(tray_icon_source);
         config.save();
-        config.force_update.store(true, Ordering::Relaxed);
-        need_watch
+
+        let _ = proxy.send_event(UserEvent::UnpdatTray);
     }
 }
