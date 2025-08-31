@@ -70,7 +70,7 @@ use windows_sys::{
     },
 };
 
-pub enum DeviceInstanceIdFilter {
+pub enum PnpFilter {
     Contains(String),
     StartWith(String),
     Eq(String),
@@ -101,12 +101,12 @@ impl PnpEnumerator {
         return PnpEnumerator::enumerate_present_devices_with_options(EnumerateSpecifier::PnpEnumeratorId(pnp_enumerator_id.to_string()), options, None);
     }
     //
-    pub fn enumerate_present_devices_and_filter_device_instance_id_by_device_setup_class(device_setup_class_guid: GUID, device_instance_id_filter: DeviceInstanceIdFilter) -> Result<Vec<PnpDeviceNodeInfo>, EnumerateError> {
+    pub fn enumerate_present_devices_and_filter_by_device_setup_class(device_setup_class_guid: GUID, filter: PnpFilter) -> Result<Vec<PnpDeviceNodeInfo>, EnumerateError> {
         let options = vec![EnumerateOption::IncludeInstanceProperties, EnumerateOption::IncludeDeviceInterfaceProperties, EnumerateOption::IncludeSetupClassProperties, EnumerateOption::IncludeDeviceInterfaceClassProperties];
-        return PnpEnumerator::enumerate_present_devices_with_options(EnumerateSpecifier::DeviceSetupClassGuid(device_setup_class_guid), options, Some(device_instance_id_filter));
+        return PnpEnumerator::enumerate_present_devices_with_options(EnumerateSpecifier::DeviceSetupClassGuid(device_setup_class_guid), options, Some(filter));
     }
     //
-    pub fn enumerate_present_devices_with_options(enumerate_specifier: EnumerateSpecifier, options: Vec<EnumerateOption>, device_instance_id_filter: Option<DeviceInstanceIdFilter>) -> Result<Vec<PnpDeviceNodeInfo>, EnumerateError> {
+    pub fn enumerate_present_devices_with_options(enumerate_specifier: EnumerateSpecifier, options: Vec<EnumerateOption>, filter: Option<PnpFilter>) -> Result<Vec<PnpDeviceNodeInfo>, EnumerateError> {
         let mut result = Vec::<PnpDeviceNodeInfo>::new();
 
         // configure our variables based on the enumerate specifier
@@ -245,19 +245,19 @@ impl PnpEnumerator {
                 };
 
                 // filter the specified instance ID device (BlueGauge)
-                if let Some(ref device_instance_id_filter) = device_instance_id_filter {
-                    match device_instance_id_filter {
-                        DeviceInstanceIdFilter::Contains(id) => {
+                if let Some(ref pnp_filter) = filter {
+                    match pnp_filter {
+                        PnpFilter::Contains(id) => {
                             if !device_instance_id.contains(id) {
                                 continue;
                             }
                         },
-                        DeviceInstanceIdFilter::StartWith(id) => {
+                        PnpFilter::StartWith(id) => {
                             if !device_instance_id.starts_with(id) {
                                 continue;
                             }
                         },
-                        DeviceInstanceIdFilter::Eq(id) => {
+                        PnpFilter::Eq(id) => {
                             if device_instance_id != *id {
                                 continue;
                             }

@@ -29,4 +29,4 @@ pub use pnp_device_property_value::PnpDevicePropertyValue;
 #[cfg(target_os = "windows")]
 mod pnp_enumerator;
 #[cfg(target_os = "windows")]
-pub use pnp_enumerator::{PnpEnumerator, DeviceInstanceIdFilter};
+pub use pnp_enumerator::{PnpEnumerator, PnpFilter};

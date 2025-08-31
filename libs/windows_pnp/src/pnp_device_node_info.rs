@@ -8,6 +8,7 @@ use crate::{
 use windows_pnp_uuid::Uuid;
 use std::collections::HashMap;
 
+#[derive(Default)]
 pub struct PnpDeviceNodeInfo {
     // device instance id (applies to all devices)
     pub device_instance_id: String,
