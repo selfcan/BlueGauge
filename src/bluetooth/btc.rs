@@ -71,7 +71,8 @@ pub fn get_btc_devices_info(
         let mut attempts = 0;
 
         loop {
-            match get_pnp_devices_info() {
+            let pnp_devices = get_pnp_devices()?;
+            match get_pnp_devices_info(pnp_devices) {
                 Ok(info) => break info,
                 Err(e) => {
                     attempts += 1;
@@ -127,13 +128,41 @@ pub fn process_btc_device(
     })
 }
 
-pub fn get_pnp_devices_info() -> Result<HashMap<u64, PnpDeviceInfo>> {
+pub fn get_btc_info_device_frome_address(name: String, address: u64, status: bool) -> Result<BluetoothInfo> {
+    let btc_address_bytes = format!("{address:012X}");
+
+    let pnp_devices_node_info = PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
+        GUID_DEVCLASS_SYSTEM,
+        PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned(), btc_address_bytes]),
+    )
+    .map_err(|e| anyhow!("Failed to enumerate pnp device ({address}) - {e:?}"))?;
+
+    let pnp_device_info = get_pnp_devices_info(pnp_devices_node_info)?
+        .remove(&address)
+        .ok_or_else(|| anyhow!("Failed to obtain the corresponding PNP device from the BTC address"))?;
+
+    Ok(BluetoothInfo {
+        name,
+        battery: pnp_device_info.battery,
+        status,
+        address,
+        r#type: BluetoothType::Classic(pnp_device_info.instance_id),
+    })
+}
+
+pub fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
+    PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
+        GUID_DEVCLASS_SYSTEM,
+        PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned()]),
+    )
+    .map_err(|e| anyhow!("Failed to enumerate pnp devices - {e:?}"))
+}
+
+pub fn get_pnp_devices_info(pnp_devices_node_info: Vec<PnpDeviceNodeInfo>) -> Result<HashMap<u64, PnpDeviceInfo>> {
     let mut pnp_devices_info: HashMap<u64, PnpDeviceInfo> = HashMap::new();
 
-    let bt_devices_info = get_pnp_devices()?;
-
-    for bt_device_info in bt_devices_info {
-        if let Some(mut props) = bt_device_info.device_instance_properties {
+    for pnp_device_node_info in pnp_devices_node_info.into_iter() {
+        if let Some(mut props) = pnp_device_node_info.device_instance_properties {
             let battery = props
                 .remove(&DEVPKEY_Bluetooth_Battery.into())
                 .and_then(|value| match value {
@@ -154,7 +183,7 @@ pub fn get_pnp_devices_info() -> Result<HashMap<u64, PnpDeviceInfo>> {
                     PnpDeviceInfo {
                         address,
                         battery,
-                        instance_id: bt_device_info.device_instance_id,
+                        instance_id: pnp_device_node_info.device_instance_id,
                     },
                 );
             }
@@ -162,14 +191,6 @@ pub fn get_pnp_devices_info() -> Result<HashMap<u64, PnpDeviceInfo>> {
     }
 
     Ok(pnp_devices_info)
-}
-
-fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
-    PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
-        GUID_DEVCLASS_SYSTEM,
-        PnpFilter::Contains(BT_INSTANCE_ID.to_owned()),
-    )
-    .map_err(|e| anyhow!("Failed to enumerate pnp devices - {e:?}"))
 }
 
 pub async fn watch_btc_devices_status_async(
