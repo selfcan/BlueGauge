@@ -59,8 +59,8 @@ impl CreateMenuItem {
     ) -> Result<Vec<CheckMenuItem>> {
         let show_tray_battery_icon_bt_address = config.get_tray_battery_icon_bt_address();
         let bluetooth_check_items: Vec<CheckMenuItem> = bluetooth_devices_info
-            .iter()
-            .map(|(_, info)| {
+            .values()
+            .map(|info| {
                 CheckMenuItem::with_id(
                     info.address,
                     config.get_device_aliases_name(&info.name),

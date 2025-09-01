@@ -12,16 +12,11 @@ use anyhow::{Result, anyhow};
 use log::{info, warn};
 use windows::Devices::Bluetooth::{BluetoothDevice, BluetoothLEDevice};
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum BluetoothType {
     Classic(/* Instance ID */ String),
+    #[default]
     LowEnergy,
-}
-
-impl Default for BluetoothType {
-    fn default() -> Self {
-        BluetoothType::LowEnergy
-    }
 }
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]

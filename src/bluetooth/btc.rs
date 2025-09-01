@@ -128,18 +128,25 @@ pub fn process_btc_device(
     })
 }
 
-pub fn get_btc_info_device_frome_address(name: String, address: u64, status: bool) -> Result<BluetoothInfo> {
+pub fn get_btc_info_device_frome_address(
+    name: String,
+    address: u64,
+    status: bool,
+) -> Result<BluetoothInfo> {
     let btc_address_bytes = format!("{address:012X}");
 
-    let pnp_devices_node_info = PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
-        GUID_DEVCLASS_SYSTEM,
-        PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned(), btc_address_bytes]),
-    )
-    .map_err(|e| anyhow!("Failed to enumerate pnp device ({address}) - {e:?}"))?;
+    let pnp_devices_node_info =
+        PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
+            GUID_DEVCLASS_SYSTEM,
+            PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned(), btc_address_bytes]),
+        )
+        .map_err(|e| anyhow!("Failed to enumerate pnp device ({address}) - {e:?}"))?;
 
     let pnp_device_info = get_pnp_devices_info(pnp_devices_node_info)?
         .remove(&address)
-        .ok_or_else(|| anyhow!("Failed to obtain the corresponding PNP device from the BTC address"))?;
+        .ok_or_else(|| {
+            anyhow!("Failed to obtain the corresponding PNP device from the BTC address")
+        })?;
 
     Ok(BluetoothInfo {
         name,
@@ -158,7 +165,9 @@ pub fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
     .map_err(|e| anyhow!("Failed to enumerate pnp devices - {e:?}"))
 }
 
-pub fn get_pnp_devices_info(pnp_devices_node_info: Vec<PnpDeviceNodeInfo>) -> Result<HashMap<u64, PnpDeviceInfo>> {
+pub fn get_pnp_devices_info(
+    pnp_devices_node_info: Vec<PnpDeviceNodeInfo>,
+) -> Result<HashMap<u64, PnpDeviceInfo>> {
     let mut pnp_devices_info: HashMap<u64, PnpDeviceInfo> = HashMap::new();
 
     for pnp_device_node_info in pnp_devices_node_info.into_iter() {

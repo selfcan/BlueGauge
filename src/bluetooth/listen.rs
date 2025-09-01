@@ -15,6 +15,7 @@ use crate::{
 };
 
 use std::{
+    collections::hash_map::Entry,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -134,8 +135,8 @@ fn watch_btc_devices_battery(
             .lock()
             .unwrap()
             .values()
-            .cloned()
             .filter(|info| matches!(info.r#type, BluetoothType::Classic(_)))
+            .cloned()
             .collect::<Vec<_>>();
 
         let pnp_devices = get_pnp_devices()?;
@@ -438,11 +439,11 @@ async fn watch_bt_presence_async(
                 }
             };
 
-            if bluetooth_devices_info
-                .lock()
-                .unwrap()
-                .contains_key(&info.address)
-            {
+            if let Entry::Vacant(e) = bluetooth_devices_info.lock().unwrap().entry(info.address) {
+                info!("[{}]: New Bluetooth Device Connected", info.name);
+                e.insert(info);
+                update_event(presence);
+            } else {
                 match presence {
                     BluetoothPresence::Added => (), // 原设备未被移除
                     BluetoothPresence::Removed => {
@@ -450,18 +451,11 @@ async fn watch_bt_presence_async(
                             bluetooth_devices_info.lock().unwrap().remove(&info.address);
                         update_event(presence);
                         info!(
-                            "[{:?}]: Bluetooth Device Removed",
-                            removed_info.map(|i| i.name)
+                            "[{}]: Bluetooth Device Removed",
+                            removed_info.map_or("Unknown name".to_owned(), |i| i.name)
                         );
                     }
                 }
-            } else {
-                info!("[{}]: New Bluetooth Device Connected", info.name);
-                bluetooth_devices_info
-                    .lock()
-                    .unwrap()
-                    .insert(info.address, info);
-                update_event(presence)
             }
         } else {
             return Err(anyhow!("Channel closed while watching Bluetooth presence"));
