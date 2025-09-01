@@ -58,7 +58,6 @@ pub enum TrayIconSource {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct NotifyOptionsToml {
-    mute: bool,
     low_battery: u8,
     disconnection: bool,
     reconnection: bool,
@@ -113,7 +112,6 @@ impl TrayIconSource {
 
 #[derive(Debug)]
 pub struct NotifyOptions {
-    pub mute: AtomicBool,
     pub low_battery: AtomicU8,
     pub disconnection: AtomicBool,
     pub reconnection: AtomicBool,
@@ -124,7 +122,6 @@ pub struct NotifyOptions {
 impl Default for NotifyOptions {
     fn default() -> Self {
         NotifyOptions {
-            mute: AtomicBool::new(false),
             low_battery: AtomicU8::new(15),
             disconnection: AtomicBool::new(false),
             reconnection: AtomicBool::new(false),
@@ -137,7 +134,6 @@ impl Default for NotifyOptions {
 impl NotifyOptions {
     pub fn update(&self, name: &str, check: bool) {
         match name {
-            "mute" => self.mute.store(check, Ordering::Relaxed),
             "disconnection" => self.disconnection.store(check, Ordering::Relaxed),
             "reconnection" => self.reconnection.store(check, Ordering::Relaxed),
             "added" => self.added.store(check, Ordering::Relaxed),
@@ -241,7 +237,6 @@ impl Config {
                 tray_icon_source,
             },
             notify_options: NotifyOptionsToml {
-                mute: self.notify_options.mute.load(Ordering::Relaxed),
                 low_battery: self.notify_options.low_battery.load(Ordering::Relaxed),
                 disconnection: self.notify_options.disconnection.load(Ordering::Relaxed),
                 reconnection: self.notify_options.reconnection.load(Ordering::Relaxed),
@@ -271,7 +266,6 @@ impl Config {
                 tray_icon_source: TrayIconSource::App,
             },
             notify_options: NotifyOptionsToml {
-                mute: false,
                 low_battery: 15,
                 disconnection: false,
                 reconnection: false,
@@ -301,7 +295,6 @@ impl Config {
                 },
             },
             notify_options: NotifyOptions {
-                mute: AtomicBool::new(default_config.notify_options.mute),
                 low_battery: AtomicU8::new(default_config.notify_options.low_battery),
                 disconnection: AtomicBool::new(default_config.notify_options.disconnection),
                 reconnection: AtomicBool::new(default_config.notify_options.reconnection),
@@ -346,7 +339,6 @@ impl Config {
                 },
             },
             notify_options: NotifyOptions {
-                mute: AtomicBool::new(toml_config.notify_options.mute),
                 low_battery: AtomicU8::new(toml_config.notify_options.low_battery),
                 disconnection: AtomicBool::new(toml_config.notify_options.disconnection),
                 reconnection: AtomicBool::new(toml_config.notify_options.reconnection),
@@ -385,10 +377,6 @@ impl Config {
             .tooltip_options
             .truncate_name
             .load(Ordering::Relaxed)
-    }
-
-    pub fn get_mute(&self) -> bool {
-        self.notify_options.mute.load(Ordering::Relaxed)
     }
 
     pub fn get_low_battery(&self) -> u8 {

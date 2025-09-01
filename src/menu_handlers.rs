@@ -4,7 +4,7 @@ use std::{ops::Deref, path::Path, sync::atomic::Ordering};
 use crate::UserEvent;
 use crate::{
     config::{Config, TrayIconSource},
-    notify::app_notify,
+    notify::notify,
     startup::set_startup,
 };
 
@@ -69,7 +69,7 @@ impl MenuHandlers {
             .arg(config_path)
             .spawn()
         {
-            app_notify(format!("Failed to open config file - {e}"));
+            notify(format!("Failed to open config file - {e}"));
         };
     }
 
@@ -175,7 +175,6 @@ impl MenuHandlers {
             "0.15",
             "0.2",
             "0.25",
-            "mute",
             "disconnection",
             "reconnection",
             "added",

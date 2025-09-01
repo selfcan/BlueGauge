@@ -3,7 +3,7 @@ use crate::{
         ble::{find_ble_devices, get_ble_devices_info},
         btc::{find_btc_devices, get_btc_devices_info},
     },
-    notify::app_notify,
+    notify::notify,
 };
 
 use std::collections::HashMap;
@@ -45,7 +45,7 @@ pub fn get_bluetooth_devices_info(
             info!("{ble_devices_result:#?}");
 
             ble_devices_result.or_else(|e| {
-                app_notify(format!("Warning: Failed to get BLE devices info: {e}"));
+                notify(format!("Warning: Failed to get BLE devices info: {e}"));
                 Ok(HashMap::new())
             })
         }
@@ -54,7 +54,7 @@ pub fn get_bluetooth_devices_info(
             info!("{btc_devices_result:#?}");
 
             btc_devices_result.or_else(|e| {
-                app_notify(format!("Warning: Failed to get BTC devices info: {e}"));
+                notify(format!("Warning: Failed to get BTC devices info: {e}"));
                 Ok(HashMap::new())
             })
         }

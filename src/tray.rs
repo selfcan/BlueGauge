@@ -112,9 +112,8 @@ impl CreateMenuItem {
         config: &Config,
         loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
-    ) -> [CheckMenuItem; 5] {
+    ) -> [CheckMenuItem; 4] {
         let menu_device_change = [
-            CheckMenuItem::with_id("mute", loc.mute, true, config.get_mute(), None),
             CheckMenuItem::with_id("disconnection", loc.disconnection, true, config.get_disconnection(), None),
             CheckMenuItem::with_id("reconnection", loc.reconnection, true, config.get_reconnection(), None),
             CheckMenuItem::with_id("added", loc.added, true, config.get_added(), None),
