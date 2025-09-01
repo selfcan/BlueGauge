@@ -237,16 +237,16 @@ pub async fn watch_btc_devices_status_async(
         },
         _ = async {
             loop {
-                if exit_flag.load(Ordering::Relaxed)
-                    || restart_flag.swap(false, Ordering::Relaxed)
-                {
+                if exit_flag.load(Ordering::Relaxed) {
+                    info!("Watch BTC Status was cancelled by exit flag.");
+                    break;
+                }
+                if restart_flag.swap(false, Ordering::Relaxed) {
+                    info!("Watch BTC Status restart by restart flag.");
                     break;
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
-        } => {
-            info!("Watch BTC Status was cancelled by exit flag.");
-            Ok(None)
-        }
+        } => Ok(None)
     }
 }
