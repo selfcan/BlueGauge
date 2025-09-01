@@ -70,8 +70,8 @@ use windows_sys::{
     },
 };
 
-pub enum PnpFilter {
-    Contains(String),
+pub enum PnpFilter<'a> {
+    Contains(&'a [String]),
     StartWith(String),
     Eq(String),
 }
@@ -247,8 +247,8 @@ impl PnpEnumerator {
                 // filter the specified instance ID device (BlueGauge)
                 if let Some(ref pnp_filter) = filter {
                     match pnp_filter {
-                        PnpFilter::Contains(id) => {
-                            if !device_instance_id.contains(id) {
+                        PnpFilter::Contains(ids) => {
+                            if !ids.into_iter().all(|id| device_instance_id.to_uppercase().contains(&id.to_uppercase())) {
                                 continue;
                             }
                         },
