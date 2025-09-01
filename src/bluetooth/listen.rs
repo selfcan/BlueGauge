@@ -311,8 +311,8 @@ macro_rules! create_handler {
                                 let btc_device =
                                     BluetoothDevice::FromIdAsync(&info.Id()?)?.get()?;
                                 let process_ble_device = |btc_device: &BluetoothDevice| {
-                                    let btc_address = btc_device.BluetoothAddress()?;
                                     let btc_name = btc_device.Name()?.to_string();
+                                    let btc_address = btc_device.BluetoothAddress()?;
                                     let btc_status = btc_device.ConnectionStatus()?
                                         == BluetoothConnectionStatus::Connected;
                                     get_btc_info_device_frome_address(
@@ -366,6 +366,7 @@ fn watch_bt_presence(
     ))
 }
 
+#[rustfmt::skip]
 async fn watch_bt_presence_async(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
@@ -378,12 +379,7 @@ async fn watch_bt_presence_async(
     let btc_watcher = DeviceInformation::CreateWatcherAqsFilter(&btc_filter)?;
     let btc_tokens = {
         let added_handler = create_handler!(tx, DeviceInformation, false, BluetoothPresence::Added);
-        let removed_handler = create_handler!(
-            tx,
-            DeviceInformationUpdate,
-            false,
-            BluetoothPresence::Removed
-        );
+        let removed_handler = create_handler!(tx, DeviceInformationUpdate, false, BluetoothPresence::Removed);
         let btc_watch_added_token = btc_watcher.Added(&added_handler)?;
         let btc_watch_removed_token = btc_watcher.Removed(&removed_handler)?;
         [btc_watch_added_token, btc_watch_removed_token]
@@ -393,12 +389,7 @@ async fn watch_bt_presence_async(
     let ble_watcher = DeviceInformation::CreateWatcherAqsFilter(&ble_filter)?;
     let ble_tokens = {
         let added_handler = create_handler!(tx, DeviceInformation, true, BluetoothPresence::Added);
-        let removed_handler = create_handler!(
-            tx,
-            DeviceInformationUpdate,
-            true,
-            BluetoothPresence::Removed
-        );
+        let removed_handler = create_handler!(tx, DeviceInformationUpdate, true, BluetoothPresence::Removed);
         let ble_watch_added_token = ble_watcher.Added(&added_handler)?;
         let ble_watch_removed_token = ble_watcher.Removed(&removed_handler)?;
         [ble_watch_added_token, ble_watch_removed_token]
@@ -424,45 +415,52 @@ async fn watch_bt_presence_async(
     }
 
     while !exit_flag.load(Ordering::Relaxed) {
-        if let Some((info, presence)) = rx.recv().await {
-            let update_event = |presence: BluetoothPresence| {
-                restart_flag.store(true, Ordering::Relaxed);
-                let _ = proxy.send_event(UserEvent::UnpdatTray);
-                // Watcher无通知配置，需传递有通知配置的代理的APP结构体
-                match presence {
-                    BluetoothPresence::Added => {
-                        // let _ = proxy.send_event(UserEvent::NotifyDeviceAdded(info.name));
-                    }
-                    BluetoothPresence::Removed => {
-                        // let _ = proxy.send_event(UserEvent::NotifyDeviceRemoved(info.name));
-                    }
-                }
-            };
+        tokio::select! {
+            maybe_update = rx.recv() => {
+                if let Some((info, presence)) = maybe_update {
+                    let update_event = |presence: BluetoothPresence| {
+                        restart_flag.store(true, Ordering::Relaxed);
+                        let _ = proxy.send_event(UserEvent::UnpdatTray);
+                        // Watcher无通知配置，需传递有通知配置的代理的APP结构体
+                        match presence {
+                            BluetoothPresence::Added => {
+                                // let _ = proxy.send_event(UserEvent::Notify::DeviceAdded::(info.name));
+                            }
+                            BluetoothPresence::Removed => {
+                                // let _ = proxy.send_event(UserEvent::Notify::DeviceRemoved::(info.name));
+                            }
+                        }
+                    };
 
-            if let Entry::Vacant(e) = bluetooth_devices_info.lock().unwrap().entry(info.address) {
-                info!("[{}]: New Bluetooth Device Connected", info.name);
-                e.insert(info);
-                update_event(presence);
-            } else {
-                match presence {
-                    BluetoothPresence::Added => (), // 原设备未被移除
-                    BluetoothPresence::Removed => {
-                        let removed_info =
-                            bluetooth_devices_info.lock().unwrap().remove(&info.address);
+                    if let Entry::Vacant(e) = bluetooth_devices_info.lock().unwrap().entry(info.address) {
+                        info!("[{}]: New Bluetooth Device Connected", info.name);
+                        e.insert(info);
                         update_event(presence);
-                        info!(
-                            "[{}]: Bluetooth Device Removed",
-                            removed_info.map_or("Unknown name".to_owned(), |i| i.name)
-                        );
+                    } else {
+                        match presence {
+                            BluetoothPresence::Added => (), // 原设备未被移除
+                            BluetoothPresence::Removed => {
+                                let removed_info =
+                                    bluetooth_devices_info.lock().unwrap().remove(&info.address);
+                                update_event(presence);
+                                info!(
+                                    "[{}]: Bluetooth Device Removed",
+                                    removed_info.map_or("Unknown name".to_owned(), |i| i.name)
+                                );
+                            }
+                        }
                     }
+                } else {
+                    return Err(anyhow!("Channel closed while watching Bluetooth presence"));
                 }
             }
-        } else {
-            return Err(anyhow!("Channel closed while watching Bluetooth presence"));
+            _ = async {
+                while !exit_flag.load(Ordering::Relaxed) {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+            } => info!("Watch Bluetooth Presence was cancelled by exit flag."),
         }
     }
-
-    info!("Watch Bluetooth Presence was cancelled by exit flag.");
 
     Ok(())
 }
