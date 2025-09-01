@@ -24,7 +24,7 @@ use std::{
 };
 
 use anyhow::{Result, anyhow};
-use log::{info, warn};
+use log::{info, warn, error};
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice, BluetoothLEDevice},
@@ -273,7 +273,7 @@ fn watch_ble_devices(
                     let _ = proxy.send_event(UserEvent::UnpdatTray);
                 }
             }
-            Err(e) => return Err(anyhow!("BLE devices watch failed: {e}")),
+            Err(e) => error!("BLE devices watch failed: {e}"),
             Ok(None) => (),
         }
     }
