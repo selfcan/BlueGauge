@@ -13,11 +13,11 @@ mod theme;
 mod tray;
 
 use crate::bluetooth::info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info};
-use crate::bluetooth::listen::Watcher;
+use crate::bluetooth::watch::Watcher;
 use crate::config::*;
 use crate::icon::{load_app_icon, load_battery_icon};
 use crate::menu_handlers::MenuHandlers;
-use crate::notify::notify;
+use crate::notify::{notify, NotifyEvent};
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{convert_tray_info, create_menu, create_tray};
 
@@ -110,6 +110,7 @@ impl Default for App {
 enum UserEvent {
     Exit,
     MenuEvent(MenuEvent),
+    Notify(NotifyEvent),
     UnpdatTray,
 }
 
@@ -227,6 +228,17 @@ impl ApplicationHandler<UserEvent> for App {
                             tray_check_menus,
                         );
                     }
+                }
+            }
+            UserEvent::Notify(notify_event) => {
+                match notify_event {
+                    NotifyEvent::LowBattery(name, battery) => {
+                        
+                    },
+                    NotifyEvent::Added(name) => (),
+                    NotifyEvent::Removed(name) => (),
+                    NotifyEvent::Reconnect(name) => (),
+                    NotifyEvent::Disconnect(name) => (),
                 }
             }
             UserEvent::UnpdatTray => {

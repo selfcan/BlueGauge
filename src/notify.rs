@@ -12,3 +12,12 @@ pub fn notify(text: impl AsRef<str>) {
         .show()
         .expect("Failied to send notification");
 }
+
+#[derive(Debug)]
+pub enum NotifyEvent {
+    LowBattery(String, u8),
+    Added(String),
+    Removed(String),
+    Reconnect(String),
+    Disconnect(String),
+}
