@@ -18,7 +18,13 @@ pub enum BluetoothType {
     LowEnergy,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+impl Default for BluetoothType {
+    fn default() -> Self {
+        BluetoothType::LowEnergy
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct BluetoothInfo {
     pub name: String,
     pub battery: u8,
