@@ -17,7 +17,7 @@ use crate::bluetooth::listen::Watcher;
 use crate::config::*;
 use crate::icon::{load_app_icon, load_battery_icon};
 use crate::menu_handlers::MenuHandlers;
-use crate::notify::app_notify;
+use crate::notify::notify;
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{convert_tray_info, create_menu, create_tray};
 
@@ -40,7 +40,7 @@ use winit::{
 fn main() -> anyhow::Result<()> {
     std::panic::set_hook(Box::new(|info| {
         error!("⚠️ Panic: {info}");
-        app_notify(format!("⚠️ Panic: {info}"));
+        notify(format!("⚠️ Panic: {info}"));
     }));
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -202,7 +202,7 @@ impl ApplicationHandler<UserEvent> for App {
                         );
                     }
                     // 通知设置：静音/断开连接/重新连接/添加/删除
-                    "mute" | "disconnection" | "reconnection" | "added" | "removed" => {
+                    "disconnection" | "reconnection" | "added" | "removed" => {
                         MenuHandlers::set_notify_device_change(
                             &config,
                             menu_event_id,
@@ -237,7 +237,7 @@ impl ApplicationHandler<UserEvent> for App {
                     match create_menu(&config, &cuurent_devices_info) {
                         Ok(menu) => menu,
                         Err(e) => {
-                            app_notify(format!("Failed to create tray menu - {e}"));
+                            notify(format!("Failed to create tray menu - {e}"));
                             return;
                         }
                     };
