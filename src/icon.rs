@@ -12,7 +12,7 @@ use tray_icon::Icon;
 const LOGO_DATA: &[u8] = include_bytes!("../assets/logo.ico");
 
 pub fn load_app_icon() -> Result<Icon> {
-    load_icon(LOGO_DATA)
+    load_icon(LOGO_DATA).map_err(|e| anyhow!("Failed to load app icon - {e}"))
 }
 
 pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
@@ -32,13 +32,10 @@ pub fn load_battery_icon(
     bluetooth_battery: u8,
     bluetooth_status: bool,
 ) -> Result<Icon> {
-    let default_icon =
-        || load_icon(LOGO_DATA).map_err(|e| anyhow!("Failed to load app icon - {e}"));
-
     let tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap().clone();
 
     match tray_icon_source {
-        TrayIconSource::App => default_icon(),
+        TrayIconSource::App => load_app_icon(),
         TrayIconSource::BatteryCustom { .. } => get_icon_from_custom(bluetooth_battery),
         TrayIconSource::BatteryFont {
             address: _,
