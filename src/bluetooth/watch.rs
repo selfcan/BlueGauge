@@ -7,7 +7,8 @@ use crate::{
         },
         btc::{
             get_btc_device_from_address, get_btc_info_device_frome_address, get_pnp_devices,
-            get_pnp_devices_info, watch_btc_devices_status_async,
+            get_pnp_devices_from_devices_instance_id, get_pnp_devices_info,
+            watch_btc_devices_status_async,
         },
         info::{BluetoothInfo, BluetoothType},
     },
@@ -24,7 +25,7 @@ use std::{
 };
 
 use anyhow::{Result, anyhow};
-use log::{info, warn, error};
+use log::{error, info, warn};
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice, BluetoothLEDevice},
@@ -131,23 +132,28 @@ fn watch_btc_devices_battery(
             }
         }
 
-        let original_btc_devices = bluetooth_devices_info
-            .lock()
-            .unwrap()
+        let original_btc_devices = bluetooth_devices_info.lock().unwrap().clone();
+        let original_btc_devices_instance_id = original_btc_devices
             .values()
-            .filter(|info| matches!(info.r#type, BluetoothType::Classic(_)))
-            .cloned()
+            .filter_map(|info| {
+                if let BluetoothType::Classic(id) = &info.r#type {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
             .collect::<Vec<_>>();
 
-        let pnp_devices = get_pnp_devices()?;
+        let pnp_devices =
+            get_pnp_devices_from_devices_instance_id(&original_btc_devices_instance_id)?;
         let pnp_devices_info = get_pnp_devices_info(pnp_devices)?;
 
         let mut need_update = false;
-        for btc_device in original_btc_devices.into_iter() {
+        for (btc_address, btc_device) in original_btc_devices.into_iter() {
             if restart_flag.swap(false, Ordering::Relaxed) {
                 break;
             }
-            if let Some(pnp_info) = pnp_devices_info.get(&btc_device.address) {
+            if let Some(pnp_info) = pnp_devices_info.get(&btc_address) {
                 if pnp_info.battery != btc_device.battery {
                     bluetooth_devices_info.lock().unwrap().insert(
                         pnp_info.address,
@@ -198,10 +204,7 @@ fn watch_btc_devices_status(
                     bluetooth_devices_info.lock().unwrap().get_mut(&address)
                 {
                     if update_device.status != status {
-                        info!(
-                            "BTC [{}]: Status -> {}",
-                            update_device.name, update_device.status
-                        );
+                        info!("BTC [{}]: Status -> {status}", update_device.name,);
                         update_device.status = status;
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
                     }

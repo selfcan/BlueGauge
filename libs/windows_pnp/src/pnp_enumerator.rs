@@ -73,7 +73,7 @@ use windows_sys::{
 pub enum PnpFilter<'a> {
     Contains(&'a [String]),
     StartWith(String),
-    Eq(String),
+    Equal(&'a [String]),
 }
 
 pub struct PnpEnumerator {
@@ -248,7 +248,7 @@ impl PnpEnumerator {
                 if let Some(ref pnp_filter) = filter {
                     match pnp_filter {
                         PnpFilter::Contains(ids) => {
-                            if !ids.into_iter().all(|id| device_instance_id.to_uppercase().contains(&id.to_uppercase())) {
+                            if !ids.iter().all(|id| device_instance_id.contains(id)) {
                                 continue;
                             }
                         },
@@ -257,8 +257,8 @@ impl PnpEnumerator {
                                 continue;
                             }
                         },
-                        PnpFilter::Eq(id) => {
-                            if device_instance_id != *id {
+                        PnpFilter::Equal(ids) => {
+                            if !ids.iter().any(|id| id == &device_instance_id) {
                                 continue;
                             }
                         },

@@ -165,6 +165,16 @@ pub fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
     .map_err(|e| anyhow!("Failed to enumerate pnp devices - {e:?}"))
 }
 
+pub fn get_pnp_devices_from_devices_instance_id(
+    devices_instance_id: &[String],
+) -> Result<Vec<PnpDeviceNodeInfo>> {
+    PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
+        GUID_DEVCLASS_SYSTEM,
+        PnpFilter::Equal(devices_instance_id),
+    )
+    .map_err(|e| anyhow!("Failed to enumerate pnp devices from devices instance id - {e:?}"))
+}
+
 pub fn get_pnp_devices_info(
     pnp_devices_node_info: Vec<PnpDeviceNodeInfo>,
 ) -> Result<HashMap<u64, PnpDeviceInfo>> {
