@@ -34,7 +34,6 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 
 - [x] Setting：Auto start
-- [x] Setting：Update interval
 - [x] Setting：Bluetooth device name aliases
 
     1. open tray menu -- `Settings` -- `Open Config`   
@@ -61,7 +60,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
     - Changing the device power location
 
 - [x] Setting: notice
-    - Mute notice
+
     - Low battery notice
     - Notification when reconnecting the device
     - Notification when disconnecting the device
@@ -88,6 +87,14 @@ Welcome contributions from developers who can help us extend support for these d
 2. **Limit Device Name Length**: Implement a character limit for device names that ensures they fit within the available space of the tray notification. This may require shortening longer names to prevent truncation.
 
 3. **Hide Disconnected Devices**: Consider not displaying disconnected devices in the tray notifications. This approach would reduce clutter and ensure that only relevant information is shown, thereby preventing text overflow.
+
+### 3. High CPU usage rate
+
+It may be related to the frequent sending of device battery information in a Bluetooth device
+
+**Solution:**:   
+
+There is no effective solution yet. You can use the latest `BlueGauge.Debug` version to exclude and disconnect related devices.   
 
 ## Other Bluetooth battery display software
 

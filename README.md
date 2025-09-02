@@ -34,10 +34,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
             - 不跟随系统主题：在 `assets` 文件夹中添加 `0.png` 至 `100.png` 照片  
         2. 重新启动 BlueGauge
 
-- [x] 设置：开机自启动
-- [x] 设置：更新信息间隔时间    
-
-    默认60s更新一次所有设备信息    
+- [x] 设置：开机自启动 
 
 - [x] 设置：蓝牙设备名称别名
 
@@ -65,7 +62,6 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 - [x] 设置：通知
 
-    - 静音通知
     - 低电量时通知
     - 重新连接时通知
     - 断开连接时通知
@@ -97,6 +93,12 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 2. **限制设备名称长度**：对设备名称的字符长度进行限制，确保其在托盘通知区域内完整显示。
 
 3. **隐藏未连接的设备**：对于未连接的设备，可以考虑不在托盘通知中显示，从而减少杂乱，避免文本溢出。
+
+### 3. CPU使用率高
+
+可能与某蓝牙设备频繁发送设备电量信息有关
+
+- **解决方案：**: 暂无有效解决办法，可使用最新 `BlueGauge.Debug` 版本排除并断开相关设备连接。
 
 ## 其他蓝牙电量软件
 
