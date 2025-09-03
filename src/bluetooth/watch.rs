@@ -36,8 +36,10 @@ use windows::{
 };
 use winit::event_loop::EventLoopProxy;
 
+type WatchHandle = (JoinHandle<Result<(), anyhow::Error>>, &'static str);
+
 pub struct Watcher {
-    watch_handles: Option<[(JoinHandle<Result<(), anyhow::Error>>, &'static str); 4]>,
+    watch_handles: Option<[WatchHandle; 4]>,
     exit_flag: Arc<AtomicBool>,
     restart_flag: Arc<AtomicBool>,
 }
@@ -99,7 +101,7 @@ fn watch_loop(
     proxy: EventLoopProxy<UserEvent>,
     exit_flag: Arc<AtomicBool>,
     restart_flag: Arc<AtomicBool>,
-) -> [(JoinHandle<Result<(), anyhow::Error>>, &'static str); 4] {
+) -> [WatchHandle; 4] {
     info!("The watch thread is started.");
 
     let watch_btc_battery_handle = spawn_watch!(watch_btc_devices_battery, bluetooth_devices_info, exit_flag, restart_flag, proxy);
@@ -222,6 +224,8 @@ fn watch_btc_devices_status(
                         let _ = proxy.send_event(UserEvent::Notify(notify_event));
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
                     }
+                } else {
+                    warn!("The BTC with address {address} is not found in the devices info.");
                 }
             }
             Err(e) => return Err(anyhow!("BTC devices status watch failed: {e}")),
