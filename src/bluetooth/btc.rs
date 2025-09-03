@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 
@@ -215,7 +215,8 @@ pub fn get_pnp_devices_info(
 pub async fn watch_btc_devices_status_async(
     btc_devices: Vec<BluetoothDevice>,
     exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicBool>,
+    restart_flag: &Arc<AtomicUsize>,
+    local_generation: &mut usize,
 ) -> Result<Option<(u64, bool)>> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
 
@@ -260,10 +261,14 @@ pub async fn watch_btc_devices_status_async(
                     info!("Watch BTC Status was cancelled by exit flag.");
                     break;
                 }
-                if restart_flag.swap(false, Ordering::Relaxed) {
+
+                let current_generation = restart_flag.load(Ordering::Relaxed);
+                if *local_generation < current_generation {
                     info!("Watch BTC Status restart by restart flag.");
+                    *local_generation = current_generation;
                     break;
                 }
+
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         } => Ok(None)

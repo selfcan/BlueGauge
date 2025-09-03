@@ -19,7 +19,7 @@ use std::{
     collections::hash_map::Entry,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     thread::JoinHandle,
 };
@@ -41,7 +41,7 @@ type WatchHandle = (JoinHandle<Result<(), anyhow::Error>>, &'static str);
 pub struct Watcher {
     watch_handles: Option<[WatchHandle; 4]>,
     exit_flag: Arc<AtomicBool>,
-    restart_flag: Arc<AtomicBool>,
+    restart_flag: Arc<AtomicUsize>,
 }
 
 impl Watcher {
@@ -49,7 +49,7 @@ impl Watcher {
         info!("Starting the watch thread...");
 
         let exit_flag = Arc::new(AtomicBool::new(false));
-        let restart_flag = Arc::new(AtomicBool::new(false));
+        let restart_flag = Arc::new(AtomicUsize::new(0));
 
         let thread_exit_flag = Arc::clone(&exit_flag);
         let thread_restart_flag = Arc::clone(&restart_flag);
@@ -66,8 +66,8 @@ impl Watcher {
         if let Some(handles) = self.watch_handles.take() {
             info!("Stopping the watch thread...");
 
-            self.restart_flag.store(false, Ordering::Relaxed);
             self.exit_flag.store(true, Ordering::Relaxed);
+            self.restart_flag.store(0, Ordering::Relaxed);
 
             handles
                 .into_iter()
@@ -100,7 +100,7 @@ fn watch_loop(
     bluetooth_devices_info: BluetoothDevicesInfo,
     proxy: EventLoopProxy<UserEvent>,
     exit_flag: Arc<AtomicBool>,
-    restart_flag: Arc<AtomicBool>,
+    restart_flag: Arc<AtomicUsize>,
 ) -> [WatchHandle; 4] {
     info!("The watch thread is started.");
 
@@ -120,16 +120,22 @@ fn watch_loop(
 fn watch_btc_devices_battery(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicBool>,
+    restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 ) -> Result<()> {
+    let mut local_generation = 0;
+
     while !exit_flag.load(Ordering::Relaxed) {
         for _ in 0..30 {
             std::thread::sleep(std::time::Duration::from_secs(1));
+
             if exit_flag.load(Ordering::Relaxed) {
                 return Ok(());
             }
-            if restart_flag.swap(false, Ordering::Relaxed) {
+
+            let current_generation = restart_flag.load(Ordering::Relaxed);
+            if local_generation < current_generation {
+                local_generation = current_generation;
                 break;
             }
         }
@@ -152,9 +158,13 @@ fn watch_btc_devices_battery(
 
         let mut need_update = false;
         for (btc_address, btc_device) in original_btc_devices.into_iter() {
-            if restart_flag.swap(false, Ordering::Relaxed) {
+            // 刷新时退出循环
+            let current_generation = restart_flag.load(Ordering::Relaxed);
+            if local_generation < current_generation {
+                local_generation = current_generation;
                 break;
             }
+
             if let Some(pnp_info) = pnp_devices_info.get(&btc_address) {
                 let pnp_battery = pnp_info.battery;
                 if pnp_battery != btc_device.battery {
@@ -188,9 +198,11 @@ fn watch_btc_devices_battery(
 fn watch_btc_devices_status(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicBool>,
+    restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 ) -> Result<()> {
+    let mut local_generation = 0;
+
     while !exit_flag.load(Ordering::Relaxed) {
         let btc_devices = bluetooth_devices_info
             .lock()
@@ -208,6 +220,7 @@ fn watch_btc_devices_status(
             btc_devices,
             exit_flag,
             restart_flag,
+            &mut local_generation,
         )) {
             Ok(Some((address, status))) => {
                 if let Some(update_device) =
@@ -239,9 +252,11 @@ fn watch_btc_devices_status(
 fn watch_ble_devices(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicBool>,
+    restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 ) -> Result<()> {
+    let mut local_generation = 0;
+
     while !exit_flag.load(Ordering::Relaxed) {
         let ble_devices = bluetooth_devices_info
             .lock()
@@ -260,6 +275,7 @@ fn watch_ble_devices(
             ble_devices,
             exit_flag,
             restart_flag,
+            &mut local_generation,
         )) {
             Ok(Some(update)) => {
                 let mut devices = bluetooth_devices_info.lock().unwrap();
@@ -383,7 +399,7 @@ macro_rules! create_handler {
 fn watch_bt_presence(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicBool>,
+    restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 ) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
@@ -399,7 +415,7 @@ fn watch_bt_presence(
 async fn watch_bt_presence_async(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicBool>,
+    restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 ) -> Result<()> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
@@ -448,7 +464,9 @@ async fn watch_bt_presence_async(
             maybe_update = rx.recv() => {
                 if let Some((info, presence)) = maybe_update {
                     let update_event = |presence: BluetoothPresence, name: String| {
-                        restart_flag.store(true, Ordering::Relaxed);
+                        // 所有监听重启
+                        restart_flag.fetch_add(1, Ordering::Relaxed);
+                        // 更新托盘内容
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
                         // 因Watcher无Config，需传递给有通知的设置的APP结构体
                         match presence {
