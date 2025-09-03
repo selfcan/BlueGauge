@@ -137,7 +137,7 @@ pub fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
 }
 
 #[derive(Debug)]
-pub enum BluetoothLEDeviceUpdate {
+pub enum BluetoothLEUpdate {
     BatteryLevel(/* Address */ u64, u8),
     ConnectionStatus(/* Address */ u64, bool),
 }
@@ -146,7 +146,7 @@ pub async fn watch_ble_devices_async(
     ble_devices: Vec<BluetoothLEDevice>,
     exit_flag: &Arc<AtomicBool>,
     restart_flag: &Arc<AtomicBool>,
-) -> Result<Option<BluetoothLEDeviceUpdate>> {
+) -> Result<Option<BluetoothLEUpdate>> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
 
     let mut guard = scopeguard::guard(
@@ -178,7 +178,7 @@ pub async fn watch_ble_devices_async(
                         let status =
                             ble.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
                         let _ = tx_status
-                            .try_send(BluetoothLEDeviceUpdate::ConnectionStatus(address, status));
+                            .try_send(BluetoothLEUpdate::ConnectionStatus(address, status));
                     }
                     Ok(())
                 },
@@ -195,7 +195,7 @@ pub async fn watch_ble_devices_async(
                         let reader = DataReader::FromBuffer(&value)?;
                         let battery = reader.ReadByte()?;
                         let _ = tx_battery
-                            .try_send(BluetoothLEDeviceUpdate::BatteryLevel(address, battery));
+                            .try_send(BluetoothLEUpdate::BatteryLevel(address, battery));
                     }
                     Ok(())
                 },
