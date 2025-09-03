@@ -94,14 +94,15 @@ impl CreateMenuItem {
     fn notify_low_battery(
         low_battery: u8,
         tray_check_menus: &mut Vec<CheckMenuItem>,
-    ) -> [CheckMenuItem; 6] {
+    ) -> [CheckMenuItem; 7] {
         let menu_low_battery = [
             CheckMenuItem::with_id("0.01", "1%", true, low_battery == 0, None),
             CheckMenuItem::with_id("0.05", "5%", true, low_battery == 5, None),
-            CheckMenuItem::with_id("0.1", "10%", true, low_battery == 10, None),
+            CheckMenuItem::with_id("0.10", "10%", true, low_battery == 10, None),
             CheckMenuItem::with_id("0.15", "15%", true, low_battery == 15, None),
-            CheckMenuItem::with_id("0.2", "20%", true, low_battery == 20, None),
+            CheckMenuItem::with_id("0.20", "20%", true, low_battery == 20, None),
             CheckMenuItem::with_id("0.25", "25%", true, low_battery == 25, None),
+            CheckMenuItem::with_id("0.30", "30%", true, low_battery == 30, None),
         ];
         tray_check_menus.extend(menu_low_battery.iter().cloned());
         menu_low_battery
