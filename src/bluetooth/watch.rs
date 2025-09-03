@@ -2,17 +2,17 @@ use crate::{
     BluetoothDevicesInfo, UserEvent,
     bluetooth::{
         ble::{
-            BluetoothLEDeviceUpdate, get_ble_device_from_address, process_ble_device,
+            BluetoothLEUpdate, get_ble_device_from_address, process_ble_device,
             watch_ble_devices_async,
         },
         btc::{
-            get_btc_device_from_address, get_btc_info_device_frome_address, get_pnp_devices,
+            get_btc_device_from_address, get_btc_info_device_frome_address,
             get_pnp_devices_from_devices_instance_id, get_pnp_devices_info,
             watch_btc_devices_status_async,
         },
         info::{BluetoothInfo, BluetoothType},
     },
-    notify::notify,
+    notify::{NotifyEvent, notify},
 };
 
 use std::{
@@ -154,15 +154,23 @@ fn watch_btc_devices_battery(
                 break;
             }
             if let Some(pnp_info) = pnp_devices_info.get(&btc_address) {
-                if pnp_info.battery != btc_device.battery {
+                let pnp_battery = pnp_info.battery;
+                if pnp_battery != btc_device.battery {
+                    let name = btc_device.name.clone();
                     bluetooth_devices_info.lock().unwrap().insert(
-                        pnp_info.address,
+                        btc_address,
                         BluetoothInfo {
-                            battery: pnp_info.battery,
+                            battery: pnp_battery,
                             ..btc_device
                         },
                     );
                     need_update = true;
+                    info!("BTC [{name}]: Battery -> {}", pnp_battery);
+                    let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                        name,
+                        pnp_battery,
+                        btc_address,
+                    )));
                 }
             }
         }
@@ -204,8 +212,14 @@ fn watch_btc_devices_status(
                     bluetooth_devices_info.lock().unwrap().get_mut(&address)
                 {
                     if update_device.status != status {
-                        info!("BTC [{}]: Status -> {status}", update_device.name,);
+                        info!("BTC [{}]: Status -> {status}", update_device.name);
                         update_device.status = status;
+                        let notify_event = if status {
+                            NotifyEvent::Reconnect(update_device.name.clone())
+                        } else {
+                            NotifyEvent::Disconnect(update_device.name.clone())
+                        };
+                        let _ = proxy.send_event(UserEvent::Notify(notify_event));
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
                     }
                 }
@@ -246,30 +260,38 @@ fn watch_ble_devices(
             Ok(Some(update)) => {
                 let mut devices = bluetooth_devices_info.lock().unwrap();
                 let need_update_ble_info = match update {
-                    BluetoothLEDeviceUpdate::BatteryLevel(address, battery) => devices
+                    BluetoothLEUpdate::BatteryLevel(address, battery) => devices
                         .get(&address)
                         .filter(|i| i.battery != battery)
                         .cloned()
                         .map(|mut info| {
+                            info!("BLE [{}]: Battery -> {battery}", info.name);
+                            let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                                info.name.clone(),
+                                battery,
+                                info.address,
+                            )));
                             info.battery = battery;
                             info
                         }),
-                    BluetoothLEDeviceUpdate::ConnectionStatus(address, status) => devices
+                    BluetoothLEUpdate::ConnectionStatus(address, status) => devices
                         .get(&address)
                         .filter(|i| i.status != status)
                         .cloned()
                         .map(|mut info| {
+                            info!("BLE [{}]: Status -> {status}", info.name);
+                            let notify_event = if status {
+                                NotifyEvent::Reconnect(info.name.clone())
+                            } else {
+                                NotifyEvent::Disconnect(info.name.clone())
+                            };
+                            let _ = proxy.send_event(UserEvent::Notify(notify_event));
                             info.status = status;
                             info
                         }),
                 };
 
                 if let Some(ble_info) = need_update_ble_info {
-                    info!(
-                        "BLE [{}]: Status -> {}, Battery -> {}",
-                        ble_info.name, ble_info.status, ble_info.battery
-                    );
-
                     devices.insert(ble_info.address, ble_info.clone());
                     drop(devices);
 
@@ -402,7 +424,7 @@ async fn watch_bt_presence_async(
     let _ = ble_watcher.Start();
 
     scopeguard::defer! {
-        println!("Release the watching of presence in the devices");
+        info!("Release the watching of presence in the devices");
         btc_tokens.into_iter().enumerate().for_each(|(index, token)| match index {
             0 => { let _ = btc_watcher.RemoveAdded(token); },
             1 => { let _ = btc_watcher.RemoveRemoved(token); },
@@ -421,35 +443,33 @@ async fn watch_bt_presence_async(
         tokio::select! {
             maybe_update = rx.recv() => {
                 if let Some((info, presence)) = maybe_update {
-                    let update_event = |presence: BluetoothPresence| {
+                    let update_event = |presence: BluetoothPresence, name: String| {
                         restart_flag.store(true, Ordering::Relaxed);
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
-                        // Watcher无通知配置，需传递有通知配置的代理的APP结构体
+                        // 因Watcher无Config，需传递给有通知的设置的APP结构体
                         match presence {
                             BluetoothPresence::Added => {
-                                // let _ = proxy.send_event(UserEvent::Notify::DeviceAdded::(info.name));
+                                info!("[{name}]: New Bluetooth Device Connected");
+                                let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::Added(name)));
                             }
                             BluetoothPresence::Removed => {
-                                // let _ = proxy.send_event(UserEvent::Notify::DeviceRemoved::(info.name));
+                                 info!("[{name}]: Bluetooth Device Removed");
+                                let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::Removed(name)));
                             }
                         }
                     };
 
                     if let Entry::Vacant(e) = bluetooth_devices_info.lock().unwrap().entry(info.address) {
-                        info!("[{}]: New Bluetooth Device Connected", info.name);
+                        let name = info.name.clone();
                         e.insert(info);
-                        update_event(presence);
+                        update_event(presence, name);
                     } else {
                         match presence {
                             BluetoothPresence::Added => (), // 原设备未被移除
                             BluetoothPresence::Removed => {
-                                let removed_info =
-                                    bluetooth_devices_info.lock().unwrap().remove(&info.address);
-                                update_event(presence);
-                                info!(
-                                    "[{}]: Bluetooth Device Removed",
-                                    removed_info.map_or("Unknown name".to_owned(), |i| i.name)
-                                );
+                                let removed_info = bluetooth_devices_info.lock().unwrap().remove(&info.address);
+                                let name = removed_info.map_or("Unknown name".to_owned(), |i| i.name);
+                                update_event(presence, name);
                             }
                         }
                     }

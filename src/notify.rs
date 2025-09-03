@@ -1,4 +1,14 @@
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
+
 use tauri_winrt_notification::*;
+
+use crate::{
+    config::Config,
+    language::{Language, Localization},
+};
 
 // HKEY_CLASSES_ROOT\AppUserModelId\Windows.SystemToast.BthQuickPair
 const BLUETOOTH_APP_ID: &str = "Windows.SystemToast.BthQuickPair";
@@ -15,9 +25,41 @@ pub fn notify(text: impl AsRef<str>) {
 
 #[derive(Debug)]
 pub enum NotifyEvent {
-    LowBattery(String, u8),
+    LowBattery(String, u8, u64),
     Added(String),
     Removed(String),
     Reconnect(String),
     Disconnect(String),
+}
+
+impl NotifyEvent {
+    pub fn send(&self, config: &Config, notifyed_devices: Arc<Mutex<HashSet<u64>>>) {
+        let language = Language::get_system_language();
+        let loc = Localization::get(language);
+
+        match self {
+            NotifyEvent::LowBattery(name, battery, address) => {
+                if *battery <= config.get_low_battery() {
+                    notifyed_devices.lock().unwrap().insert(*address);
+                    let message = format!("{name}: {} {battery}", loc.bluetooth_battery_below);
+                    notify(message);
+                } else {
+                    notifyed_devices.lock().unwrap().remove(address);
+                }
+            }
+            NotifyEvent::Added(name) if config.get_added() => {
+                notify(format!("{name}: {}", loc.new_bluetooth_device_add));
+            }
+            NotifyEvent::Removed(name) if config.get_removed() => {
+                notify(format!("{name}: {}", loc.old_bluetooth_device_removed));
+            }
+            NotifyEvent::Reconnect(name) if config.get_reconnection() => {
+                notify(format!("{name}: {}", loc.bluetooth_device_reconnected));
+            }
+            NotifyEvent::Disconnect(name) if config.get_disconnection() => {
+                notify(format!("{name}: {}", loc.bluetooth_device_disconnected));
+            }
+            _ => (),
+        }
+    }
 }

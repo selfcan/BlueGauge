@@ -17,7 +17,7 @@ use crate::bluetooth::watch::Watcher;
 use crate::config::*;
 use crate::icon::{load_app_icon, load_battery_icon};
 use crate::menu_handlers::MenuHandlers;
-use crate::notify::{notify, NotifyEvent};
+use crate::notify::{NotifyEvent, notify};
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{convert_tray_info, create_menu, create_tray};
 
@@ -72,7 +72,7 @@ struct App {
     event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
     exit_threads: Arc<AtomicBool>,
     /// 存储已经通知过的低电量设备（地址），避免再次通知
-    notified_low_battery_devices: Arc<Mutex<HashSet<u64>>>,
+    notified_devices: Arc<Mutex<HashSet<u64>>>,
     system_theme: Arc<RwLock<SystemTheme>>,
     tray: Mutex<Option<TrayIcon>>,
     tray_check_menus: Mutex<Option<Vec<CheckMenuItem>>>,
@@ -97,7 +97,7 @@ impl Default for App {
             watcher: None,
             event_loop_proxy: None,
             exit_threads: Arc::new(AtomicBool::new(false)),
-            notified_low_battery_devices: Arc::new(Mutex::new(HashSet::new())),
+            notified_devices: Arc::new(Mutex::new(HashSet::new())),
             system_theme: Arc::new(RwLock::new(SystemTheme::get())),
             tray: Mutex::new(Some(tray)),
             tray_check_menus: Mutex::new(Some(tray_check_menus)),
@@ -231,15 +231,7 @@ impl ApplicationHandler<UserEvent> for App {
                 }
             }
             UserEvent::Notify(notify_event) => {
-                match notify_event {
-                    NotifyEvent::LowBattery(name, battery) => {
-                        
-                    },
-                    NotifyEvent::Added(name) => (),
-                    NotifyEvent::Removed(name) => (),
-                    NotifyEvent::Reconnect(name) => (),
-                    NotifyEvent::Disconnect(name) => (),
-                }
+                notify_event.send(&self.config, self.notified_devices.clone())
             }
             UserEvent::UnpdatTray => {
                 let cuurent_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
