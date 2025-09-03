@@ -31,7 +31,7 @@ const DEVPKEY_Bluetooth_Battery: DEVPROPKEY = DEVPROPKEY {
 const BT_INSTANCE_ID: &str = "BTHENUM\\";
 
 pub struct PnpDeviceInfo {
-    pub address: u64,
+    // pub address: u64,
     pub battery: u8,
     pub instance_id: String,
 }
@@ -200,7 +200,7 @@ pub fn get_pnp_devices_info(
                 pnp_devices_info.insert(
                     address,
                     PnpDeviceInfo {
-                        address,
+                        // address,
                         battery,
                         instance_id: pnp_device_node_info.device_instance_id,
                     },
