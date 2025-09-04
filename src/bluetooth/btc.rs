@@ -135,18 +135,21 @@ pub fn get_btc_info_device_frome_address(
 ) -> Result<BluetoothInfo> {
     let btc_address_bytes = format!("{address:012X}");
 
-    let pnp_devices_node_info =
+    let pnp_device_node_info =
         PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
             GUID_DEVCLASS_SYSTEM,
             PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned(), btc_address_bytes]),
         )
         .map_err(|e| anyhow!("Failed to enumerate pnp device ({address}) - {e:?}"))?;
 
-    let pnp_device_info = get_pnp_devices_info(pnp_devices_node_info)?
+    if pnp_device_node_info.is_empty() {
+        return Err(anyhow!("No enumeration to PNP device ({address:012X})"));
+    }
+
+    let pnp_device_info = get_pnp_devices_info(pnp_device_node_info)
+        .map_err(|e| anyhow!("Failed to get pnp device info: {e}"))?
         .remove(&address)
-        .ok_or_else(|| {
-            anyhow!("Failed to obtain the corresponding PNP device from the BTC address")
-        })?;
+        .ok_or_else(|| anyhow!("No matching BTC info in pnp device info"))?;
 
     Ok(BluetoothInfo {
         name,

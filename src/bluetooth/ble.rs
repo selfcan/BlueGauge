@@ -71,12 +71,12 @@ pub fn process_ble_device(ble_device: &BluetoothLEDevice) -> Result<BluetoothInf
     let name = ble_device.Name()?.to_string();
 
     let battery = get_ble_battery_level(ble_device)
-        .map_err(|e| anyhow!("Failed to get '{name}'BLE Battery Level: {e}"))?;
+        .map_err(|e| anyhow!("Failed to get BLE Battery Level: {e}"))?;
 
     let status = ble_device
         .ConnectionStatus()
         .map(|status| status == BluetoothConnectionStatus::Connected)
-        .with_context(|| format!("Failed to get BLE connected status: {name}"))?;
+        .with_context(|| format!("Failed to get BLE connected status"))?;
 
     let address = ble_device.BluetoothAddress()?;
 
