@@ -41,7 +41,7 @@ pub fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
 
     let btc_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&btc_aqs_filter)?
         .get()
-        .with_context(|| "Faled to find Bluetooth Classic from all devices")?;
+        .with_context(|| "Failed to find BTC from AqsFilter")?;
 
     let btc_devices = btc_devices_info
         .into_iter()
@@ -59,13 +59,13 @@ pub fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
 pub fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice> {
     BluetoothDevice::FromBluetoothAddressAsync(address)?
         .get()
-        .map_err(|e| anyhow!("Failed to find btc ({address}) - {e}"))
+        .with_context(|| format!("Failed to find BTC device from ({address})"))
 }
 
 pub fn get_btc_devices_info(
     btc_devices: &[BluetoothDevice],
 ) -> Result<HashMap<u64, BluetoothInfo>> {
-    // 获取Pnp设备可能出错（初始化可能失败），需重试多次避开错误
+    // [!] 获取Pnp设备可能出错（初始化可能失败），需重试多次避开错误
     let pnp_devices_info = {
         let max_retries = 2;
         let mut attempts = 0;
@@ -104,7 +104,7 @@ pub fn get_btc_devices_info(
     Ok(devices_info)
 }
 
-pub fn process_btc_device(
+fn process_btc_device(
     btc_device: &BluetoothDevice,
     pnp_devices_info: &HashMap<u64, PnpDeviceInfo>,
 ) -> Result<BluetoothInfo> {
@@ -115,7 +115,7 @@ pub fn process_btc_device(
     let (pnp_instance_id, btc_battery) = pnp_devices_info
         .get(&btc_address)
         .map(|i| (i.instance_id.clone(), i.battery))
-        .ok_or_else(|| anyhow!("No matching Bluetooth Classic Device in Pnp device: {btc_name}"))?;
+        .ok_or_else(|| anyhow!("BTC [{btc_name}]: No matching BTC in Pnp devices"))?;
 
     let btc_status = btc_device.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
 
@@ -147,7 +147,7 @@ pub fn get_btc_info_device_frome_address(
     }
 
     let pnp_device_info = get_pnp_devices_info(pnp_device_node_info)
-        .map_err(|e| anyhow!("Failed to get pnp device info: {e}"))?
+        .with_context(|| "Failed to get pnp device info")?
         .remove(&address)
         .ok_or_else(|| anyhow!("No matching BTC info in pnp device info"))?;
 

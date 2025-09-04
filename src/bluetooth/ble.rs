@@ -29,7 +29,7 @@ pub fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
 
     let ble_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&ble_aqs_filter)?
         .get()
-        .with_context(|| "Faled to find Bluetooth Low Energy from all devices")?;
+        .with_context(|| "Failed to find BLE from AqsFilter")?;
 
     let ble_devices = ble_devices_info
         .into_iter()
@@ -47,7 +47,7 @@ pub fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
 pub fn get_ble_device_from_address(address: u64) -> Result<BluetoothLEDevice> {
     BluetoothLEDevice::FromBluetoothAddressAsync(address)?
         .get()
-        .map_err(|e| anyhow!("Failed to find ble ({address}) - {e}"))
+        .map_err(|e| anyhow!("Failed to find BLE from ({address}) - {e}"))
 }
 
 pub fn get_ble_devices_info(
@@ -76,7 +76,7 @@ pub fn process_ble_device(ble_device: &BluetoothLEDevice) -> Result<BluetoothInf
     let status = ble_device
         .ConnectionStatus()
         .map(|status| status == BluetoothConnectionStatus::Connected)
-        .with_context(|| format!("Failed to get BLE connected status"))?;
+        .with_context(|| "Failed to get BLE connected status")?;
 
     let address = ble_device.BluetoothAddress()?;
 
@@ -104,7 +104,7 @@ fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattChara
     let battery_gatt_service = battery_gatt_services
         .into_iter()
         .next()
-        .ok_or(anyhow!("Failed to get BLE Battery Gatt Service"))?; // 手机蓝牙无电量服务;
+        .ok_or(anyhow!("Failed to get BLE Battery Gatt Service"))?; // [*] 手机蓝牙无电量服务;
 
     let battery_gatt_chars = battery_gatt_service
         .GetCharacteristicsForUuidAsync(battery_level_uuid)?
@@ -117,12 +117,13 @@ fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattChara
         .next()
         .ok_or_else(|| anyhow!("Failed to get BLE Battery Gatt Characteristic"))?;
 
-    if battery_gatt_char.Uuid()? == battery_level_uuid {
+    let battery_gatt_char_uuid = battery_gatt_char.Uuid()?;
+
+    if battery_gatt_char_uuid == battery_level_uuid {
         Ok(battery_gatt_char)
     } else {
         Err(anyhow!(
-            "Failed to match BLE level UUID:\n{:?}:\n{battery_level_uuid:?}",
-            battery_gatt_char.Uuid()?
+            "Failed to match BLE level UUID:\n{battery_gatt_char_uuid:?}:\n{battery_level_uuid:?}"
         ))
     }
 }
@@ -133,7 +134,7 @@ pub fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
     let reader = DataReader::FromBuffer(&buffer)?;
     reader
         .ReadByte()
-        .map_err(|e| anyhow!("Failed to read byte: {e}"))
+        .map_err(|e| anyhow!("Failed to read battery byte: {e}"))
 }
 
 #[derive(Debug)]
