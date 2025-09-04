@@ -40,9 +40,10 @@ impl NotifyEvent {
         match self {
             NotifyEvent::LowBattery(name, battery, address) => {
                 if *battery <= config.get_low_battery() {
-                    notifyed_devices.lock().unwrap().insert(*address);
-                    let message = format!("{name}: {} {battery}", loc.bluetooth_battery_below);
-                    notify(message);
+                    if notifyed_devices.lock().unwrap().insert(*address) {
+                        let message = format!("{name}: {} {battery}", loc.bluetooth_battery_below);
+                        notify(message);
+                    }
                 } else {
                     notifyed_devices.lock().unwrap().remove(address);
                 }
