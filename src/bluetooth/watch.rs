@@ -135,6 +135,7 @@ fn watch_btc_devices_battery(
 
             let current_generation = restart_flag.load(Ordering::Relaxed);
             if local_generation < current_generation {
+                info!("Watch BTC Batttery restart by restart flag.");
                 local_generation = current_generation;
                 break;
             }
@@ -161,6 +162,7 @@ fn watch_btc_devices_battery(
             // 刷新时退出循环
             let current_generation = restart_flag.load(Ordering::Relaxed);
             if local_generation < current_generation {
+                info!("Watch BTC Batttery restart by restart flag.");
                 local_generation = current_generation;
                 break;
             }
