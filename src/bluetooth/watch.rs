@@ -352,27 +352,41 @@ macro_rules! create_handler {
                                     Ok(ble_info) => {
                                         let _ = handler_tx.try_send((ble_info, $presence));
                                     }
-                                    Err(e) => warn!("Failed to get BLE info: {e}"),
+                                    Err(e) => {
+                                        let name = ble_device.Name().map_or_else(
+                                            |_| "Unknown name".to_owned(),
+                                            |n| n.to_string(),
+                                        );
+                                        warn!("BLE [{name}]: Failed to get info: {e}");
+                                    }
                                 }
                             } else {
                                 let btc_device =
                                     BluetoothDevice::FromIdAsync(&info.Id()?)?.get()?;
-                                let process_ble_device = |btc_device: &BluetoothDevice| {
+                                let process_btc_device = |btc_device: &BluetoothDevice| {
                                     let btc_name = btc_device.Name()?.to_string();
                                     let btc_address = btc_device.BluetoothAddress()?;
                                     let btc_status = btc_device.ConnectionStatus()?
                                         == BluetoothConnectionStatus::Connected;
+                                    // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
+                                    std::thread::sleep(std::time::Duration::from_millis(2000));
                                     get_btc_info_device_frome_address(
                                         btc_name.clone(),
                                         btc_address,
                                         btc_status,
                                     )
                                 };
-                                match process_ble_device(&btc_device) {
+                                match process_btc_device(&btc_device) {
                                     Ok(btc_info) => {
                                         let _ = handler_tx.try_send((btc_info, $presence));
                                     }
-                                    Err(e) => warn!("Failed to get BTC info: {e}"),
+                                    Err(e) => {
+                                        let name = btc_device.Name().map_or_else(
+                                            |_| "Unknown name".to_owned(),
+                                            |n| n.to_string(),
+                                        );
+                                        warn!("BTC [{name}]: Failed to get info: {e}");
+                                    }
                                 }
                             };
                         }
