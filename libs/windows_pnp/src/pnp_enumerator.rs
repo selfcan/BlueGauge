@@ -246,19 +246,20 @@ impl PnpEnumerator {
 
                 // filter the specified instance ID device (BlueGauge)
                 if let Some(ref pnp_filter) = filter {
+                    let device_instance_id_up = device_instance_id.to_uppercase();
                     match pnp_filter {
                         PnpFilter::Contains(ids) => {
-                            if !ids.iter().all(|id| device_instance_id.contains(id)) {
+                            if !ids.iter().all(|id| device_instance_id_up.contains(&id.to_uppercase())) {
                                 continue;
                             }
                         },
                         PnpFilter::StartWith(id) => {
-                            if !device_instance_id.starts_with(id) {
+                            if !device_instance_id_up.starts_with(&id.to_uppercase()) {
                                 continue;
                             }
                         },
                         PnpFilter::Equal(ids) => {
-                            if !ids.iter().any(|id| id == &device_instance_id) {
+                            if !ids.iter().any(|id| id.to_uppercase() == device_instance_id_up) {
                                 continue;
                             }
                         },
