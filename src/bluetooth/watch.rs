@@ -1,10 +1,7 @@
 use crate::{
     BluetoothDevicesInfo, UserEvent,
     bluetooth::{
-        ble::{
-            BluetoothLEUpdate, get_ble_device_from_address, process_ble_device,
-            watch_ble_devices_async,
-        },
+        ble::{process_ble_device, watch_ble_devices_async},
         btc::{
             get_btc_device_from_address, get_btc_info_device_frome_address,
             get_pnp_devices_from_devices_instance_id, get_pnp_devices_info,
@@ -25,7 +22,7 @@ use std::{
 };
 
 use anyhow::{Result, anyhow};
-use log::{error, info, warn};
+use log::{info, warn};
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice, BluetoothLEDevice},
@@ -257,75 +254,13 @@ fn watch_ble_devices(
     restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 ) -> Result<()> {
-    let mut local_generation = 0;
-
-    while !exit_flag.load(Ordering::Relaxed) {
-        let ble_devices = bluetooth_devices_info
-            .lock()
-            .unwrap()
-            .values()
-            .cloned()
-            .filter_map(|info| {
-                (info.r#type == BluetoothType::LowEnergy)
-                    .then(|| get_ble_device_from_address(info.address).ok())
-                    .flatten()
-            })
-            .collect::<Vec<_>>();
-
-        let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
-        match runtime.block_on(watch_ble_devices_async(
-            ble_devices,
-            exit_flag,
-            restart_flag,
-            &mut local_generation,
-        )) {
-            Ok(Some(update)) => {
-                let mut devices = bluetooth_devices_info.lock().unwrap();
-                let need_update_ble_info = match update {
-                    BluetoothLEUpdate::BatteryLevel(address, battery) => devices
-                        .get(&address)
-                        .filter(|i| i.battery != battery)
-                        .cloned()
-                        .map(|mut info| {
-                            info!("BLE [{}]: Battery -> {battery}", info.name);
-                            let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
-                                info.name.clone(),
-                                battery,
-                                info.address,
-                            )));
-                            info.battery = battery;
-                            info
-                        }),
-                    BluetoothLEUpdate::ConnectionStatus(address, status) => devices
-                        .get(&address)
-                        .filter(|i| i.status != status)
-                        .cloned()
-                        .map(|mut info| {
-                            info!("BLE [{}]: Status -> {status}", info.name);
-                            let notify_event = if status {
-                                NotifyEvent::Reconnect(info.name.clone())
-                            } else {
-                                NotifyEvent::Disconnect(info.name.clone())
-                            };
-                            let _ = proxy.send_event(UserEvent::Notify(notify_event));
-                            info.status = status;
-                            info
-                        }),
-                };
-
-                if let Some(ble_info) = need_update_ble_info {
-                    devices.insert(ble_info.address, ble_info.clone());
-                    drop(devices);
-
-                    let _ = proxy.send_event(UserEvent::UnpdatTray);
-                }
-            }
-            Err(e) => error!("BLE devices watch failed: {e}"),
-            Ok(None) => (),
-        }
-    }
-
-    Ok(())
+    let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
+    runtime.block_on(watch_ble_devices_async(
+        bluetooth_devices_info.clone(),
+        exit_flag,
+        restart_flag,
+        proxy,
+    ))
 }
 
 #[derive(PartialEq, Eq)]
@@ -369,7 +304,7 @@ macro_rules! create_handler {
                                     let btc_status = btc_device.ConnectionStatus()?
                                         == BluetoothConnectionStatus::Connected;
                                     // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
-                                    std::thread::sleep(std::time::Duration::from_millis(2000));
+                                    std::thread::sleep(std::time::Duration::from_secs(2));
                                     get_btc_info_device_frome_address(
                                         btc_name.clone(),
                                         btc_address,
