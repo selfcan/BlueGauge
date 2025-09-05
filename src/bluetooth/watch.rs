@@ -3,10 +3,10 @@ use crate::{
     bluetooth::{
         ble::{process_ble_device, watch_ble_devices_async},
         btc::{
-            get_btc_info_device_frome_address, get_pnp_devices_from_devices_instance_id,
-            get_pnp_devices_info, watch_btc_devices_status_async,
+            get_btc_info_device_frome_address, watch_btc_devices_battery,
+            watch_btc_devices_status_async,
         },
-        info::{BluetoothInfo, BluetoothType},
+        info::BluetoothInfo,
     },
     notify::{NotifyEvent, notify},
 };
@@ -113,86 +113,6 @@ fn watch_loop(
         (watch_btc_status_handle, "Watch BTC Status Handle"),
         (watch_bt_presence_handle, "Watch Bluetooth presence Handle"),
     ]
-}
-
-fn watch_btc_devices_battery(
-    bluetooth_devices_info: BluetoothDevicesInfo,
-    exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicUsize>,
-    proxy: EventLoopProxy<UserEvent>,
-) -> Result<()> {
-    let mut local_generation = 0;
-
-    while !exit_flag.load(Ordering::Relaxed) {
-        for _ in 0..30 {
-            std::thread::sleep(std::time::Duration::from_secs(1));
-
-            if exit_flag.load(Ordering::Relaxed) {
-                return Ok(());
-            }
-
-            let current_generation = restart_flag.load(Ordering::Relaxed);
-            if local_generation < current_generation {
-                info!("Watch BTC Batttery restart by restart flag.");
-                local_generation = current_generation;
-                break;
-            }
-        }
-
-        let original_btc_devices = bluetooth_devices_info.lock().unwrap().clone();
-        let original_btc_devices_instance_id = original_btc_devices
-            .values()
-            .filter_map(|info| {
-                if let BluetoothType::Classic(id) = &info.r#type {
-                    Some(id.clone())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let pnp_devices =
-            get_pnp_devices_from_devices_instance_id(&original_btc_devices_instance_id)?;
-        let pnp_devices_info = get_pnp_devices_info(pnp_devices)?;
-
-        let mut need_update = false;
-        for (btc_address, btc_device) in original_btc_devices.into_iter() {
-            // 刷新时退出循环
-            let current_generation = restart_flag.load(Ordering::Relaxed);
-            if local_generation < current_generation {
-                info!("Watch BTC Batttery restart by restart flag.");
-                local_generation = current_generation;
-                break;
-            }
-
-            if let Some(pnp_info) = pnp_devices_info.get(&btc_address) {
-                let pnp_battery = pnp_info.battery;
-                if pnp_battery != btc_device.battery {
-                    let name = btc_device.name.clone();
-                    bluetooth_devices_info.lock().unwrap().insert(
-                        btc_address,
-                        BluetoothInfo {
-                            battery: pnp_battery,
-                            ..btc_device
-                        },
-                    );
-                    need_update = true;
-                    info!("BTC [{name}]: Battery -> {}", pnp_battery);
-                    let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
-                        name,
-                        pnp_battery,
-                        btc_address,
-                    )));
-                }
-            }
-        }
-
-        if need_update {
-            let _ = proxy.send_event(UserEvent::UnpdatTray);
-        }
-    }
-
-    Ok(())
 }
 
 fn watch_btc_devices_status(
@@ -417,7 +337,7 @@ async fn watch_bt_presence_async(
             maybe_update = rx.recv() => {
                 if let Some((info, presence)) = maybe_update {
                     let update_event = |presence: BluetoothPresence, name: String| {
-                        // 所有监听重启
+                        // 设备添加/移除后，所有监听增加或移除设备
                         restart_flag.fetch_add(1, Ordering::Relaxed);
                         // 更新托盘内容
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
