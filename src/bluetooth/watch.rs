@@ -3,9 +3,8 @@ use crate::{
     bluetooth::{
         ble::{process_ble_device, watch_ble_devices_async},
         btc::{
-            get_btc_device_from_address, get_btc_info_device_frome_address,
-            get_pnp_devices_from_devices_instance_id, get_pnp_devices_info,
-            watch_btc_devices_status_async,
+            get_btc_info_device_frome_address, get_pnp_devices_from_devices_instance_id,
+            get_pnp_devices_info, watch_btc_devices_status_async,
         },
         info::{BluetoothInfo, BluetoothType},
     },
@@ -200,52 +199,13 @@ fn watch_btc_devices_status(
     restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 ) -> Result<()> {
-    let mut local_generation = 0;
-
-    while !exit_flag.load(Ordering::Relaxed) {
-        let btc_devices = bluetooth_devices_info
-            .lock()
-            .unwrap()
-            .iter()
-            .filter_map(|(address, info)| {
-                matches!(info.r#type, BluetoothType::Classic(_))
-                    .then(|| get_btc_device_from_address(*address).ok())
-                    .flatten()
-            })
-            .collect::<Vec<_>>();
-
-        let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
-        match runtime.block_on(watch_btc_devices_status_async(
-            btc_devices,
-            exit_flag,
-            restart_flag,
-            &mut local_generation,
-        )) {
-            Ok(Some((address, status))) => {
-                if let Some(update_device) =
-                    bluetooth_devices_info.lock().unwrap().get_mut(&address)
-                {
-                    if update_device.status != status {
-                        info!("BTC [{}]: Status -> {status}", update_device.name);
-                        update_device.status = status;
-                        let notify_event = if status {
-                            NotifyEvent::Reconnect(update_device.name.clone())
-                        } else {
-                            NotifyEvent::Disconnect(update_device.name.clone())
-                        };
-                        let _ = proxy.send_event(UserEvent::Notify(notify_event));
-                        let _ = proxy.send_event(UserEvent::UnpdatTray);
-                    }
-                } else {
-                    warn!("The BTC with address {address} is not found in the devices info.");
-                }
-            }
-            Err(e) => return Err(anyhow!("BTC devices status watch failed: {e}")),
-            Ok(None) => (),
-        }
-    }
-
-    Ok(())
+    let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
+    runtime.block_on(watch_btc_devices_status_async(
+        bluetooth_devices_info.clone(),
+        exit_flag,
+        restart_flag,
+        proxy,
+    ))
 }
 
 fn watch_ble_devices(

@@ -1,7 +1,11 @@
-use crate::bluetooth::info::{BluetoothInfo, BluetoothType};
+use crate::{
+    BluetoothDevicesInfo, UserEvent,
+    bluetooth::info::{BluetoothInfo, BluetoothType},
+    notify::NotifyEvent,
+};
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -10,6 +14,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow};
 use log::{error, info, warn};
+use tokio::sync::mpsc::Sender;
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice},
@@ -22,6 +27,7 @@ use windows_sys::{
     Wdk::Devices::Bluetooth::DEVPKEY_Bluetooth_DeviceAddress,
     Win32::{Devices::DeviceAndDriverInstallation::GUID_DEVCLASS_SYSTEM, Foundation::DEVPROPKEY},
 };
+use winit::event_loop::EventLoopProxy;
 
 #[allow(non_upper_case_globals)]
 const DEVPKEY_Bluetooth_Battery: DEVPROPKEY = DEVPROPKEY {
@@ -215,47 +221,85 @@ pub fn get_pnp_devices_info(
     Ok(pnp_devices_info)
 }
 
+type WatchBTCGuard = (BluetoothDevice, i64);
+
+fn watch_btc_device(
+    ble_address: u64,
+    ble_device: BluetoothDevice,
+    tx: Sender<(u64, bool)>,
+) -> Result<WatchBTCGuard> {
+    let tx_status = tx.clone();
+    let connection_status_token = {
+        let handler =
+            TypedEventHandler::new(move |sender: windows::core::Ref<BluetoothDevice>, _args| {
+                if let Some(btc) = sender.as_ref() {
+                    let status = btc.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
+                    let _ = tx_status.try_send((ble_address, status));
+                }
+                Ok(())
+            });
+        ble_device.ConnectionStatusChanged(&handler)?
+    };
+
+    Ok((ble_device, connection_status_token))
+}
+
 pub async fn watch_btc_devices_status_async(
-    btc_devices: Vec<BluetoothDevice>,
+    bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
     restart_flag: &Arc<AtomicUsize>,
-    local_generation: &mut usize,
-) -> Result<Option<(u64, bool)>> {
+    proxy: EventLoopProxy<UserEvent>,
+) -> Result<()> {
+    let mut local_generation = 0;
+
+    let mut original_btc_devices_address = HashSet::new();
+
+    let btc_devices = bluetooth_devices_info
+        .lock()
+        .unwrap()
+        .iter()
+        .filter_map(|(&address, info)| {
+            matches!(info.r#type, BluetoothType::Classic(_))
+                .then(|| get_btc_device_from_address(address).ok())
+                .flatten()
+                .map(|btc_device| (address, btc_device))
+        })
+        .collect::<Vec<_>>();
+
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
 
-    let mut guard = scopeguard::guard(Vec::<(BluetoothDevice, _)>::new(), |v| {
-        for (device, connection_status_token) in v {
+    let mut guard = scopeguard::guard(HashMap::<u64, WatchBTCGuard>::new(), |map| {
+        for (device, connection_status_token) in map.into_values() {
             let _ = device.RemoveConnectionStatusChanged(connection_status_token);
         }
     });
 
-    for btc_device in btc_devices {
-        let address = btc_device.BluetoothAddress()?;
+    for (address, btc_device) in btc_devices {
+        let watch_btc_guard = watch_btc_device(address, btc_device, tx.clone())?;
 
-        let tx_status = tx.clone();
-        let connection_status_token = {
-            let handler = TypedEventHandler::new(
-                move |sender: windows::core::Ref<BluetoothDevice>, _args| {
-                    if let Some(btc) = sender.as_ref() {
-                        let status =
-                            btc.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
-                        let _ = tx_status.try_send((address, status));
-                    }
-                    Ok(())
-                },
-            );
-            btc_device.ConnectionStatusChanged(&handler)?
-        };
-
-        guard.push((btc_device, connection_status_token));
+        guard.insert(address, watch_btc_guard);
     }
 
     tokio::select! {
         maybe_update = rx.recv() => {
-            if let Some(update) = maybe_update {
-                Ok(Some(update))
+            if let Some((address, status)) = maybe_update {
+                if let Some(update_device) = bluetooth_devices_info.lock().unwrap().get_mut(&address) {
+                    if update_device.status != status {
+                        info!("BTC [{}]: Status -> {status}", update_device.name);
+                        update_device.status = status;
+                        let notify_event = if status {
+                            NotifyEvent::Reconnect(update_device.name.clone())
+                        } else {
+                            NotifyEvent::Disconnect(update_device.name.clone())
+                        };
+                        let _ = proxy.send_event(UserEvent::Notify(notify_event));
+                        let _ = proxy.send_event(UserEvent::UnpdatTray);
+                    }
+                } else {
+                    warn!("The BTC with address {address} is not found in the devices info.");
+                }
             } else {
-                Err(anyhow!("Channel closed while watching BLE devcies"))
+                return Err(anyhow!("Channel closed while watching BTC devcies"));
             }
         },
         _ = async {
@@ -266,14 +310,48 @@ pub async fn watch_btc_devices_status_async(
                 }
 
                 let current_generation = restart_flag.load(Ordering::Relaxed);
-                if *local_generation < current_generation {
+                if local_generation < current_generation {
                     info!("Watch BTC Status restart by restart flag.");
-                    *local_generation = current_generation;
-                    break;
+                    local_generation = current_generation;
+
+                    let current_ble_devices_address = bluetooth_devices_info
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .filter(|(_, info)| matches!(info.r#type, BluetoothType::Classic(_)))
+                        .map(|(&address, _)| address)
+                        .collect::<HashSet<_>>();
+
+                    let removed_devices = original_btc_devices_address
+                        .difference(&current_ble_devices_address)
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    let added_devices = current_ble_devices_address
+                        .difference(&original_btc_devices_address)
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    for removed_device in removed_devices {
+                        guard.remove(&removed_device);
+                        original_btc_devices_address.remove(&removed_device);
+                    }
+
+                    for added_device_address in added_devices {
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        let ble_device = get_btc_device_from_address(added_device_address)
+                            .expect("Failed to get BLE Device from address");
+                        let watch_ble_guard = watch_btc_device(added_device_address, ble_device, tx.clone())
+                            .expect("Failed to watch BLE Device");
+                        guard.insert(added_device_address, watch_ble_guard);
+                        original_btc_devices_address.insert(added_device_address);
+                    }
                 }
 
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
-        } => Ok(None)
+        } => return Ok(()),
     }
+
+    Ok(())
 }
