@@ -20,12 +20,14 @@ use std::{
     thread::JoinHandle,
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
 use log::{info, warn};
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice, BluetoothLEDevice},
-        Enumeration::{DeviceInformation, DeviceInformationUpdate, DeviceWatcher},
+        Enumeration::{
+            DeviceInformation, DeviceInformationUpdate, DeviceWatcher, DeviceWatcherStatus,
+        },
     },
     Foundation::TypedEventHandler,
     core::Ref,
@@ -322,6 +324,44 @@ fn watch_bt_presence(
     ))
 }
 
+fn start_bt_watch(device_watcher: &DeviceWatcher) -> Result<()> {
+    let status = device_watcher.Status()?;
+
+    if matches!(
+        status,
+        DeviceWatcherStatus::Aborted | DeviceWatcherStatus::Created | DeviceWatcherStatus::Stopped
+    ) {
+        device_watcher
+            .Start()
+            .with_context(|| "Failed to start watch for the DeviceWatcher")
+    } else {
+        Err(anyhow!(
+            "DeviceWatcher is already started or starting, current status: {:?}",
+            status
+        ))
+    }
+}
+
+fn stop_bt_watch(device_watcher: &DeviceWatcher) -> Result<()> {
+    let status = device_watcher.Status()?;
+
+    if matches!(
+        status,
+        DeviceWatcherStatus::Aborted
+            | DeviceWatcherStatus::EnumerationCompleted
+            | DeviceWatcherStatus::Started
+    ) {
+        device_watcher
+            .Stop()
+            .with_context(|| "Failed to stop watch for the DeviceWatcher")
+    } else {
+        Err(anyhow!(
+            "DeviceWatcher is already stoped or stoping, current status: {:?}",
+            status
+        ))
+    }
+}
+
 #[rustfmt::skip]
 async fn watch_bt_presence_async(
     bluetooth_devices_info: BluetoothDevicesInfo,
@@ -351,11 +391,12 @@ async fn watch_bt_presence_async(
         [ble_watch_added_token, ble_watch_removed_token]
     };
 
-    let _ = btc_watcher.Start();
-    let _ = ble_watcher.Start();
+    start_bt_watch(&btc_watcher)?;
+    start_bt_watch(&ble_watcher)?;
 
     scopeguard::defer! {
         info!("Release the watching of presence in the devices");
+
         btc_tokens.into_iter().enumerate().for_each(|(index, token)| match index {
             0 => { let _ = btc_watcher.RemoveAdded(token); },
             1 => { let _ = btc_watcher.RemoveRemoved(token); },
@@ -366,8 +407,9 @@ async fn watch_bt_presence_async(
             1 => { let _ = ble_watcher.RemoveRemoved(token); },
             _ => ()
         });
-        let _ = btc_watcher.Stop();
-        let _ = ble_watcher.Stop();
+
+        let _ = stop_bt_watch(&btc_watcher);
+        let _ = stop_bt_watch(&ble_watcher);
     }
 
     while !exit_flag.load(Ordering::Relaxed) {
