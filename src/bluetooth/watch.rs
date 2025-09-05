@@ -164,7 +164,7 @@ macro_rules! create_handler {
                         BluetoothPresence::Added => {
                             if $is_ble {
                                 let ble_device =
-                                    BluetoothLEDevice::FromIdAsync(&info.Id()?)?.get()?;
+                                    BluetoothLEDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
                                 match process_ble_device(&ble_device) {
                                     Ok(ble_info) => {
                                         let _ = handler_tx.try_send((ble_info, $presence));
@@ -179,7 +179,7 @@ macro_rules! create_handler {
                                 }
                             } else {
                                 let btc_device =
-                                    BluetoothDevice::FromIdAsync(&info.Id()?)?.get()?;
+                                    BluetoothDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
                                 let process_btc_device = |btc_device: &BluetoothDevice| {
                                     let btc_name = btc_device.Name()?.to_string();
                                     let btc_address = btc_device.BluetoothAddress()?;
@@ -209,10 +209,10 @@ macro_rules! create_handler {
                         }
                         BluetoothPresence::Removed => {
                             let remove_device_address = if $is_ble {
-                                let device = BluetoothLEDevice::FromIdAsync(&info.Id()?)?.get()?;
+                                let device = BluetoothLEDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
                                 device.BluetoothAddress()?
                             } else {
-                                let device = BluetoothDevice::FromIdAsync(&info.Id()?)?.get()?;
+                                let device = BluetoothDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
                                 device.BluetoothAddress()?
                             };
                             let remove_device_info = BluetoothInfo {

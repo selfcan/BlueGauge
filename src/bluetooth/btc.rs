@@ -46,7 +46,7 @@ pub fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
     let btc_aqs_filter = BluetoothDevice::GetDeviceSelectorFromPairingState(true)?;
 
     let btc_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&btc_aqs_filter)?
-        .get()
+        .GetResults()
         .with_context(|| "Failed to find BTC from AqsFilter")?;
 
     let btc_devices = btc_devices_info
@@ -54,7 +54,7 @@ pub fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
         .filter_map(|device_info| {
             BluetoothDevice::FromIdAsync(&device_info.Id().ok()?)
                 .ok()?
-                .get()
+                .GetResults()
                 .ok()
         })
         .collect::<Vec<_>>();
@@ -64,7 +64,7 @@ pub fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
 
 pub fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice> {
     BluetoothDevice::FromBluetoothAddressAsync(address)?
-        .get()
+        .GetResults()
         .with_context(|| format!("Failed to find BTC device from ({address})"))
 }
 

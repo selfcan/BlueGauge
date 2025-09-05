@@ -1,6 +1,6 @@
 [package]
 name = "BlueGauge"
-version = "0.2.7"
+version = "0.3.0"
 edition = "2024"
 authors = ["iKineticate <https://github.com/iKineticate>"]
 repository = "https://github.com/iKineticate/BlueGauge"
@@ -22,11 +22,10 @@ winit = "0.30"
 winreg = "0.55"
 
 [dependencies.windows]
-version = "0.61"
+version = "0.62"
 features = [
     "Devices_Bluetooth",
     "Devices_Bluetooth_GenericAttributeProfile",
-    "deprecated",
     "Devices_Enumeration",
     "Foundation_Collections",
     "Storage_Streams",
@@ -34,7 +33,7 @@ features = [
 ]
 
 [dependencies.windows-sys]
-version = "0.60"
+version = "0.61"
 features = [
     "Win32_Devices_Properties",
     "Win32_Devices_DeviceAndDriverInstallation",
@@ -42,7 +41,7 @@ features = [
 ]
 
 [dev-dependencies.windows]
-version = "0.61"
+version = "0.62"
 features = [
     "Win32_Devices_Bluetooth",
     "Devices_Bluetooth_Rfcomm",

@@ -14,11 +14,11 @@ use windows_sys::Win32::{
 fn ble() -> Result<()> {
     let ble_aqs_filter = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true)?;
     let ble_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&ble_aqs_filter)?
-        .get()
+        .GetResults()
         .with_context(|| "Faled to find Bluetooth Low Energy from all devices")?;
     for ble_device_info in ble_devices_info {
         let id = ble_device_info.Id()?;
-        let ble = BluetoothLEDevice::FromIdAsync(&id)?.get()?;
+        let ble = BluetoothLEDevice::FromIdAsync(&id)?.GetResults()?;
 
         // 961：键盘
         // 962：鼠标
@@ -41,13 +41,13 @@ fn ble() -> Result<()> {
 #[test]
 fn btc() -> Result<()> {
     let btc_aqs_filter = BluetoothDevice::GetDeviceSelectorFromPairingState(true)?;
-    let btc_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&btc_aqs_filter)?.get()?;
+    let btc_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&btc_aqs_filter)?.GetResults()?;
 
     fn rfcomm_test(btc: BluetoothDevice) -> Result<()> {
         use windows::Networking::Sockets::StreamSocket;
         use windows::Storage::Streams::DataReader;
 
-        let rfcomm_services = btc.GetRfcommServicesAsync()?.get()?;
+        let rfcomm_services = btc.GetRfcommServicesAsync()?.GetResults()?;
         let services = rfcomm_services.Services()?;
         let socket = StreamSocket::new()?;
 
@@ -57,7 +57,7 @@ fn btc() -> Result<()> {
                     &service.ConnectionHostName()?,
                     &service.ConnectionServiceName()?,
                 )?
-                .get()
+                .GetResults()
             {
                 println!("Err: {e:?}");
                 continue;
@@ -74,7 +74,7 @@ fn btc() -> Result<()> {
 
     for btc_device_info in btc_devices_info {
         let id = btc_device_info.Id()?;
-        let btc = BluetoothDevice::FromIdAsync(&id)?.get()?;
+        let btc = BluetoothDevice::FromIdAsync(&id)?.GetResults()?;
         let status = btc.ConnectionStatus()?.0;
 
         if status == 0 {

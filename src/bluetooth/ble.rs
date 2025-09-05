@@ -13,7 +13,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow};
-use log::{error, info};
+use log::{warn, info};
 use tokio::sync::mpsc::Sender;
 use windows::{
     Devices::Bluetooth::{
@@ -34,7 +34,7 @@ pub fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
     let ble_aqs_filter = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true)?;
 
     let ble_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&ble_aqs_filter)?
-        .get()
+        .GetResults()
         .with_context(|| "Failed to find BLE from AqsFilter")?;
 
     let ble_devices = ble_devices_info
@@ -42,7 +42,7 @@ pub fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
         .filter_map(|device_info| {
             BluetoothLEDevice::FromIdAsync(&device_info.Id().ok()?)
                 .ok()?
-                .get()
+                .GetResults()
                 .ok()
         })
         .collect::<Vec<_>>();
@@ -52,7 +52,7 @@ pub fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
 
 pub fn get_ble_device_from_address(address: u64) -> Result<BluetoothLEDevice> {
     BluetoothLEDevice::FromBluetoothAddressAsync(address)?
-        .get()
+        .GetResults()
         .map_err(|e| anyhow!("Failed to find BLE from ({address}) - {e}"))
 }
 
@@ -67,7 +67,7 @@ pub fn get_ble_devices_info(
         Ok(i) => {
             devices_info.insert(i.address, i);
         }
-        Err(e) => error!("{e}"),
+        Err(e) => warn!("{e}"),
     });
 
     Ok(devices_info)
@@ -114,7 +114,7 @@ fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattChara
 
     let battery_gatt_chars = battery_gatt_service
         .GetCharacteristicsForUuidAsync(battery_level_uuid)?
-        .get()?
+        .GetResults()?
         .Characteristics()
         .map_err(|e| anyhow!("Failed to get BLE Battery Gatt Characteristics: {e}"))?;
 
@@ -136,7 +136,7 @@ fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattChara
 
 pub fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
     let battery_gatt_char = get_ble_battery_gatt_char(ble_device)?;
-    let buffer = battery_gatt_char.ReadValueAsync()?.get()?.Value()?;
+    let buffer = battery_gatt_char.ReadValueAsync()?.GetResults()?.Value()?;
     let reader = DataReader::FromBuffer(&buffer)?;
     reader
         .ReadByte()

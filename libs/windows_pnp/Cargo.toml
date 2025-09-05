@@ -11,14 +11,14 @@ windows_pnp_primitives = { path = "libs/windows_pnp_primitives" }
 windows_pnp_uuid = { path = "libs/windows_pnp_uuid" }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
-version = "0.61"
+version = "0.62"
 features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Foundation",
 ]
 
 [target.'cfg(target_os = "windows")'.dependencies.windows-sys]
-version = "0.60"
+version = "0.61"
 features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Devices_Properties",
