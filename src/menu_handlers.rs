@@ -82,7 +82,8 @@ impl MenuHandlers {
         let low_battery_items: Vec<_> = tray_check_menus
             .iter()
             .filter(|item| {
-                ["0.01", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30"].contains(&item.id().as_ref())
+                ["0.01", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30"]
+                    .contains(&item.id().as_ref())
             })
             .collect();
 
