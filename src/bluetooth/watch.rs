@@ -324,7 +324,7 @@ fn watch_bt_presence(
     ))
 }
 
-fn start_bt_watch(device_watcher: &DeviceWatcher) -> Result<()> {
+fn start_bt_presence_watch(device_watcher: &DeviceWatcher) -> Result<()> {
     let status = device_watcher.Status()?;
 
     if matches!(
@@ -342,7 +342,7 @@ fn start_bt_watch(device_watcher: &DeviceWatcher) -> Result<()> {
     }
 }
 
-fn stop_bt_watch(device_watcher: &DeviceWatcher) -> Result<()> {
+fn stop_bt_presence_watch(device_watcher: &DeviceWatcher) -> Result<()> {
     let status = device_watcher.Status()?;
 
     if matches!(
@@ -391,8 +391,8 @@ async fn watch_bt_presence_async(
         [ble_watch_added_token, ble_watch_removed_token]
     };
 
-    start_bt_watch(&btc_watcher)?;
-    start_bt_watch(&ble_watcher)?;
+    start_bt_presence_watch(&btc_watcher)?;
+    start_bt_presence_watch(&ble_watcher)?;
 
     scopeguard::defer! {
         info!("Release the watching of presence in the devices");
@@ -408,8 +408,8 @@ async fn watch_bt_presence_async(
             _ => ()
         });
 
-        let _ = stop_bt_watch(&btc_watcher);
-        let _ = stop_bt_watch(&ble_watcher);
+        let _ = stop_bt_presence_watch(&btc_watcher);
+        let _ = stop_bt_presence_watch(&ble_watcher);
     }
 
     while !exit_flag.load(Ordering::Relaxed) {
