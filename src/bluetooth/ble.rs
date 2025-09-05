@@ -144,14 +144,14 @@ pub fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
 }
 
 #[derive(Debug)]
-pub enum BluetoothLEUpdate {
+enum BluetoothLEUpdate {
     BatteryLevel(/* Address */ u64, u8),
     ConnectionStatus(/* Address */ u64, bool),
 }
 
 type WatchBLEGuard = (BluetoothLEDevice, GattCharacteristic, i64, i64);
 
-pub fn watch_ble_device(
+fn watch_ble_device(
     ble_address: u64,
     ble_device: BluetoothLEDevice,
     tx: Sender<BluetoothLEUpdate>,
