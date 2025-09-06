@@ -13,8 +13,9 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow};
+use futures::StreamExt;
 use log::{error, info, warn};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::{Mutex, mpsc::Sender};
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice},
@@ -37,34 +38,31 @@ const DEVPKEY_Bluetooth_Battery: DEVPROPKEY = DEVPROPKEY {
 const BT_INSTANCE_ID: &str = "BTHENUM\\";
 
 pub struct PnpDeviceInfo {
-    // pub address: u64,
     pub battery: u8,
     pub instance_id: String,
 }
 
-pub fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
+pub async fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
     let btc_aqs_filter = BluetoothDevice::GetDeviceSelectorFromPairingState(true)?;
 
     let btc_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&btc_aqs_filter)?
-        .GetResults()
+        .await
         .with_context(|| "Failed to find BTC from AqsFilter")?;
 
-    let btc_devices = btc_devices_info
-        .into_iter()
-        .filter_map(|device_info| {
-            BluetoothDevice::FromIdAsync(&device_info.Id().ok()?)
-                .ok()?
-                .GetResults()
-                .ok()
+    let btc_devices = futures::stream::iter(btc_devices_info)
+        .filter_map(|device_info| async move {
+            let device_id = device_info.Id().ok()?;
+            BluetoothDevice::FromIdAsync(&device_id).ok()?.await.ok()
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(btc_devices)
 }
 
-pub fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice> {
+pub async fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice> {
     BluetoothDevice::FromBluetoothAddressAsync(address)?
-        .GetResults()
+        .await
         .with_context(|| format!("Failed to find BTC device from ({address})"))
 }
 
@@ -221,7 +219,7 @@ pub fn get_pnp_devices_info(
     Ok(pnp_devices_info)
 }
 
-pub fn watch_btc_devices_battery(
+pub async fn watch_btc_devices_battery(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
     restart_flag: &Arc<AtomicUsize>,
@@ -332,19 +330,31 @@ pub async fn watch_btc_devices_status_async(
 ) -> Result<()> {
     let mut local_generation = 0;
 
-    let mut original_btc_devices_address = HashSet::new();
+    let original_btc_devices_address = Arc::new(Mutex::new(HashSet::new()));
 
-    let btc_devices = bluetooth_devices_info
+    let addresses_to_process = bluetooth_devices_info
         .lock()
         .unwrap()
         .iter()
-        .filter_map(|(&address, info)| {
-            matches!(info.r#type, BluetoothType::Classic(_))
-                .then(|| get_btc_device_from_address(address).ok())
-                .flatten()
-                .map(|btc_device| (address, btc_device))
-        })
+        .filter(|(_, info)| matches!(info.r#type, BluetoothType::Classic(_)))
+        .map(|(&address, _)| address)
         .collect::<Vec<_>>();
+
+    let btc_devices = futures::stream::iter(addresses_to_process)
+        .filter_map(|address| {
+            let original_btc_devices_address = original_btc_devices_address.clone();
+            async move {
+                match get_btc_device_from_address(address).await {
+                    Ok(btc_device) => {
+                        original_btc_devices_address.lock().await.insert(address);
+                        Some((address, btc_device))
+                    }
+                    Err(_) => None,
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .await;
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
 
@@ -402,29 +412,32 @@ pub async fn watch_btc_devices_status_async(
                         .map(|(&address, _)| address)
                         .collect::<HashSet<_>>();
 
-                    let removed_devices = original_btc_devices_address
+                    let original_btc_devices_address_clone = original_btc_devices_address.lock().await.clone();
+
+                    let removed_devices = original_btc_devices_address_clone
                         .difference(&current_ble_devices_address)
                         .cloned()
                         .collect::<Vec<_>>();
 
                     let added_devices = current_ble_devices_address
-                        .difference(&original_btc_devices_address)
+                        .difference(&original_btc_devices_address_clone)
                         .cloned()
                         .collect::<Vec<_>>();
 
                     for removed_device in removed_devices {
                         guard.remove(&removed_device);
-                        original_btc_devices_address.remove(&removed_device);
+                        original_btc_devices_address.lock().await.remove(&removed_device);
                     }
 
                     for added_device_address in added_devices {
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                         let ble_device = get_btc_device_from_address(added_device_address)
+                            .await
                             .expect("Failed to get BLE Device from address");
                         let watch_ble_guard = watch_btc_device_status(added_device_address, ble_device, tx.clone())
                             .expect("Failed to watch BLE Device");
                         guard.insert(added_device_address, watch_ble_guard);
-                        original_btc_devices_address.insert(added_device_address);
+                        original_btc_devices_address.lock().await.insert(added_device_address);
                     }
                 }
 

@@ -8,7 +8,7 @@ use crate::{
         },
         info::BluetoothInfo,
     },
-    notify::{NotifyEvent, notify},
+    notify::NotifyEvent,
 };
 
 use std::{
@@ -17,11 +17,11 @@ use std::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    thread::JoinHandle,
 };
 
 use anyhow::{Context, Result, anyhow};
 use log::{info, warn};
+use tokio::task::JoinHandle;
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice, BluetoothLEDevice},
@@ -30,67 +30,62 @@ use windows::{
         },
     },
     Foundation::TypedEventHandler,
-    core::Ref,
+    core::{HSTRING, Ref},
 };
 use winit::event_loop::EventLoopProxy;
 
-type WatchHandle = (JoinHandle<Result<(), anyhow::Error>>, &'static str);
+type WatchHandle = JoinHandle<Result<(), anyhow::Error>>;
 
 pub struct Watcher {
+    devices: BluetoothDevicesInfo,
     watch_handles: Option<[WatchHandle; 4]>,
     exit_flag: Arc<AtomicBool>,
     restart_flag: Arc<AtomicUsize>,
+    proxy: EventLoopProxy<UserEvent>,
 }
 
 impl Watcher {
-    pub fn start(devices: BluetoothDevicesInfo, proxy: EventLoopProxy<UserEvent>) -> Result<Self> {
-        info!("Starting the watch thread...");
-
+    pub fn new(devices: BluetoothDevicesInfo, proxy: EventLoopProxy<UserEvent>) -> Self {
         let exit_flag = Arc::new(AtomicBool::new(false));
         let restart_flag = Arc::new(AtomicUsize::new(0));
-
-        let thread_exit_flag = Arc::clone(&exit_flag);
-        let thread_restart_flag = Arc::clone(&restart_flag);
-        let watch_handles = watch_loop(devices, proxy, thread_exit_flag, thread_restart_flag);
-
-        Ok(Self {
-            watch_handles: Some(watch_handles),
+        Self {
+            devices,
+            watch_handles: None,
             exit_flag,
             restart_flag,
-        })
+            proxy,
+        }
     }
 
-    pub fn stop(mut self) {
-        if let Some(handles) = self.watch_handles.take() {
-            info!("Stopping the watch thread...");
+    pub fn start(&mut self) {
+        info!("Starting the watch thread...");
 
-            self.exit_flag.store(true, Ordering::Relaxed);
-            self.restart_flag.store(0, Ordering::Relaxed);
+        let watch_handles = watch_loop(
+            Arc::clone(&self.devices),
+            self.proxy.clone(),
+            Arc::clone(&self.exit_flag),
+            Arc::clone(&self.restart_flag),
+        );
 
-            handles
-                .into_iter()
-                .filter_map(|(handle, handle_name)| {
-                    handle
-                        .join()
-                        .expect("Failed to stop watch threads")
-                        .err()
-                        .map(|e| (handle_name, e))
-                })
-                .for_each(|(n, e)| notify(format!("An error occurred while watching {n}: {e}")));
-        }
+        self.watch_handles = Some(watch_handles);
+    }
+
+    pub fn stop(&self) {
+        info!("Stopping the watch thread...");
+        self.exit_flag.store(true, Ordering::Relaxed);
+        self.restart_flag.store(0, Ordering::Relaxed);
     }
 }
 
 macro_rules! spawn_watch {
-    ($func:expr, $info:expr, $exit_flag:expr, $restart_flag:expr, $proxy:expr) => {
-        std::thread::spawn({
-            let info = Arc::clone(&$info);
-            let exit_flag = Arc::clone(&$exit_flag);
-            let restart_flag = Arc::clone(&$restart_flag);
-            let proxy = $proxy.clone();
-            move || $func(info, &exit_flag, &restart_flag, proxy)
-        })
-    };
+    ($func:expr, $info:expr, $exit_flag:expr, $restart_flag:expr, $proxy:expr) => {{
+        let info = Arc::clone(&$info);
+        let exit_flag = Arc::clone(&$exit_flag);
+        let restart_flag = Arc::clone(&$restart_flag);
+        let proxy = $proxy.clone();
+
+        tokio::spawn(async move { $func(info, &exit_flag, &restart_flag, proxy).await })
+    }};
 }
 
 #[rustfmt::skip]
@@ -103,52 +98,86 @@ fn watch_loop(
     info!("The watch thread is started.");
 
     let watch_btc_battery_handle = spawn_watch!(watch_btc_devices_battery, bluetooth_devices_info, exit_flag, restart_flag, proxy);
-    let watch_btc_status_handle = spawn_watch!(watch_btc_devices_status, bluetooth_devices_info, exit_flag, restart_flag, proxy);
-    let watch_ble_handle = spawn_watch!(watch_ble_devices, bluetooth_devices_info, exit_flag, restart_flag, proxy);
-    let watch_bt_presence_handle = spawn_watch!(watch_bt_presence, bluetooth_devices_info, exit_flag, restart_flag, proxy);
+    let watch_btc_status_handle = spawn_watch!(watch_btc_devices_status_async, bluetooth_devices_info, exit_flag, restart_flag, proxy);
+    let watch_ble_handle = spawn_watch!(watch_ble_devices_async, bluetooth_devices_info, exit_flag, restart_flag, proxy);
+    let watch_bt_presence_handle = spawn_watch!(watch_bt_presence_async, bluetooth_devices_info, exit_flag, restart_flag, proxy);
 
     [
-        (watch_ble_handle, "Watch BLE Handle"),
-        (watch_btc_battery_handle, "Watch BTC Battery Handle"),
-        (watch_btc_status_handle, "Watch BTC Status Handle"),
-        (watch_bt_presence_handle, "Watch Bluetooth presence Handle"),
+        watch_ble_handle,
+        watch_btc_battery_handle,
+        watch_btc_status_handle,
+        watch_bt_presence_handle,
     ]
-}
-
-fn watch_btc_devices_status(
-    bluetooth_devices_info: BluetoothDevicesInfo,
-    exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicUsize>,
-    proxy: EventLoopProxy<UserEvent>,
-) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
-    runtime.block_on(watch_btc_devices_status_async(
-        bluetooth_devices_info.clone(),
-        exit_flag,
-        restart_flag,
-        proxy,
-    ))
-}
-
-fn watch_ble_devices(
-    bluetooth_devices_info: BluetoothDevicesInfo,
-    exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicUsize>,
-    proxy: EventLoopProxy<UserEvent>,
-) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
-    runtime.block_on(watch_ble_devices_async(
-        bluetooth_devices_info.clone(),
-        exit_flag,
-        restart_flag,
-        proxy,
-    ))
 }
 
 #[derive(PartialEq, Eq)]
 enum BluetoothPresence {
     Added,
     Removed,
+}
+
+async fn check_presence_async(
+    is_ble: bool,
+    presence: BluetoothPresence,
+    id: HSTRING,
+    tx: tokio::sync::mpsc::Sender<(BluetoothInfo, BluetoothPresence)>,
+) -> Result<()> {
+    match presence {
+        BluetoothPresence::Added => {
+            if is_ble {
+                let ble_device = BluetoothLEDevice::FromIdAsync(&id)?.await?;
+                match process_ble_device(&ble_device).await {
+                    Ok(ble_info) => {
+                        let _ = tx.send((ble_info, presence)).await;
+                    }
+                    Err(e) => {
+                        let name = ble_device
+                            .Name()
+                            .map_or_else(|_| "Unknown name".to_owned(), |n| n.to_string());
+                        warn!("BLE [{name}]: Failed to get info: {e}");
+                    }
+                }
+            } else {
+                let btc_device = BluetoothDevice::FromIdAsync(&id)?.await?;
+                let process_btc_device = |btc_device: &BluetoothDevice| {
+                    let btc_name = btc_device.Name()?.to_string();
+                    let btc_address = btc_device.BluetoothAddress()?;
+                    let btc_status =
+                        btc_device.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
+                    // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    get_btc_info_device_frome_address(btc_name.clone(), btc_address, btc_status)
+                };
+                match process_btc_device(&btc_device) {
+                    Ok(btc_info) => {
+                        let _ = tx.send((btc_info, presence)).await;
+                    }
+                    Err(e) => {
+                        let name = btc_device
+                            .Name()
+                            .map_or_else(|_| "Unknown name".to_owned(), |n| n.to_string());
+                        warn!("BTC [{name}]: Failed to get info: {e}");
+                    }
+                }
+            };
+        }
+        BluetoothPresence::Removed => {
+            let remove_device_address = if is_ble {
+                let device = BluetoothLEDevice::FromIdAsync(&id)?.await?;
+                device.BluetoothAddress()?
+            } else {
+                let device = BluetoothDevice::FromIdAsync(&id)?.await?;
+                device.BluetoothAddress()?
+            };
+            let remove_device_info = BluetoothInfo {
+                address: remove_device_address,
+                ..Default::default()
+            };
+            let _ = tx.send((remove_device_info, presence)).await;
+        }
+    }
+
+    Ok(())
 }
 
 macro_rules! create_handler {
@@ -160,88 +189,28 @@ macro_rules! create_handler {
         TypedEventHandler::new(
             move |_watcher: Ref<DeviceWatcher>, event_info: Ref<$arg_type>| {
                 if let Some(info) = event_info.as_ref() {
-                    match $presence {
-                        BluetoothPresence::Added => {
-                            if $is_ble {
-                                let ble_device =
-                                    BluetoothLEDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
-                                match process_ble_device(&ble_device) {
-                                    Ok(ble_info) => {
-                                        let _ = handler_tx.try_send((ble_info, $presence));
-                                    }
-                                    Err(e) => {
-                                        let name = ble_device.Name().map_or_else(
-                                            |_| "Unknown name".to_owned(),
-                                            |n| n.to_string(),
-                                        );
-                                        warn!("BLE [{name}]: Failed to get info: {e}");
-                                    }
-                                }
-                            } else {
-                                let btc_device =
-                                    BluetoothDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
-                                let process_btc_device = |btc_device: &BluetoothDevice| {
-                                    let btc_name = btc_device.Name()?.to_string();
-                                    let btc_address = btc_device.BluetoothAddress()?;
-                                    let btc_status = btc_device.ConnectionStatus()?
-                                        == BluetoothConnectionStatus::Connected;
-                                    // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
-                                    std::thread::sleep(std::time::Duration::from_secs(2));
-                                    get_btc_info_device_frome_address(
-                                        btc_name.clone(),
-                                        btc_address,
-                                        btc_status,
-                                    )
-                                };
-                                match process_btc_device(&btc_device) {
-                                    Ok(btc_info) => {
-                                        let _ = handler_tx.try_send((btc_info, $presence));
-                                    }
-                                    Err(e) => {
-                                        let name = btc_device.Name().map_or_else(
-                                            |_| "Unknown name".to_owned(),
-                                            |n| n.to_string(),
-                                        );
-                                        warn!("BTC [{name}]: Failed to get info: {e}");
-                                    }
-                                }
-                            };
-                        }
-                        BluetoothPresence::Removed => {
-                            let remove_device_address = if $is_ble {
-                                let device = BluetoothLEDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
-                                device.BluetoothAddress()?
-                            } else {
-                                let device = BluetoothDevice::FromIdAsync(&info.Id()?)?.GetResults()?;
-                                device.BluetoothAddress()?
-                            };
-                            let remove_device_info = BluetoothInfo {
-                                address: remove_device_address,
-                                ..Default::default()
-                            };
-                            let _ = handler_tx.try_send((remove_device_info, $presence));
-                        }
-                    }
+                    let rt = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .map_err(|e| -> windows::core::Error { e.into() })?;
+
+                    let id = info.Id()?;
+
+                    let result = rt.block_on(async {
+                        check_presence_async($is_ble, $presence, id, handler_tx.clone()).await
+                    });
+
+                    result.map_err(|e| {
+                        windows::core::Error::new(
+                            windows::core::HRESULT(0x80004005u32 as i32), // E_FAIL
+                            e.to_string(),
+                        )
+                    })?;
                 }
                 Ok(())
             },
         )
     }};
-}
-
-fn watch_bt_presence(
-    bluetooth_devices_info: BluetoothDevicesInfo,
-    exit_flag: &Arc<AtomicBool>,
-    restart_flag: &Arc<AtomicUsize>,
-    proxy: EventLoopProxy<UserEvent>,
-) -> Result<()> {
-    let runtime = tokio::runtime::Runtime::new().expect("Failed to create a Tokio runtime");
-    runtime.block_on(watch_bt_presence_async(
-        bluetooth_devices_info,
-        exit_flag,
-        restart_flag,
-        proxy,
-    ))
 }
 
 fn start_bt_presence_watch(device_watcher: &DeviceWatcher) -> Result<()> {
@@ -328,8 +297,8 @@ async fn watch_bt_presence_async(
             _ => ()
         });
 
-        let _ = stop_bt_presence_watch(&btc_watcher);
-        let _ = stop_bt_presence_watch(&ble_watcher);
+        stop_bt_presence_watch(&btc_watcher).unwrap();
+        stop_bt_presence_watch(&ble_watcher).unwrap();
     }
 
     while !exit_flag.load(Ordering::Relaxed) {
@@ -341,7 +310,7 @@ async fn watch_bt_presence_async(
                         restart_flag.fetch_add(1, Ordering::Relaxed);
                         // 更新托盘内容
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
-                        // 因Watcher无Config，需传递给有通知的设置的APP结构体
+                        // 因 Watcher 无 Config，需传递给有通知的设置的APP结构体
                         match presence {
                             BluetoothPresence::Added => {
                                 info!("[{name}]: New Bluetooth Device Connected");

@@ -13,8 +13,9 @@ use std::{
 };
 
 use anyhow::{Context, Result, anyhow};
-use log::{warn, info};
-use tokio::sync::mpsc::Sender;
+use futures::{StreamExt, future::join_all};
+use log::{info, warn};
+use tokio::sync::{Mutex, mpsc::Sender};
 use windows::{
     Devices::Bluetooth::{
         BluetoothConnectionStatus, BluetoothLEDevice,
@@ -30,42 +31,42 @@ use windows::{
 };
 use winit::event_loop::EventLoopProxy;
 
-pub fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
+pub async fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
     let ble_aqs_filter = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true)?;
 
     let ble_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&ble_aqs_filter)?
-        .GetResults()
+        .await
         .with_context(|| "Failed to find BLE from AqsFilter")?;
 
-    let ble_devices = ble_devices_info
-        .into_iter()
-        .filter_map(|device_info| {
-            BluetoothLEDevice::FromIdAsync(&device_info.Id().ok()?)
-                .ok()?
-                .GetResults()
-                .ok()
+    let ble_devices = futures::stream::iter(ble_devices_info)
+        .filter_map(|device_info| async move {
+            let device_id = device_info.Id().ok()?;
+            BluetoothLEDevice::FromIdAsync(&device_id).ok()?.await.ok()
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+        .await;
 
     Ok(ble_devices)
 }
 
-pub fn get_ble_device_from_address(address: u64) -> Result<BluetoothLEDevice> {
+pub async fn get_ble_device_from_address(address: u64) -> Result<BluetoothLEDevice> {
     BluetoothLEDevice::FromBluetoothAddressAsync(address)?
-        .GetResults()
+        .await
         .map_err(|e| anyhow!("Failed to find BLE from ({address}) - {e}"))
 }
 
-pub fn get_ble_devices_info(
+pub async fn get_ble_devices_info(
     ble_devices: &[BluetoothLEDevice],
 ) -> Result<HashMap<u64, BluetoothInfo>> {
     let mut devices_info: HashMap<u64, BluetoothInfo> = HashMap::new();
 
-    let results = ble_devices.iter().map(process_ble_device);
+    let futures = ble_devices.iter().map(process_ble_device);
 
-    results.for_each(|r_ble_info| match r_ble_info {
-        Ok(i) => {
-            devices_info.insert(i.address, i);
+    let results = join_all(futures).await;
+
+    results.into_iter().for_each(|result| match result {
+        Ok(info) => {
+            devices_info.insert(info.address, info);
         }
         Err(e) => warn!("{e}"),
     });
@@ -73,11 +74,8 @@ pub fn get_ble_devices_info(
     Ok(devices_info)
 }
 
-pub fn process_ble_device(ble_device: &BluetoothLEDevice) -> Result<BluetoothInfo> {
+pub async fn process_ble_device(ble_device: &BluetoothLEDevice) -> Result<BluetoothInfo> {
     let name = ble_device.Name()?.to_string();
-
-    let battery = get_ble_battery_level(ble_device)
-        .map_err(|e| anyhow!("Failed to get BLE Battery Level: {e}"))?;
 
     let status = ble_device
         .ConnectionStatus()
@@ -85,6 +83,10 @@ pub fn process_ble_device(ble_device: &BluetoothLEDevice) -> Result<BluetoothInf
         .with_context(|| "Failed to get BLE connected status")?;
 
     let address = ble_device.BluetoothAddress()?;
+
+    let battery = get_ble_battery_level(ble_device)
+        .await
+        .map_err(|e| anyhow!("Failed to get BLE Battery Level: {e}"))?;
 
     Ok(BluetoothInfo {
         name,
@@ -95,7 +97,7 @@ pub fn process_ble_device(ble_device: &BluetoothLEDevice) -> Result<BluetoothInf
     })
 }
 
-fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattCharacteristic> {
+async fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattCharacteristic> {
     // 0000180F-0000-1000-8000-00805F9B34FB
     let battery_services_uuid: GUID = GattServiceUuids::Battery()?;
     // 00002A19-0000-1000-8000-00805F9B34FB
@@ -103,7 +105,7 @@ fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattChara
 
     let battery_gatt_services = ble_device
         .GetGattServicesForUuidAsync(battery_services_uuid)?
-        .GetResults()?
+        .await?
         .Services()
         .map_err(|e| anyhow!("Failed to get BLE Battery Gatt Services: {e}"))?;
 
@@ -114,7 +116,7 @@ fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattChara
 
     let battery_gatt_chars = battery_gatt_service
         .GetCharacteristicsForUuidAsync(battery_level_uuid)?
-        .GetResults()?
+        .await?
         .Characteristics()
         .map_err(|e| anyhow!("Failed to get BLE Battery Gatt Characteristics: {e}"))?;
 
@@ -134,9 +136,9 @@ fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<GattChara
     }
 }
 
-pub fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
-    let battery_gatt_char = get_ble_battery_gatt_char(ble_device)?;
-    let buffer = battery_gatt_char.ReadValueAsync()?.GetResults()?.Value()?;
+pub async fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
+    let battery_gatt_char = get_ble_battery_gatt_char(ble_device).await?;
+    let buffer = battery_gatt_char.ReadValueAsync()?.await?.Value()?;
     let reader = DataReader::FromBuffer(&buffer)?;
     reader
         .ReadByte()
@@ -151,12 +153,12 @@ enum BluetoothLEUpdate {
 
 type WatchBLEGuard = (BluetoothLEDevice, GattCharacteristic, i64, i64);
 
-fn watch_ble_device(
+async fn watch_ble_device(
     ble_address: u64,
     ble_device: BluetoothLEDevice,
     tx: Sender<BluetoothLEUpdate>,
 ) -> Result<WatchBLEGuard> {
-    let battery_gatt_char = get_ble_battery_gatt_char(&ble_device)?;
+    let battery_gatt_char = get_ble_battery_gatt_char(&ble_device).await?;
 
     let char_properties = battery_gatt_char.CharacteristicProperties()?;
 
@@ -212,22 +214,31 @@ pub async fn watch_ble_devices_async(
 ) -> Result<()> {
     let mut local_generation = 0;
 
-    let mut original_ble_devices_address = HashSet::new();
+    let original_ble_devices_address = Arc::new(Mutex::new(HashSet::new()));
 
-    let ble_devices = bluetooth_devices_info
+    let addresses_to_process = bluetooth_devices_info
         .lock()
         .unwrap()
         .iter()
-        .filter_map(|(&address, info)| {
-            (info.r#type == BluetoothType::LowEnergy)
-                .then(|| get_ble_device_from_address(address).ok())
-                .flatten()
-                .map(|ble_device| {
-                    original_ble_devices_address.insert(address);
-                    (address, ble_device)
-                })
-        })
+        .filter(|(_, info)| info.r#type == BluetoothType::LowEnergy)
+        .map(|(&address, _)| address)
         .collect::<Vec<_>>();
+
+    let ble_devices = futures::stream::iter(addresses_to_process)
+        .filter_map(|address| {
+            let original_ble_devices_address = original_ble_devices_address.clone();
+            async move {
+                match get_ble_device_from_address(address).await {
+                    Ok(ble_device) => {
+                        original_ble_devices_address.lock().await.insert(address);
+                        Some((address, ble_device))
+                    }
+                    Err(_) => None,
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .await;
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
 
@@ -238,9 +249,16 @@ pub async fn watch_ble_devices_async(
         }
     });
 
-    for (address, ble_device) in ble_devices {
-        let watch_ble_guard = watch_ble_device(address, ble_device, tx.clone())?;
+    let tasks = ble_devices.into_iter().map(|(address, ble_device)| {
+        let tx = tx.clone();
+        async move {
+            let watch_ble_guard = watch_ble_device(address, ble_device, tx).await?;
+            Ok::<_, anyhow::Error>((address, watch_ble_guard))
+        }
+    });
 
+    for result in join_all(tasks).await {
+        let (address, watch_ble_guard) = result?;
         guard.insert(address, watch_ble_guard);
     }
 
@@ -292,6 +310,7 @@ pub async fn watch_ble_devices_async(
                 }
             },
             _ = async {
+                let original_ble_devices_address = Arc::clone(&original_ble_devices_address);
                 loop {
                     if exit_flag.load(Ordering::Relaxed) {
                         info!("Watch BLE was cancelled by exit flag.");
@@ -311,29 +330,33 @@ pub async fn watch_ble_devices_async(
                             .map(|(&address, _)| address)
                             .collect::<HashSet<_>>();
 
-                        let removed_devices = original_ble_devices_address
+                        let original_ble_devices_address_clone = original_ble_devices_address.lock().await.clone();
+
+                        let removed_devices = original_ble_devices_address_clone
                             .difference(&current_ble_devices_address)
                             .cloned()
                             .collect::<Vec<_>>();
 
                         let added_devices = current_ble_devices_address
-                            .difference(&original_ble_devices_address)
+                            .difference(&original_ble_devices_address_clone)
                             .cloned()
                             .collect::<Vec<_>>();
 
                         for removed_device in removed_devices {
                             guard.remove(&removed_device);
-                            original_ble_devices_address.remove(&removed_device);
+                            original_ble_devices_address.lock().await.remove(&removed_device);
                         }
 
                         for added_device_address in added_devices {
                             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                             let ble_device = get_ble_device_from_address(added_device_address)
+                                .await
                                 .expect("Failed to get BLE Device from address");
                             let watch_ble_guard = watch_ble_device(added_device_address, ble_device, tx.clone())
+                                .await
                                 .expect("Failed to watch BLE Device");
                             guard.insert(added_device_address, watch_ble_guard);
-                            original_ble_devices_address.insert(added_device_address);
+                            original_ble_devices_address.lock().await.insert(added_device_address);
                         }
                     }
 

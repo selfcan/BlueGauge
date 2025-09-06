@@ -37,7 +37,8 @@ use winit::{
     window::WindowId,
 };
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     std::panic::set_hook(Box::new(|info| {
         error!("⚠️ Panic: {info}");
         notify(format!("⚠️ Panic: {info}"));
@@ -54,10 +55,9 @@ fn main() -> anyhow::Result<()> {
             .expect("Failed to send MenuEvent");
     }));
 
-    let mut app = App::default();
     let proxy = event_loop.create_proxy();
+    let mut app = App::new().await;
     app.add_proxy(Some(proxy));
-
     event_loop.run_app(&mut app)?;
 
     Ok(())
@@ -79,13 +79,15 @@ struct App {
     worker_threads: Vec<std::thread::JoinHandle<()>>,
 }
 
-impl Default for App {
-    fn default() -> Self {
+impl App {
+    async fn new() -> Self {
         let config = Config::open().expect("Failed to open config");
 
-        let (btc_devices, ble_devices) =
-            find_bluetooth_devices().expect("Failed to find bluetooth devices");
+        let (btc_devices, ble_devices) = find_bluetooth_devices()
+            .await
+            .expect("Failed to find bluetooth devices");
         let bluetooth_devices_info = get_bluetooth_devices_info((&btc_devices, &ble_devices))
+            .await
             .expect("Failed to get bluetooth devices info");
 
         let (tray, tray_check_menus) =
@@ -121,15 +123,10 @@ impl App {
     }
 
     fn start_watch_device(&mut self, devices_info: BluetoothDevicesInfo) {
-        // 如果已有一个监控任务在运行，先停止它
         self.stop_watch_device();
-
-        if let Some(proxy) = &self.event_loop_proxy {
-            match Watcher::start(devices_info, proxy.clone()) {
-                Ok(watcher) => self.watcher = Some(watcher),
-                Err(e) => error!("Failed to start the bluetooth watch: {e}"),
-            }
-        }
+        let mut watch = Watcher::new(devices_info, self.event_loop_proxy.clone().unwrap());
+        watch.start();
+        self.watcher = Some(watch);
     }
 
     fn stop_watch_device(&mut self) {
@@ -140,7 +137,6 @@ impl App {
 
     fn exit(&mut self) {
         self.stop_watch_device();
-
         self.exit_threads.store(true, Ordering::Relaxed);
         self.worker_threads
             .drain(..)

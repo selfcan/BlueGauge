@@ -28,13 +28,15 @@ pub struct BluetoothInfo {
     pub r#type: BluetoothType,
 }
 
-pub fn find_bluetooth_devices() -> Result<(Vec<BluetoothDevice>, Vec<BluetoothLEDevice>)> {
-    let bt_devices = find_btc_devices()?;
-    let ble_devices = find_ble_devices()?;
-    Ok((bt_devices, ble_devices))
+pub async fn find_bluetooth_devices() -> Result<(Vec<BluetoothDevice>, Vec<BluetoothLEDevice>)> {
+    let bt_devices_futrue = find_btc_devices();
+    let ble_devices_futrue = find_ble_devices();
+
+    let (bt_devices, ble_devices) = tokio::join!(bt_devices_futrue, ble_devices_futrue);
+    Ok((bt_devices?, ble_devices?))
 }
 
-pub fn get_bluetooth_devices_info(
+pub async fn get_bluetooth_devices_info(
     bt_devices: (&[BluetoothDevice], &[BluetoothLEDevice]),
 ) -> Result<HashMap<u64, BluetoothInfo>> {
     let btc_devices = bt_devices.0;
@@ -42,7 +44,7 @@ pub fn get_bluetooth_devices_info(
     match (btc_devices.len(), ble_devices.len()) {
         (0, 0) => Err(anyhow!("No BTC and BLE devices found")),
         (0, _) => {
-            let ble_devices_result = get_ble_devices_info(ble_devices);
+            let ble_devices_result = get_ble_devices_info(ble_devices).await;
             info!("{ble_devices_result:#?}");
 
             ble_devices_result.or_else(|e| {
@@ -61,7 +63,7 @@ pub fn get_bluetooth_devices_info(
         }
         (_, _) => {
             let btc_result = get_btc_devices_info(btc_devices);
-            let ble_result = get_ble_devices_info(ble_devices);
+            let ble_result = get_ble_devices_info(ble_devices).await;
 
             info!("{btc_result:#?}");
             info!("{ble_result:#?}");

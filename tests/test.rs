@@ -10,15 +10,15 @@ use windows_sys::Win32::{
     Foundation::DEVPROPKEY,
 };
 
-#[test]
-fn ble() -> Result<()> {
+#[tokio::test]
+async fn ble_appearance() -> Result<()> {
     let ble_aqs_filter = BluetoothLEDevice::GetDeviceSelectorFromPairingState(true)?;
     let ble_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&ble_aqs_filter)?
-        .GetResults()
+        .await
         .with_context(|| "Faled to find Bluetooth Low Energy from all devices")?;
     for ble_device_info in ble_devices_info {
         let id = ble_device_info.Id()?;
-        let ble = BluetoothLEDevice::FromIdAsync(&id)?.GetResults()?;
+        let ble = BluetoothLEDevice::FromIdAsync(&id)?.await?;
 
         // 961：键盘
         // 962：鼠标
@@ -38,10 +38,11 @@ fn ble() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn btc() -> Result<()> {
+#[tokio::test]
+async fn btc() -> Result<()> {
     let btc_aqs_filter = BluetoothDevice::GetDeviceSelectorFromPairingState(true)?;
-    let btc_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&btc_aqs_filter)?.GetResults()?;
+    let btc_devices_info =
+        DeviceInformation::FindAllAsyncAqsFilter(&btc_aqs_filter)?.GetResults()?;
 
     fn rfcomm_test(btc: BluetoothDevice) -> Result<()> {
         use windows::Networking::Sockets::StreamSocket;
