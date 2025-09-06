@@ -97,9 +97,9 @@ const ZH_HANT: Localization = Localization {
 };
 
 const EN_US: Localization = Localization {
-    quit: "quit",
+    quit: "Quit",
     about: "About",
-    restart: "Restart Application",
+    restart: "Restart App",
     startup: "Launch at Startup",
     open_config: "Open Config",
     show_disconnected: "Show show_disconnected Devices",
