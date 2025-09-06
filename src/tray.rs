@@ -45,10 +45,9 @@ impl CreateMenuItem {
         MenuItem::with_id("open_config", text, true, None)
     }
 
-    fn startup(text: &str, tray_check_menus: &mut Vec<CheckMenuItem>) -> Result<CheckMenuItem> {
+    fn startup(text: &str) -> Result<CheckMenuItem> {
         let should_startup = get_startup_status()?;
         let menu_startup = CheckMenuItem::with_id("startup", text, true, should_startup, None);
-        tray_check_menus.push(menu_startup.clone());
         Ok(menu_startup)
     }
 
@@ -181,7 +180,7 @@ pub fn create_menu(
         .map(|item| item as &dyn IsMenuItem)
         .collect();
 
-    let menu_startup = &CreateMenuItem::startup(loc.startup, &mut tray_check_menus)?;
+    let menu_startup = CreateMenuItem::startup(loc.startup)?;
 
     let menu_open_config = &CreateMenuItem::open_config(loc.open_config);
 
@@ -227,7 +226,6 @@ pub fn create_menu(
     let settings_items = &[
         menu_tray_options as &dyn IsMenuItem,
         menu_notify_options as &dyn IsMenuItem,
-        menu_startup as &dyn IsMenuItem,
         menu_open_config as &dyn IsMenuItem,
     ];
     let menu_setting = Submenu::with_items(loc.settings, true, settings_items)?;
@@ -240,7 +238,13 @@ pub fn create_menu(
         .context("Failed to apped 'Separator' to Tray Menu")?;
     tray_menu
         .append(&menu_setting)
-        .context("Failed to apped 'Settings' to Tray Menu")?;
+        .context("Failed to apped 'Setting' to Tray Menu")?;
+    tray_menu
+        .append(&menu_separator)
+        .context("Failed to apped 'Separator' to Tray Menu")?;
+    tray_menu
+        .append(&menu_startup)
+        .context("Failed to apped 'Satr up' to Tray Menu")?;
     tray_menu
         .append(&menu_separator)
         .context("Failed to apped 'Separator' to Tray Menu")?;
