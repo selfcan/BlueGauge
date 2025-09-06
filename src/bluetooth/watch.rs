@@ -21,7 +21,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow};
 use log::{info, warn};
-use tokio::task::JoinHandle;
+use tokio::{sync::mpsc::Sender, task::JoinHandle};
 use windows::{
     Devices::{
         Bluetooth::{BluetoothConnectionStatus, BluetoothDevice, BluetoothLEDevice},
@@ -36,47 +36,6 @@ use winit::event_loop::EventLoopProxy;
 
 type WatchHandle = JoinHandle<Result<(), anyhow::Error>>;
 
-pub struct Watcher {
-    devices: BluetoothDevicesInfo,
-    watch_handles: Option<[WatchHandle; 4]>,
-    exit_flag: Arc<AtomicBool>,
-    restart_flag: Arc<AtomicUsize>,
-    proxy: EventLoopProxy<UserEvent>,
-}
-
-impl Watcher {
-    pub fn new(devices: BluetoothDevicesInfo, proxy: EventLoopProxy<UserEvent>) -> Self {
-        let exit_flag = Arc::new(AtomicBool::new(false));
-        let restart_flag = Arc::new(AtomicUsize::new(0));
-        Self {
-            devices,
-            watch_handles: None,
-            exit_flag,
-            restart_flag,
-            proxy,
-        }
-    }
-
-    pub fn start(&mut self) {
-        info!("Starting the watch thread...");
-
-        let watch_handles = watch_loop(
-            Arc::clone(&self.devices),
-            self.proxy.clone(),
-            Arc::clone(&self.exit_flag),
-            Arc::clone(&self.restart_flag),
-        );
-
-        self.watch_handles = Some(watch_handles);
-    }
-
-    pub fn stop(&self) {
-        info!("Stopping the watch thread...");
-        self.exit_flag.store(true, Ordering::Relaxed);
-        self.restart_flag.store(0, Ordering::Relaxed);
-    }
-}
-
 macro_rules! spawn_watch {
     ($func:expr, $info:expr, $exit_flag:expr, $restart_flag:expr, $proxy:expr) => {{
         let info = Arc::clone(&$info);
@@ -88,26 +47,60 @@ macro_rules! spawn_watch {
     }};
 }
 
-#[rustfmt::skip]
-fn watch_loop(
+pub struct Watcher {
+    watch_handles: Option<[WatchHandle; 4]>,
     bluetooth_devices_info: BluetoothDevicesInfo,
-    proxy: EventLoopProxy<UserEvent>,
     exit_flag: Arc<AtomicBool>,
     restart_flag: Arc<AtomicUsize>,
-) -> [WatchHandle; 4] {
-    info!("The watch thread is started.");
+    proxy: EventLoopProxy<UserEvent>,
+}
 
-    let watch_btc_battery_handle = spawn_watch!(watch_btc_devices_battery, bluetooth_devices_info, exit_flag, restart_flag, proxy);
-    let watch_btc_status_handle = spawn_watch!(watch_btc_devices_status_async, bluetooth_devices_info, exit_flag, restart_flag, proxy);
-    let watch_ble_handle = spawn_watch!(watch_ble_devices_async, bluetooth_devices_info, exit_flag, restart_flag, proxy);
-    let watch_bt_presence_handle = spawn_watch!(watch_bt_presence_async, bluetooth_devices_info, exit_flag, restart_flag, proxy);
+impl Watcher {
+    pub fn new(
+        bluetooth_devices_info: BluetoothDevicesInfo,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
+        let exit_flag = Arc::new(AtomicBool::new(false));
+        let restart_flag = Arc::new(AtomicUsize::new(0));
+        Self {
+            watch_handles: None,
+            bluetooth_devices_info,
+            exit_flag,
+            restart_flag,
+            proxy,
+        }
+    }
 
-    [
-        watch_ble_handle,
-        watch_btc_battery_handle,
-        watch_btc_status_handle,
-        watch_bt_presence_handle,
-    ]
+    pub fn start(&mut self) {
+        info!("Starting the watch thread...");
+
+        let watch_handles = self.watch_loop();
+
+        self.watch_handles = Some(watch_handles);
+    }
+
+    pub fn stop(&self) {
+        info!("Stopping the watch thread...");
+        self.exit_flag.store(true, Ordering::Relaxed);
+        self.restart_flag.store(0, Ordering::Relaxed);
+    }
+
+    #[rustfmt::skip]
+    fn watch_loop(&self) -> [WatchHandle; 4] {
+        info!("The watch thread is started.");
+
+        let watch_btc_battery_handle = spawn_watch!(watch_btc_devices_battery, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
+        let watch_btc_status_handle = spawn_watch!(watch_btc_devices_status_async, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
+        let watch_ble_handle = spawn_watch!(watch_ble_devices_async, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
+        let watch_bt_presence_handle = spawn_watch!(watch_bt_presence_async, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
+
+        [
+            watch_ble_handle,
+            watch_btc_battery_handle,
+            watch_btc_status_handle,
+            watch_bt_presence_handle,
+        ]
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -120,7 +113,7 @@ async fn check_presence_async(
     is_ble: bool,
     presence: BluetoothPresence,
     id: HSTRING,
-    tx: tokio::sync::mpsc::Sender<(BluetoothInfo, BluetoothPresence)>,
+    tx: Sender<(BluetoothInfo, BluetoothPresence)>,
 ) -> Result<()> {
     match presence {
         BluetoothPresence::Added => {
@@ -145,7 +138,7 @@ async fn check_presence_async(
                     let btc_status =
                         btc_device.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
                     // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
-                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    std::thread::sleep(std::time::Duration::from_secs(1));
                     get_btc_info_device_frome_address(btc_name.clone(), btc_address, btc_status)
                 };
                 match process_btc_device(&btc_device) {
@@ -181,9 +174,6 @@ async fn check_presence_async(
 }
 
 macro_rules! create_handler {
-    // $tx: 接收一个标识符，代表 channel sender
-    // $arg_type: 接收一个类型
-    // $event_flag: 接收一个表达式，代表发送的布尔值
     ($tx:ident, $arg_type:ty, $is_ble:expr, $presence:expr) => {{
         let handler_tx = $tx.clone();
         TypedEventHandler::new(
@@ -308,9 +298,9 @@ async fn watch_bt_presence_async(
                     let update_event = |presence: BluetoothPresence, name: String| {
                         // 设备添加/移除后，所有监听增加或移除设备
                         restart_flag.fetch_add(1, Ordering::Relaxed);
-                        // 更新托盘内容
+                        // 更新托盘信息
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
-                        // 因 Watcher 无 Config，需传递给有通知的设置的APP结构体
+                        // 因 Watcher 无 Config，需传递给有通知配置的 APP 结构体
                         match presence {
                             BluetoothPresence::Added => {
                                 info!("[{name}]: New Bluetooth Device Connected");

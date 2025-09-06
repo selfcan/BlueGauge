@@ -122,21 +122,21 @@ impl App {
         self
     }
 
-    fn start_watch_device(&mut self, devices_info: BluetoothDevicesInfo) {
-        self.stop_watch_device();
+    fn start_watch_devices(&mut self, devices_info: BluetoothDevicesInfo) {
+        self.stop_watch_devices();
         let mut watch = Watcher::new(devices_info, self.event_loop_proxy.clone().unwrap());
         watch.start();
         self.watcher = Some(watch);
     }
 
-    fn stop_watch_device(&mut self) {
+    fn stop_watch_devices(&mut self) {
         if let Some(watcher) = self.watcher.take() {
             watcher.stop()
         }
     }
 
     fn exit(&mut self) {
-        self.stop_watch_device();
+        self.stop_watch_devices();
         self.exit_threads.store(true, Ordering::Relaxed);
         self.worker_threads
             .drain(..)
@@ -148,7 +148,7 @@ impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
         let proxy = self.event_loop_proxy.clone().expect("Failed to get proxy");
 
-        self.start_watch_device(Arc::clone(&self.bluetooth_devcies_info));
+        self.start_watch_devices(Arc::clone(&self.bluetooth_devcies_info));
 
         let exit_threads = Arc::clone(&self.exit_threads);
         let system_theme = Arc::clone(&self.system_theme);
