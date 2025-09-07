@@ -132,7 +132,7 @@ async fn check_presence_async(
                 }
             } else {
                 let btc_device = BluetoothDevice::FromIdAsync(&id)?.await?;
-                let process_btc_device = |btc_device: &BluetoothDevice| {
+                let process_btc_device = async |btc_device: &BluetoothDevice| {
                     let btc_name = btc_device.Name()?.to_string();
                     let btc_address = btc_device.BluetoothAddress()?;
                     let btc_status =
@@ -140,8 +140,9 @@ async fn check_presence_async(
                     // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
                     std::thread::sleep(std::time::Duration::from_secs(1));
                     get_btc_info_device_frome_address(btc_name.clone(), btc_address, btc_status)
+                        .await
                 };
-                match process_btc_device(&btc_device) {
+                match process_btc_device(&btc_device).await {
                     Ok(btc_info) => {
                         let _ = tx.send((btc_info, presence)).await;
                     }

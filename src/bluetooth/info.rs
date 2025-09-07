@@ -53,7 +53,7 @@ pub async fn get_bluetooth_devices_info(
             })
         }
         (_, 0) => {
-            let btc_devices_result = get_btc_devices_info(btc_devices);
+            let btc_devices_result = get_btc_devices_info(btc_devices).await;
             info!("{btc_devices_result:#?}");
 
             btc_devices_result.or_else(|e| {
@@ -62,8 +62,10 @@ pub async fn get_bluetooth_devices_info(
             })
         }
         (_, _) => {
-            let btc_result = get_btc_devices_info(btc_devices);
-            let ble_result = get_ble_devices_info(ble_devices).await;
+            let btc_future = get_btc_devices_info(btc_devices);
+            let ble_future = get_ble_devices_info(ble_devices);
+
+            let (btc_result, ble_result) = tokio::join!(btc_future, ble_future);
 
             info!("{btc_result:#?}");
             info!("{ble_result:#?}");

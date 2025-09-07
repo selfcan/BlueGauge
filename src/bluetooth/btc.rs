@@ -66,7 +66,7 @@ pub async fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice
         .with_context(|| format!("Failed to find BTC device from ({address})"))
 }
 
-pub fn get_btc_devices_info(
+pub async fn get_btc_devices_info(
     btc_devices: &[BluetoothDevice],
 ) -> Result<HashMap<u64, BluetoothInfo>> {
     // [!] 获取Pnp设备可能出错（初始化可能失败），需重试多次避开错误
@@ -75,8 +75,8 @@ pub fn get_btc_devices_info(
         let mut attempts = 0;
 
         loop {
-            let pnp_devices = get_pnp_devices()?;
-            match get_pnp_devices_info(pnp_devices) {
+            let pnp_devices = get_pnp_devices().await?;
+            match get_pnp_devices_info(pnp_devices).await {
                 Ok(info) => break info,
                 Err(e) => {
                     attempts += 1;
@@ -88,7 +88,7 @@ pub fn get_btc_devices_info(
                     error!(
                         "Failed to get Bluetooth device information: {e}, try again after 2 seconds... (try {attempts}/{max_retries})"
                     );
-                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 }
             }
         }
@@ -132,25 +132,28 @@ fn process_btc_device(
     })
 }
 
-pub fn get_btc_info_device_frome_address(
+pub async fn get_btc_info_device_frome_address(
     name: String,
     address: u64,
     status: bool,
 ) -> Result<BluetoothInfo> {
     let btc_address_bytes = format!("{address:012X}");
 
-    let pnp_device_node_info =
+    let pnp_device_node_info = tokio::task::spawn_blocking(move || {
         PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
             GUID_DEVCLASS_SYSTEM,
             PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned(), btc_address_bytes]),
         )
-        .map_err(|e| anyhow!("Failed to enumerate pnp device ({address}) - {e:?}"))?;
+        .map_err(|e| anyhow!("Failed to enumerate pnp device ({address}) - {e:?}"))
+    })
+    .await??;
 
     if pnp_device_node_info.is_empty() {
         return Err(anyhow!("No enumeration to PNP device ({address:012X})"));
     }
 
     let pnp_device_info = get_pnp_devices_info(pnp_device_node_info)
+        .await
         .with_context(|| "Failed to get pnp device info")?
         .remove(&address)
         .ok_or_else(|| anyhow!("No matching BTC info in pnp device info"))?;
@@ -164,25 +167,31 @@ pub fn get_btc_info_device_frome_address(
     })
 }
 
-pub fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
-    PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
-        GUID_DEVCLASS_SYSTEM,
-        PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned()]),
-    )
-    .map_err(|e| anyhow!("Failed to enumerate pnp devices - {e:?}"))
+pub async fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
+    tokio::task::spawn_blocking(move || {
+        PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
+            GUID_DEVCLASS_SYSTEM,
+            PnpFilter::Contains(&[BT_INSTANCE_ID.to_owned()]),
+        )
+        .map_err(|e| anyhow!("Failed to enumerate pnp devices - {e:?}"))
+    })
+    .await?
 }
 
-pub fn get_pnp_devices_from_devices_instance_id(
-    devices_instance_id: &[String],
+pub async fn get_pnp_devices_from_devices_instance_id(
+    devices_instance_id: Vec<String>,
 ) -> Result<Vec<PnpDeviceNodeInfo>> {
-    PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
-        GUID_DEVCLASS_SYSTEM,
-        PnpFilter::Equal(devices_instance_id),
-    )
-    .map_err(|e| anyhow!("Failed to enumerate pnp devices from devices instance id - {e:?}"))
+    tokio::task::spawn_blocking(move || {
+        PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
+            GUID_DEVCLASS_SYSTEM,
+            PnpFilter::Equal(&devices_instance_id),
+        )
+        .map_err(|e| anyhow!("Failed to enumerate pnp devices from devices instance id - {e:?}"))
+    })
+    .await?
 }
 
-pub fn get_pnp_devices_info(
+pub async fn get_pnp_devices_info(
     pnp_devices_node_info: Vec<PnpDeviceNodeInfo>,
 ) -> Result<HashMap<u64, PnpDeviceInfo>> {
     let mut pnp_devices_info: HashMap<u64, PnpDeviceInfo> = HashMap::new();
@@ -229,7 +238,7 @@ pub async fn watch_btc_devices_battery(
 
     while !exit_flag.load(Ordering::Relaxed) {
         for _ in 0..30 {
-            std::thread::sleep(std::time::Duration::from_secs(1));
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
             if exit_flag.load(Ordering::Relaxed) {
                 return Ok(());
@@ -256,8 +265,8 @@ pub async fn watch_btc_devices_battery(
             .collect::<Vec<_>>();
 
         let pnp_devices =
-            get_pnp_devices_from_devices_instance_id(&original_btc_devices_instance_id)?;
-        let pnp_devices_info = get_pnp_devices_info(pnp_devices)?;
+            get_pnp_devices_from_devices_instance_id(original_btc_devices_instance_id).await?;
+        let pnp_devices_info = get_pnp_devices_info(pnp_devices).await?;
 
         let mut need_update = false;
         for (btc_address, btc_device) in original_btc_devices.into_iter() {
@@ -301,25 +310,30 @@ pub async fn watch_btc_devices_battery(
 
 type WatchBTCGuard = (BluetoothDevice, i64);
 
-fn watch_btc_device_status(
+async fn watch_btc_device_status(
     ble_address: u64,
     ble_device: BluetoothDevice,
     tx: Sender<(u64, bool)>,
 ) -> Result<WatchBTCGuard> {
-    let tx_status = tx.clone();
-    let connection_status_token = {
-        let handler =
-            TypedEventHandler::new(move |sender: windows::core::Ref<BluetoothDevice>, _args| {
-                if let Some(btc) = sender.as_ref() {
-                    let status = btc.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
-                    let _ = tx_status.try_send((ble_address, status));
-                }
-                Ok(())
-            });
-        ble_device.ConnectionStatusChanged(&handler)?
-    };
+    tokio::task::spawn_blocking(move || {
+        let tx_status = tx.clone();
+        let connection_status_token = {
+            let handler = TypedEventHandler::new(
+                move |sender: windows::core::Ref<BluetoothDevice>, _args| {
+                    if let Some(btc) = sender.as_ref() {
+                        let status =
+                            btc.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
+                        let _ = tx_status.try_send((ble_address, status));
+                    }
+                    Ok(())
+                },
+            );
+            ble_device.ConnectionStatusChanged(&handler)?
+        };
 
-    Ok((ble_device, connection_status_token))
+        Ok((ble_device, connection_status_token))
+    })
+    .await?
 }
 
 pub async fn watch_btc_devices_status_async(
@@ -365,7 +379,7 @@ pub async fn watch_btc_devices_status_async(
     });
 
     for (address, btc_device) in btc_devices {
-        let watch_btc_guard = watch_btc_device_status(address, btc_device, tx.clone())?;
+        let watch_btc_guard = watch_btc_device_status(address, btc_device, tx.clone()).await?;
 
         guard.insert(address, watch_btc_guard);
     }
@@ -435,6 +449,7 @@ pub async fn watch_btc_devices_status_async(
                             .await
                             .expect("Failed to get BLE Device from address");
                         let watch_ble_guard = watch_btc_device_status(added_device_address, ble_device, tx.clone())
+                            .await
                             .expect("Failed to watch BLE Device");
                         guard.insert(added_device_address, watch_ble_guard);
                         original_btc_devices_address.lock().await.insert(added_device_address);
