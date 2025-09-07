@@ -311,29 +311,25 @@ pub async fn watch_btc_devices_battery(
 type WatchBTCGuard = (BluetoothDevice, i64);
 
 async fn watch_btc_device_status(
-    ble_address: u64,
-    ble_device: BluetoothDevice,
+    btc_address: u64,
+    btc_device: BluetoothDevice,
     tx: Sender<(u64, bool)>,
 ) -> Result<WatchBTCGuard> {
-    tokio::task::spawn_blocking(move || {
-        let tx_status = tx.clone();
-        let connection_status_token = {
-            let handler = TypedEventHandler::new(
-                move |sender: windows::core::Ref<BluetoothDevice>, _args| {
-                    if let Some(btc) = sender.as_ref() {
-                        let status =
-                            btc.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
-                        let _ = tx_status.try_send((ble_address, status));
-                    }
-                    Ok(())
-                },
-            );
-            ble_device.ConnectionStatusChanged(&handler)?
-        };
+    let tx_status = tx.clone();
+    let connection_status_token = {
+        let handler =
+            TypedEventHandler::new(move |sender: windows::core::Ref<BluetoothDevice>, _args| {
+                println!("test");
+                if let Some(btc) = sender.as_ref() {
+                    let status = btc.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
+                    let _ = tx_status.try_send((btc_address, status));
+                }
+                Ok(())
+            });
+        btc_device.ConnectionStatusChanged(&handler)?
+    };
 
-        Ok((ble_device, connection_status_token))
-    })
-    .await?
+    Ok((btc_device, connection_status_token))
 }
 
 pub async fn watch_btc_devices_status_async(
@@ -378,87 +374,91 @@ pub async fn watch_btc_devices_status_async(
         }
     });
 
-    for (address, btc_device) in btc_devices {
-        let watch_btc_guard = watch_btc_device_status(address, btc_device, tx.clone()).await?;
+    for (btc_address, btc_device) in btc_devices {
+        let watch_btc_guard = watch_btc_device_status(btc_address, btc_device, tx.clone()).await?;
 
-        guard.insert(address, watch_btc_guard);
+        guard.insert(btc_address, watch_btc_guard);
     }
 
-    tokio::select! {
-        maybe_update = rx.recv() => {
-            if let Some((address, status)) = maybe_update {
-                if let Some(update_device) = bluetooth_devices_info.lock().unwrap().get_mut(&address) {
-                    if update_device.status != status {
-                        info!("BTC [{}]: Status -> {status}", update_device.name);
-                        update_device.status = status;
-                        let notify_event = if status {
-                            NotifyEvent::Reconnect(update_device.name.clone())
-                        } else {
-                            NotifyEvent::Disconnect(update_device.name.clone())
-                        };
-                        let _ = proxy.send_event(UserEvent::Notify(notify_event));
-                        let _ = proxy.send_event(UserEvent::UnpdatTray);
+    while !exit_flag.load(Ordering::Relaxed) {
+        tokio::select! {
+            maybe_update = rx.recv() => {
+                if let Some((address, status)) = maybe_update {
+                    let mut devices = bluetooth_devices_info.lock().unwrap();
+                    if let Some(update_device) = devices.get_mut(&address) {
+                        if update_device.status != status {
+                            info!("BTC [{}]: Status -> {status}", update_device.name);
+                            update_device.status = status;
+                            let notify_event = if status {
+                                NotifyEvent::Reconnect(update_device.name.clone())
+                            } else {
+                                NotifyEvent::Disconnect(update_device.name.clone())
+                            };
+                            drop(devices);
+                            let _ = proxy.send_event(UserEvent::Notify(notify_event));
+                            let _ = proxy.send_event(UserEvent::UnpdatTray);
+                        }
+                    } else {
+                        warn!("The BTC with address {address} is not found in the devices info.");
                     }
                 } else {
-                    warn!("The BTC with address {address} is not found in the devices info.");
+                    return Err(anyhow!("Channel closed while watching BTC devcies"));
                 }
-            } else {
-                return Err(anyhow!("Channel closed while watching BTC devcies"));
-            }
-        },
-        _ = async {
-            loop {
-                if exit_flag.load(Ordering::Relaxed) {
-                    info!("Watch BTC Status was cancelled by exit flag.");
-                    break;
-                }
-
-                let current_generation = restart_flag.load(Ordering::Relaxed);
-                if local_generation < current_generation {
-                    info!("Watch BTC Status restart by restart flag.");
-                    local_generation = current_generation;
-
-                    let current_ble_devices_address = bluetooth_devices_info
-                        .lock()
-                        .unwrap()
-                        .iter()
-                        .filter(|(_, info)| matches!(info.r#type, BluetoothType::Classic(_)))
-                        .map(|(&address, _)| address)
-                        .collect::<HashSet<_>>();
-
-                    let original_btc_devices_address_clone = original_btc_devices_address.lock().await.clone();
-
-                    let removed_devices = original_btc_devices_address_clone
-                        .difference(&current_ble_devices_address)
-                        .cloned()
-                        .collect::<Vec<_>>();
-
-                    let added_devices = current_ble_devices_address
-                        .difference(&original_btc_devices_address_clone)
-                        .cloned()
-                        .collect::<Vec<_>>();
-
-                    for removed_device in removed_devices {
-                        guard.remove(&removed_device);
-                        original_btc_devices_address.lock().await.remove(&removed_device);
+            },
+            _ = async {
+                loop {
+                    if exit_flag.load(Ordering::Relaxed) {
+                        info!("Watch BTC Status was cancelled by exit flag.");
+                        break;
                     }
 
-                    for added_device_address in added_devices {
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                        let ble_device = get_btc_device_from_address(added_device_address)
-                            .await
-                            .expect("Failed to get BLE Device from address");
-                        let watch_ble_guard = watch_btc_device_status(added_device_address, ble_device, tx.clone())
-                            .await
-                            .expect("Failed to watch BLE Device");
-                        guard.insert(added_device_address, watch_ble_guard);
-                        original_btc_devices_address.lock().await.insert(added_device_address);
-                    }
-                }
+                    let current_generation = restart_flag.load(Ordering::Relaxed);
+                    if local_generation < current_generation {
+                        info!("Watch BTC Status restart by restart flag.");
+                        local_generation = current_generation;
 
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
-        } => return Ok(()),
+                        let current_btc_devices_address = bluetooth_devices_info
+                            .lock()
+                            .unwrap()
+                            .iter()
+                            .filter(|(_, info)| matches!(info.r#type, BluetoothType::Classic(_)))
+                            .map(|(&address, _)| address)
+                            .collect::<HashSet<_>>();
+
+                        let original_btc_devices_address_clone = original_btc_devices_address.lock().await.clone();
+
+                        let removed_devices = original_btc_devices_address_clone
+                            .difference(&current_btc_devices_address)
+                            .cloned()
+                            .collect::<Vec<_>>();
+
+                        let added_devices = current_btc_devices_address
+                            .difference(&original_btc_devices_address_clone)
+                            .cloned()
+                            .collect::<Vec<_>>();
+
+                        for removed_device in removed_devices {
+                            guard.remove(&removed_device);
+                            original_btc_devices_address.lock().await.remove(&removed_device);
+                        }
+
+                        for added_device_address in added_devices {
+                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                            let btc_device = get_btc_device_from_address(added_device_address)
+                                .await
+                                .expect("Failed to get BLE Device from address");
+                            let watch_ble_guard = watch_btc_device_status(added_device_address, btc_device, tx.clone())
+                                .await
+                                .expect("Failed to watch BLE Device");
+                            guard.insert(added_device_address, watch_ble_guard);
+                            original_btc_devices_address.lock().await.insert(added_device_address);
+                        }
+                    }
+
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+            } => return Ok(()),
+        }
     }
 
     Ok(())
