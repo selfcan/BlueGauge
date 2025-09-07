@@ -249,17 +249,11 @@ pub async fn watch_ble_devices_async(
         }
     });
 
-    let tasks = ble_devices.into_iter().map(|(address, ble_device)| {
-        let tx = tx.clone();
-        async move {
-            let watch_ble_guard = watch_ble_device(address, ble_device, tx).await?;
-            Ok::<_, anyhow::Error>((address, watch_ble_guard))
-        }
-    });
+    
+    for (ble_address, ble_device) in ble_devices {
+        let watch_btc_guard = watch_ble_device(ble_address, ble_device, tx.clone()).await?;
 
-    for result in join_all(tasks).await {
-        let (address, watch_ble_guard) = result?;
-        guard.insert(address, watch_ble_guard);
+        guard.insert(ble_address, watch_btc_guard);
     }
 
     while !exit_flag.load(Ordering::Relaxed) {
