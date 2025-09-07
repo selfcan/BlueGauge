@@ -319,7 +319,6 @@ async fn watch_btc_device_status(
     let connection_status_token = {
         let handler =
             TypedEventHandler::new(move |sender: windows::core::Ref<BluetoothDevice>, _args| {
-                println!("test");
                 if let Some(btc) = sender.as_ref() {
                     let status = btc.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
                     let _ = tx_status.try_send((btc_address, status));
@@ -380,30 +379,28 @@ pub async fn watch_btc_devices_status_async(
         guard.insert(btc_address, watch_btc_guard);
     }
 
-    while !exit_flag.load(Ordering::Relaxed) {
+    loop {
         tokio::select! {
             maybe_update = rx.recv() => {
-                if let Some((address, status)) = maybe_update {
-                    let mut devices = bluetooth_devices_info.lock().unwrap();
-                    if let Some(update_device) = devices.get_mut(&address) {
-                        if update_device.status != status {
-                            info!("BTC [{}]: Status -> {status}", update_device.name);
-                            update_device.status = status;
-                            let notify_event = if status {
-                                NotifyEvent::Reconnect(update_device.name.clone())
-                            } else {
-                                NotifyEvent::Disconnect(update_device.name.clone())
-                            };
-                            drop(devices);
-                            let _ = proxy.send_event(UserEvent::Notify(notify_event));
-                            let _ = proxy.send_event(UserEvent::UnpdatTray);
-                        }
-                    } else {
-                        warn!("The BTC with address {address} is not found in the devices info.");
+                let Some((address, status)) = maybe_update else {
+                    return Err(anyhow!("Channel closed while watching BTC devices status"));
+                };
+                let mut devices = bluetooth_devices_info.lock().unwrap();
+                if let Some(update_device) = devices.get_mut(&address) {
+                    if update_device.status != status {
+                        info!("BTC [{}]: Status -> {status}", update_device.name);
+                        let notify_event = if status {
+                            NotifyEvent::Reconnect(update_device.name.clone())
+                        } else {
+                            NotifyEvent::Disconnect(update_device.name.clone())
+                        };
+                        update_device.status = status;
+                        drop(devices);
+                        let _ = proxy.send_event(UserEvent::Notify(notify_event));
+                        let _ = proxy.send_event(UserEvent::UnpdatTray);
                     }
-                } else {
-                    return Err(anyhow!("Channel closed while watching BTC devcies"));
-                }
+                };
+
             },
             _ = async {
                 loop {
@@ -460,6 +457,4 @@ pub async fn watch_btc_devices_status_async(
             } => return Ok(()),
         }
     }
-
-    Ok(())
 }

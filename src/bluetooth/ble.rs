@@ -249,58 +249,58 @@ pub async fn watch_ble_devices_async(
         }
     });
 
-    
     for (ble_address, ble_device) in ble_devices {
         let watch_btc_guard = watch_ble_device(ble_address, ble_device, tx.clone()).await?;
 
         guard.insert(ble_address, watch_btc_guard);
     }
 
-    while !exit_flag.load(Ordering::Relaxed) {
+    loop {
         tokio::select! {
-            maybe_update = rx.recv() => {
-                if let Some(update) = maybe_update {
-                    let mut devices = bluetooth_devices_info.lock().unwrap();
-                    let need_update_ble_info = match update {
-                        BluetoothLEUpdate::BatteryLevel(address, battery) => devices
-                            .get(&address)
-                            .filter(|i| i.battery != battery)
-                            .cloned()
-                            .map(|mut info| {
+            maybe_update= rx.recv() => {
+                let Some(update) = maybe_update else {
+                    return Err(anyhow!("Channel closed while watching BLE devices"));
+                };
+
+                let mut devices = bluetooth_devices_info.lock().unwrap();
+                let mut needs_tray_update = false;
+
+                match update {
+                    BluetoothLEUpdate::BatteryLevel(address, battery) => {
+                        if let Some(info) = devices.get_mut(&address) {
+                            if info.battery != battery {
                                 info!("BLE [{}]: Battery -> {battery}", info.name);
+                                info.battery = battery;
+                                needs_tray_update = true;
                                 let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
                                     info.name.clone(),
                                     battery,
                                     info.address,
                                 )));
-                                info.battery = battery;
-                                info
-                            }),
-                        BluetoothLEUpdate::ConnectionStatus(address, status) => devices
-                            .get(&address)
-                            .filter(|i| i.status != status)
-                            .cloned()
-                            .map(|mut info| {
+                            }
+                        }
+                    }
+                    BluetoothLEUpdate::ConnectionStatus(address, status) => {
+                        if let Some(info) = devices.get_mut(&address) {
+                            if info.status != status {
                                 info!("BLE [{}]: Status -> {status}", info.name);
+                                info.status = status;
+                                needs_tray_update = true;
                                 let notify_event = if status {
                                     NotifyEvent::Reconnect(info.name.clone())
                                 } else {
                                     NotifyEvent::Disconnect(info.name.clone())
                                 };
                                 let _ = proxy.send_event(UserEvent::Notify(notify_event));
-                                info.status = status;
-                                info
-                            }),
-                    };
-
-                    if let Some(ble_info) = need_update_ble_info {
-                        devices.insert(ble_info.address, ble_info.clone());
-                        drop(devices);
-
-                        let _ = proxy.send_event(UserEvent::UnpdatTray);
+                            }
+                        }
                     }
-                } else {
-                    return Err(anyhow!("Channel closed while watching BLE devcies"));
+                }
+
+                drop(devices);
+
+                if needs_tray_update {
+                    let _ = proxy.send_event(UserEvent::UnpdatTray);
                 }
             },
             _ = async {
@@ -359,6 +359,4 @@ pub async fn watch_ble_devices_async(
             } => return Ok(()),
         }
     }
-
-    Ok(())
 }
