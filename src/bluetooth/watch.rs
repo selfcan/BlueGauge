@@ -167,6 +167,7 @@ async fn check_presence_async(
                 address: remove_device_address,
                 ..Default::default()
             };
+
             let _ = tx.send((remove_device_info, presence)).await;
         }
     }
@@ -175,21 +176,30 @@ async fn check_presence_async(
 }
 
 macro_rules! create_presence_handler {
-    ($tx:ident, $arg_type:ty, $is_ble:expr, $presence:expr) => {{
+    ($tx:ident, $current_runtime:expr, $arg_type:ty, $is_ble:expr, $presence:expr) => {{
         let handler_tx = $tx.clone();
         TypedEventHandler::new(
             move |_watcher: Ref<DeviceWatcher>, event_info: Ref<$arg_type>| {
                 if let Some(info) = event_info.as_ref() {
-                    let rt = tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                        .map_err(|e| -> windows::core::Error { e.into() })?;
-
                     let id = info.Id()?;
 
-                    let result = rt.block_on(async {
-                        check_presence_async($is_ble, $presence, id, handler_tx.clone()).await
-                    });
+                    let result = match $current_runtime.as_ref() {
+                        Some(handle) => handle.block_on(async {
+                            check_presence_async($is_ble, $presence, id, handler_tx.clone()).await
+                        }),
+                        None => {
+                            // 没有当前 Runtime，创建临时单线程 Runtime
+                            let rt = tokio::runtime::Builder::new_current_thread()
+                                .enable_all()
+                                .build()
+                                .map_err(|e| -> windows::core::Error { e.into() })?;
+
+                            rt.block_on(async {
+                                check_presence_async($is_ble, $presence, id, handler_tx.clone())
+                                    .await
+                            })
+                        }
+                    };
 
                     result.map_err(|e| {
                         windows::core::Error::new(
@@ -249,11 +259,15 @@ async fn watch_bt_presence_async(
 ) -> Result<()> {
     let (tx, mut rx) = tokio::sync::mpsc::channel(10);
 
+    let current_runtime = tokio::runtime::Handle::try_current().ok();
+
     let btc_filter = BluetoothDevice::GetDeviceSelector()?;
     let btc_watcher = DeviceInformation::CreateWatcherAqsFilter(&btc_filter)?;
     let btc_tokens = {
-        let added_handler = create_presence_handler!(tx, DeviceInformation, false, BluetoothPresence::Added);
-        let removed_handler = create_presence_handler!(tx, DeviceInformationUpdate, false, BluetoothPresence::Removed);
+        let rt_added = current_runtime.clone();
+        let rt_removed = current_runtime.clone();
+        let added_handler = create_presence_handler!(tx, rt_added, DeviceInformation, false, BluetoothPresence::Added);
+        let removed_handler = create_presence_handler!(tx, rt_removed, DeviceInformationUpdate, false, BluetoothPresence::Removed);
         let btc_watch_added_token = btc_watcher.Added(&added_handler)?;
         let btc_watch_removed_token = btc_watcher.Removed(&removed_handler)?;
         [btc_watch_added_token, btc_watch_removed_token]
@@ -262,8 +276,10 @@ async fn watch_bt_presence_async(
     let ble_filter = BluetoothLEDevice::GetDeviceSelector()?;
     let ble_watcher = DeviceInformation::CreateWatcherAqsFilter(&ble_filter)?;
     let ble_tokens = {
-        let added_handler = create_presence_handler!(tx, DeviceInformation, true, BluetoothPresence::Added);
-        let removed_handler = create_presence_handler!(tx, DeviceInformationUpdate, true, BluetoothPresence::Removed);
+        let rt_added = current_runtime.clone();
+        let rt_removed = current_runtime.clone();
+        let added_handler = create_presence_handler!(tx, rt_added, DeviceInformation, true, BluetoothPresence::Added);
+        let removed_handler = create_presence_handler!(tx, rt_removed, DeviceInformationUpdate, true, BluetoothPresence::Removed);
         let ble_watch_added_token = ble_watcher.Added(&added_handler)?;
         let ble_watch_removed_token = ble_watcher.Removed(&removed_handler)?;
         [ble_watch_added_token, ble_watch_removed_token]
