@@ -100,6 +100,10 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 - **解决方案：**: 暂无有效解决办法，可使用最新 `BlueGauge.Debug` 版本排除并断开相关设备连接。
 
+### 4. 怎么在托盘显示多个设备电量？
+
+- **解决方案：**: 另外创建一个文件夹，并复制 `BlueGauge.exe` 到该文件夹，然后重命名 `BlueGauge.exe` 为其他名字，最后打开并设置开机自启动即可。
+
 ## 其他蓝牙电量软件
 
  - 支持较多设备：

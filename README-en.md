@@ -96,6 +96,10 @@ It may be related to the frequent sending of device battery information in a Blu
 
 There is no effective solution yet. You can use the latest `BlueGauge.Debug` version to exclude and disconnect related devices.   
 
+### 4. How to display the power of multiple devices on the pallet?
+
+- **Solution:**: Create another folder, copy `BlueGauge.exe` to the folder, then rename `BlueGauge.exe` to another name, and finally open and set the `Launch at Startup`
+
 ## Other Bluetooth battery display software
 
  - Supports more devices：
