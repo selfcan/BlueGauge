@@ -138,7 +138,7 @@ async fn check_presence_async(
                     let btc_status =
                         btc_device.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
                     // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
-                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                     get_btc_info_device_frome_address(btc_name.clone(), btc_address, btc_status)
                         .await
                 };
@@ -216,8 +216,7 @@ fn start_bt_presence_watch(device_watcher: &DeviceWatcher) -> Result<()> {
             .with_context(|| "Failed to start watch for the DeviceWatcher")
     } else {
         Err(anyhow!(
-            "DeviceWatcher is already started or starting, current status: {:?}",
-            status
+            "DeviceWatcher is already started or starting, current status: {status:?}"
         ))
     }
 }
@@ -236,8 +235,7 @@ fn stop_bt_presence_watch(device_watcher: &DeviceWatcher) -> Result<()> {
             .with_context(|| "Failed to stop watch for the DeviceWatcher")
     } else {
         Err(anyhow!(
-            "DeviceWatcher is already stoped or stoping, current status: {:?}",
-            status
+            "DeviceWatcher is already stoped or stoping, current status: {status:?}"
         ))
     }
 }
