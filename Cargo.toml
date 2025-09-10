@@ -15,7 +15,7 @@ piet-common = "0.8.0" # 字体渲染
 serde= { version = "1.0", features = ["derive"] }
 scopeguard = "1.2.0"
 tauri-winrt-notification = "0.7"
-tokio = { version = "1.47", features = ["full"]}
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread", "sync", "time"] }
 toml = "0.9"
 tray-icon = "0.21"
 windows_pnp = { path = "libs/windows_pnp" }
