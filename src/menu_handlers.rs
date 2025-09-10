@@ -215,19 +215,25 @@ impl MenuHandlers {
                     .ok()
                     .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
                     .map(|p| {
-                        if p.join("assets").is_dir() {
-                            let light_dir = p.join("assets\\light");
-                            let dark_dir = p.join("assets\\dark");
+                        let assets_path = p.join("assets");
+                        if assets_path.is_dir() {
+                            let light_dir = assets_path.join("light");
+                            let dark_dir = assets_path.join("dark");
                             match (light_dir.is_dir(), dark_dir.is_dir()) {
-                                (true, true) => true,   // 有主题图标
-                                (false, false) => true, //无主题图标
-                                _ => false,             // 主题图标文件夹缺某一个
+                                (true, true) => [light_dir, dark_dir].into_iter().all(|p| {
+                                    (0..=100u32)
+                                        .into_iter()
+                                        .all(|i| p.join(format!("{i}.png")).is_file())
+                                }), // 有主题图标
+                                (false, false) => (0..=100u32)
+                                    .into_iter()
+                                    .all(|i| assets_path.join(format!("{i}.png")).is_file()), //无主题图标
+                                _ => false, // 主题图标文件夹缺某一个
                             }
                         } else {
                             false
                         }
                     })
-                    // .map(|p| (0..=100).all(|i| p.join(format!("assets\\{i}.png")).is_file()))
                     .unwrap_or(false);
 
                 if have_custom_icons {
