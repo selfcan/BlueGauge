@@ -5,7 +5,8 @@ use crate::{
 
 use anyhow::{Context, Result, anyhow};
 use piet_common::{
-    Color, Device, FontFamily, ImageFormat, RenderContext, Text, TextLayout, TextLayoutBuilder,
+    Color, D2DText, D2DTextLayout, Device, FontFamily, ImageFormat, RenderContext, Text,
+    TextLayout, TextLayoutBuilder,
 };
 use tray_icon::Icon;
 
@@ -18,7 +19,7 @@ pub fn load_app_icon() -> Result<Icon> {
 pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) = {
         let image = image::load_from_memory(icon_date)
-            .with_context(|| "Failed to open icon path")?
+            .map_err(|e| anyhow!("Failed to load icon - {e}"))?
             .into_rgba8();
         let (width, height) = image.dimensions();
         let rgba = image.into_raw();
@@ -176,12 +177,12 @@ fn render_battery_font_icon(
 }
 
 fn build_text_layout(
-    text: &mut piet_common::D2DText,
+    text: &mut D2DText,
     indicator: &str,
     font_name: &str,
     font_size: f64,
     font_color: &str,
-) -> Result<piet_common::D2DTextLayout> {
+) -> Result<D2DTextLayout> {
     text.new_text_layout(indicator.to_string())
         .font(FontFamily::new_unchecked(font_name), font_size)
         .text_color(Color::from_hex_str(font_color)?)
