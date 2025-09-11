@@ -52,7 +52,7 @@ pub async fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
 pub async fn get_ble_device_from_address(address: u64) -> Result<BluetoothLEDevice> {
     BluetoothLEDevice::FromBluetoothAddressAsync(address)?
         .await
-        .map_err(|e| anyhow!("Failed to find BLE from ({address}) - {e}"))
+        .with_context(|| format!("Failed to get BLE Device from Address({address})"))
 }
 
 pub async fn get_ble_devices_info(
@@ -142,7 +142,7 @@ pub async fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8>
     let reader = DataReader::FromBuffer(&buffer)?;
     reader
         .ReadByte()
-        .map_err(|e| anyhow!("Failed to read battery byte: {e}"))
+        .with_context(|| "Failed to read battery byte")
 }
 
 #[derive(Debug)]
@@ -346,11 +346,16 @@ pub async fn watch_ble_devices_async(
                             let ble_device = get_ble_device_from_address(added_device_address)
                                 .await
                                 .expect("Failed to get BLE Device from address");
-                            let watch_ble_guard = watch_ble_device(added_device_address, ble_device, tx.clone())
-                                .await
-                                .expect("Failed to watch BLE Device");
-                            guard.insert(added_device_address, watch_ble_guard);
-                            original_ble_devices_address.lock().await.insert(added_device_address);
+
+                            match watch_ble_device(added_device_address, ble_device, tx.clone()).await  {
+                                Ok(watch_ble_guard) => {
+                                    guard.insert(added_device_address, watch_ble_guard);
+                                    original_ble_devices_address.lock().await.insert(added_device_address);
+                                },
+                                Err(e) => {
+                                    warn!("Failed to watch added BLE Device - {e}")
+                                }
+                            }
                         }
                     }
 
