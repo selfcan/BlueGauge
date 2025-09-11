@@ -441,14 +441,26 @@ pub async fn watch_btc_devices_status_async(
 
                         for added_device_address in added_devices {
                             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                            let btc_device = get_btc_device_from_address(added_device_address)
-                                .await
-                                .expect("Failed to get BLE Device from address");
-                            let watch_ble_guard = watch_btc_device_status(added_device_address, btc_device, tx.clone())
-                                .await
-                                .expect("Failed to watch BLE Device");
-                            guard.insert(added_device_address, watch_ble_guard);
-                            original_btc_devices_address.lock().await.insert(added_device_address);
+                            let Ok(btc_device) = get_btc_device_from_address(added_device_address).await else {
+                                // 移除错误设备
+                                bluetooth_devices_info.lock().unwrap().remove(&added_device_address);
+                                warn!("Failed to get added BTC Device from address");
+                                continue;
+                            };
+
+                            let name = btc_device.Name().map_or("Unknown name".to_owned(), |n| n.to_string());
+
+                            match watch_btc_device_status(added_device_address, btc_device, tx.clone()).await  {
+                                Ok(watch_ble_guard) => {
+                                    guard.insert(added_device_address, watch_ble_guard);
+                                    original_btc_devices_address.lock().await.insert(added_device_address);
+                                },
+                                Err(e) => {
+                                    // 移除错误设备
+                                    bluetooth_devices_info.lock().unwrap().remove(&added_device_address);
+                                    warn!("BTC [{name}]: Failed to watch added BTC Device - {e}");
+                                }
+                            }
                         }
                     }
 

@@ -343,9 +343,14 @@ pub async fn watch_ble_devices_async(
 
                         for added_device_address in added_devices {
                             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                            let ble_device = get_ble_device_from_address(added_device_address)
-                                .await
-                                .expect("Failed to get BLE Device from address");
+                            let Ok(ble_device) = get_ble_device_from_address(added_device_address).await else {
+                                // 移除错误设备
+                                bluetooth_devices_info.lock().unwrap().remove(&added_device_address);
+                                warn!("Failed to get added BLE Device from address");
+                                continue;
+                            };
+
+                            let name = ble_device.Name().map_or("Unknown name".to_owned(), |n| n.to_string());
 
                             match watch_ble_device(added_device_address, ble_device, tx.clone()).await  {
                                 Ok(watch_ble_guard) => {
@@ -353,7 +358,9 @@ pub async fn watch_ble_devices_async(
                                     original_ble_devices_address.lock().await.insert(added_device_address);
                                 },
                                 Err(e) => {
-                                    warn!("Failed to watch added BLE Device - {e}")
+                                    // 移除错误设备
+                                    bluetooth_devices_info.lock().unwrap().remove(&added_device_address);
+                                    warn!("BLE [{name}]: Failed to watch added BLE Device - {e}");
                                 }
                             }
                         }
