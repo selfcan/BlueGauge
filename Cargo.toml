@@ -31,6 +31,9 @@ features = [
     "Foundation_Collections",
     "Storage_Streams",
     "Win32_Globalization",
+    "Win32_Security",
+    "Win32_System",
+    "Win32_System_Threading",
 ]
 
 [dependencies.windows-sys]

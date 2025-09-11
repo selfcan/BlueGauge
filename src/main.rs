@@ -8,6 +8,7 @@ mod icon;
 mod language;
 mod menu_handlers;
 mod notify;
+mod single_instance;
 mod startup;
 mod theme;
 mod tray;
@@ -18,6 +19,7 @@ use crate::config::*;
 use crate::icon::{load_app_icon, load_battery_icon};
 use crate::menu_handlers::MenuHandlers;
 use crate::notify::{NotifyEvent, notify};
+use crate::single_instance::SingleInstance;
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{convert_tray_info, create_menu, create_tray};
 
@@ -39,6 +41,8 @@ use winit::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let __single_instance = SingleInstance::new()?;
+
     std::panic::set_hook(Box::new(|info| {
         error!("⚠️ Panic: {info}");
         notify(format!("⚠️ Panic: {info}"));
@@ -86,6 +90,7 @@ impl App {
         let (btc_devices, ble_devices) = find_bluetooth_devices()
             .await
             .expect("Failed to find bluetooth devices");
+
         let bluetooth_devices_info = get_bluetooth_devices_info((&btc_devices, &ble_devices))
             .await
             .expect("Failed to get bluetooth devices info");
