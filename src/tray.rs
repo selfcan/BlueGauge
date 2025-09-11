@@ -45,9 +45,10 @@ impl CreateMenuItem {
         MenuItem::with_id("open_config", text, true, None)
     }
 
-    fn startup(text: &str) -> Result<CheckMenuItem> {
+    fn startup(text: &str, tray_check_menus: &mut Vec<CheckMenuItem>) -> Result<CheckMenuItem> {
         let should_startup = get_startup_status()?;
         let menu_startup = CheckMenuItem::with_id("startup", text, true, should_startup, None);
+        tray_check_menus.push(menu_startup.clone());
         Ok(menu_startup)
     }
 
@@ -180,7 +181,7 @@ pub fn create_menu(
         .map(|item| item as &dyn IsMenuItem)
         .collect();
 
-    let menu_startup = CreateMenuItem::startup(loc.startup)?;
+    let menu_startup = CreateMenuItem::startup(loc.startup, &mut tray_check_menus)?;
 
     let menu_open_config = &CreateMenuItem::open_config(loc.open_config);
 

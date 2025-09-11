@@ -31,8 +31,12 @@ impl MenuHandlers {
     }
 
     pub fn startup(tray_check_menus: Vec<CheckMenuItem>) {
-        if let Some(item) = tray_check_menus.iter().find(|item| item.id() == "startup") {
+        if let Some(item) = tray_check_menus.iter().find(|item| item.id().as_ref() == "startup") {
             set_startup(item.is_checked()).expect("Failed to set Launch at Startup")
+        } else {
+            for item in tray_check_menus {
+                println!("{}", item.id().as_ref())
+            }
         }
     }
 
