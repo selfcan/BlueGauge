@@ -68,7 +68,7 @@ pub fn listen_system_theme(
                     .expect("Failed to send UpdateTray Event");
             }
 
-            for _ in 0..5 {
+            for _ in 0..=5 {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if exit_threads.load(Ordering::Relaxed) {
                     return;
