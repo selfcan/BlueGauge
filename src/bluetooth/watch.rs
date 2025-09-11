@@ -124,10 +124,12 @@ async fn check_presence_async(
                         let _ = tx.send((ble_info, presence)).await;
                     }
                     Err(e) => {
-                        let name = ble_device
-                            .Name()
-                            .map_or_else(|_| "Unknown name".to_owned(), |n| n.to_string());
-                        warn!("BLE [{name}]: Failed to get info: {e}");
+                        let name = match ble_device.Name() {
+                            Ok(name) if !name.is_empty() => name.to_string(),
+                            _ => "Unknown name".to_owned(),
+                        };
+                        let error = format!("BLE [{name}]: Failed to get info: {e}");
+                        return Err(anyhow!(error));
                     }
                 }
             } else {
@@ -147,10 +149,12 @@ async fn check_presence_async(
                         let _ = tx.send((btc_info, presence)).await;
                     }
                     Err(e) => {
-                        let name = btc_device
-                            .Name()
-                            .map_or_else(|_| "Unknown name".to_owned(), |n| n.to_string());
-                        warn!("BTC [{name}]: Failed to get info: {e}");
+                        let name = match btc_device.Name() {
+                            Ok(name) if !name.is_empty() => name.to_string(),
+                            _ => "Unknown name".to_owned(),
+                        };
+                        let error = format!("BTC [{name}]: Failed to get info: {e}");
+                        return Err(anyhow!(error));
                     }
                 }
             };
@@ -202,6 +206,7 @@ macro_rules! create_presence_handler {
                     };
 
                     result.map_err(|e| {
+                        warn!("Failed to create Presence Hnalder: {e}");
                         windows::core::Error::new(
                             windows::core::HRESULT(0x80004005u32 as i32), // E_FAIL
                             e.to_string(),
@@ -330,15 +335,23 @@ async fn watch_bt_presence_async(
                 };
 
                 if let Entry::Vacant(e) = bluetooth_devices_info.lock().unwrap().entry(info.address) {
-                    let name = info.name.clone();
-                    e.insert(info);
-                    update_event(presence, name);
+                    match presence {
+                        BluetoothPresence::Removed => (), // 原设备无该设备，且该设备实际不存电量服务但可获取得到该服务
+                        BluetoothPresence::Added => {
+                            let name = info.name.clone();
+                            e.insert(info);
+                            update_event(presence, name);
+                        }
+                    }
                 } else {
                     match presence {
                         BluetoothPresence::Added => (), // 原设备未被移除
                         BluetoothPresence::Removed => {
                             let removed_info = bluetooth_devices_info.lock().unwrap().remove(&info.address);
-                            let name = removed_info.map_or("Unknown name".to_owned(), |i| i.name);
+                            let name = match removed_info {
+                                Some(i) if !i.name.is_empty() => i.name,
+                                _ => "Unknown name".to_owned(),
+                            };
                             update_event(presence, name);
                         }
                     }
