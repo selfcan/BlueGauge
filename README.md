@@ -70,6 +70,8 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 ## 下载
 
+默认请下载x86_64版本，特殊系统Windows on ARM下载arm版本
+
 1. [Github](https://github.com/iKineticate/BlueGauge/releases/latest)
 
 2. [蓝奏云](https://wwxv.lanzoul.com/b009hchxrc)（密码：6666）
@@ -103,6 +105,14 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 ### 4. 怎么在托盘显示多个设备电量？
 
 - **解决方案：**: 另外创建一个文件夹，并复制 `BlueGauge.exe` 到该文件夹，然后重命名 `BlueGauge.exe` 为其他名字，最后打开并设置开机自启动即可。
+
+### 5. 托盘电量图标被截断一小部分
+
+- **解决方案：**: 打开托盘菜单-`设置`-`打开配置`，然后在 `[tray.icon.font]` 下的 `font_size` 中设置字体大小，可以设置比原来小一号的字体。   
+
+### 5. 托盘提示中的连接指示器无颜色
+
+连接指示器只支持在Windows11中显示颜色
 
 ## 其他蓝牙电量软件
 

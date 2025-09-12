@@ -67,7 +67,10 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
     - Notification when adding a new device
     - Notification when moving a new device
 
-## Download: [Github](https://github.com/iKineticate/BlueGauge/releases/latest)
+## Download: 
+
+
+[Github](https://github.com/iKineticate/BlueGauge/releases/latest) ( Please download the x86_64 version by default, and download the ARM version for special systems Windows on ARM. )
 
 ## Known Issues & Suggested Solutions
 
@@ -99,6 +102,16 @@ There is no effective solution yet. You can use the latest `BlueGauge.Debug` ver
 ### 4. How to display the power of multiple devices on the pallet?
 
 - **Solution:**: Create another folder, copy `BlueGauge.exe` to the folder, then rename `BlueGauge.exe` to another name, and finally open and set the `Launch at Startup`
+
+### 5. The tray battery icon is cut off by a small part
+
+- **Solution::**: Open the tray menu - `Settings`-`Open Config`, and then set the font size in `font_size` under `[tray.icon.font]` to set a font that is one size smaller than the original one.
+
+### 6. T### 5. Connection indicator in tray prompt has no color
+
+Connection indicator only supports displaying colors in Windows 11
+
+- **Solution::**: Open the tray menu - `Settings`-`Open Config`, and then set the font size in `font_size` under `[tray.icon.font]` to set a font that is one size smaller than the original one.
 
 ## Other Bluetooth battery display software
 
