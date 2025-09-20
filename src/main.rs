@@ -41,7 +41,7 @@ use winit::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let __single_instance = SingleInstance::new()?;
+    let _single_instance = SingleInstance::new()?;
 
     std::panic::set_hook(Box::new(|info| {
         error!("⚠️ Panic: {info}");
