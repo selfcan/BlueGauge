@@ -6,24 +6,24 @@ authors = ["iKineticate <https://github.com/iKineticate>"]
 repository = "https://github.com/iKineticate/BlueGauge"
 
 [dependencies]
-anyhow = "1"
-env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
-futures = "0.3"
-log = { version = "0.4", features = ["release_max_level_off"] }
-image = { version = "0.25", default-features = false, features = ["ico", "png"] }
+anyhow = "1.0.100"
+env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "humantime"] }
+futures = "0.3.31"
+log = { version = "0.4.28", features = ["release_max_level_off"] }
+image = { version = "0.25.8", default-features = false, features = ["ico", "png"] }
 piet-common = "0.8.0" # 字体渲染
-serde= { version = "1.0", features = ["derive"] }
+serde= { version = "1.0.225", features = ["derive"] }
 scopeguard = "1.2.0"
 tauri-winrt-notification = "0.7"
-tokio = { version = "1.47", features = ["macros", "rt-multi-thread", "sync", "time"] }
-toml = "0.9"
-tray-icon = "0.21"
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+toml = "0.9.7"
+tray-icon = "0.21.1"
 windows_pnp = { path = "libs/windows_pnp" }
-winit = "0.30"
-winreg = "0.55"
+winit = "0.30.12"
+winreg = "0.55.0"
 
 [dependencies.windows]
-version = "0.62"
+version = "0.62.0"
 features = [
     "Devices_Bluetooth",
     "Devices_Bluetooth_GenericAttributeProfile",
@@ -37,7 +37,7 @@ features = [
 ]
 
 [dependencies.windows-sys]
-version = "0.61"
+version = "0.61.0"
 features = [
     "Win32_Devices_Properties",
     "Win32_Devices_DeviceAndDriverInstallation",
@@ -45,7 +45,7 @@ features = [
 ]
 
 [dev-dependencies.windows]
-version = "0.62"
+version = "0.62.0"
 features = [
     "Win32_Devices_Bluetooth",
     "Devices_Bluetooth_Rfcomm",
@@ -56,7 +56,7 @@ features = [
 ]
 
 [build-dependencies]
-embed-resource = "3"
+embed-resource = "3.0.6"
 
 [profile.release]
 lto = "fat"
