@@ -23,20 +23,18 @@ impl MenuHandlers {
         let exe_path = std::env::current_exe().expect("Failed to get path of app");
         let args_os: Vec<OsString> = std::env::args_os().collect();
 
-        let _ = proxy.send_event(UserEvent::Exit);
-
         if let Err(e) = Command::new(exe_path).args(args_os.iter().skip(1)).spawn() {
             error!("Failed to restart app: {e}");
         }
+
+        let _ = proxy.send_event(UserEvent::Exit);
     }
 
     pub fn startup(tray_check_menus: Vec<CheckMenuItem>) {
-        if let Some(item) = tray_check_menus.iter().find(|item| item.id().as_ref() == "startup") {
+        if let Some(item) = tray_check_menus.iter().find(|item| item.id() == "startup") {
             set_startup(item.is_checked()).expect("Failed to set Launch at Startup")
         } else {
-            for item in tray_check_menus {
-                println!("{}", item.id().as_ref())
-            }
+            error!("Not find startup menu id")
         }
     }
 
