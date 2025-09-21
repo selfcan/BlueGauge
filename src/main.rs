@@ -211,6 +211,15 @@ impl ApplicationHandler<UserEvent> for App {
                             tray_check_menus,
                         );
                     }
+                    // 托盘设置：图标样式
+                    "number_icon" | "ring_icon" => {
+                        MenuHandlers::set_battery_icon_style(
+                            &config,
+                            menu_event_id,
+                            self.event_loop_proxy.clone().unwrap(),
+                            tray_check_menus,
+                        );
+                    }
                     // 托盘设置：提示内容设置
                     "show_disconnected" | "truncate_name" | "prefix_battery" => {
                         MenuHandlers::set_tray_tooltip(
@@ -220,9 +229,9 @@ impl ApplicationHandler<UserEvent> for App {
                             tray_check_menus,
                         );
                     }
-                    // 托盘设置：选择图标
+                    // 托盘设置：设备点击事件
                     _ => {
-                        MenuHandlers::set_tray_icon_source(
+                        MenuHandlers::handle_device_click(
                             &config,
                             menu_event_id,
                             self.event_loop_proxy.clone().unwrap(),

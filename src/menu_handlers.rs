@@ -162,7 +162,64 @@ impl MenuHandlers {
         }
     }
 
-    pub fn set_tray_icon_source(
+    pub fn set_battery_icon_style(
+        config: &Config,
+        menu_event_id: &str,
+        proxy: EventLoopProxy<UserEvent>,
+        tray_check_menus: Vec<CheckMenuItem>,
+    ) {
+        // // 获取托盘中图标样式菜单
+        let icon_style_menus: Vec<_> = tray_check_menus
+            .iter()
+            .filter(|item| ["number_icon", "ring_icon"].contains(&item.id().as_ref()))
+            .collect();
+
+        // 有无勾选样式菜单
+        let have_new_icon_style_menu_checkd = icon_style_menus
+            .iter()
+            .any(|item| item.id().as_ref() == menu_event_id && item.is_checked());
+
+        // 托盘菜单的其余样式菜单设置为未勾选状态
+        icon_style_menus.iter().for_each(|item| {
+            let should_check =
+                item.id().as_ref() == menu_event_id && have_new_icon_style_menu_checkd;
+            item.set_checked(should_check);
+        });
+
+        let mut tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap();
+
+        match menu_event_id {
+            "number_icon" if have_new_icon_style_menu_checkd => {
+                if let TrayIconSource::BatteryRing { address, .. } = *tray_icon_source {
+                    *tray_icon_source = TrayIconSource::BatteryNumber {
+                        address,
+                        font_name: "Arial".to_owned(),
+                        font_color: Some("FollowSystemTheme".to_owned()),
+                        font_size: Some(64),
+                    }
+                }
+            }
+            "ring_icon" if have_new_icon_style_menu_checkd => {
+                if let TrayIconSource::BatteryNumber { address, .. } = *tray_icon_source {
+                    *tray_icon_source = TrayIconSource::BatteryRing {
+                        address,
+                        highlight_color: Some("#4fc478".to_owned()),
+                        background_color: Some("#A7A19B".to_owned()),
+                    }
+                }
+            }
+            _ => (),
+        }
+
+        // 优先释放锁，避免Config执行Svae时发生死锁
+        drop(tray_icon_source);
+        config.save();
+
+        let _ = proxy.send_event(UserEvent::UnpdatTray);
+    }
+
+    // 点击托盘中的设备时的事件
+    pub fn handle_device_click(
         config: &Config,
         menu_event_id: &str,
         proxy: EventLoopProxy<UserEvent>,
@@ -186,6 +243,8 @@ impl MenuHandlers {
             "show_disconnected",
             "truncate_name",
             "prefix_battery",
+            "number_icon",
+            "ring_icon",
         ];
 
         let show_battery_icon_bt_address = menu_event_id.parse::<u64>().expect("Menu Event Id");
@@ -238,20 +297,26 @@ impl MenuHandlers {
                     })
                     .unwrap_or(false);
 
-                if have_custom_icons {
-                    *tray_icon_source = TrayIconSource::BatteryCustom {
-                        address: show_battery_icon_bt_address.to_owned(),
-                    };
-                } else {
-                    *tray_icon_source = TrayIconSource::BatteryFont {
-                        address: show_battery_icon_bt_address.to_owned(),
-                        font_name: "Arial".to_owned(),
-                        font_color: Some("FollowSystemTheme".to_owned()),
-                        font_size: Some(64),
-                    };
-                };
+                tray_check_menus
+                    .iter()
+                    .filter(|item| item.id().as_ref().ends_with("icon"))
+                    .for_each(|item| match item.id().as_ref() {
+                        "number_icon" if !have_custom_icons => {
+                            *tray_icon_source = TrayIconSource::BatteryNumber {
+                                address: show_battery_icon_bt_address.to_owned(),
+                                font_name: "Arial".to_owned(),
+                                font_color: Some("FollowSystemTheme".to_owned()),
+                                font_size: Some(64),
+                            };
+
+                            item.set_checked(true);
+                        }
+                        _ => item.set_checked(false),
+                    });
             }
-            TrayIconSource::BatteryCustom { .. } | TrayIconSource::BatteryFont { .. } => {
+            TrayIconSource::BatteryCustom { .. }
+            | TrayIconSource::BatteryNumber { .. }
+            | TrayIconSource::BatteryRing { .. } => {
                 if have_new_device_menu_checkd {
                     tray_icon_source.update_address(show_battery_icon_bt_address);
                 } else {

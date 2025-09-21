@@ -5,16 +5,12 @@ use crate::{
 
 use anyhow::{Context, Result, anyhow};
 use piet_common::{
-    Color, D2DText, D2DTextLayout, Device, FontFamily, ImageFormat, RenderContext, Text,
-    TextLayout, TextLayoutBuilder,
+    Color, D2DText, D2DTextLayout, Device, FontFamily, ImageFormat, LineCap, RenderContext,
+    StrokeStyle, Text, TextLayout, TextLayoutBuilder,
 };
 use tray_icon::Icon;
 
 const LOGO_DATA: &[u8] = include_bytes!("../assets/logo.ico");
-
-pub fn load_app_icon() -> Result<Icon> {
-    load_icon(LOGO_DATA).map_err(|e| anyhow!("Failed to load app icon - {e}"))
-}
 
 pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) = {
@@ -28,17 +24,21 @@ pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
     Icon::from_rgba(icon_rgba, icon_width, icon_height).with_context(|| "Failed to crate the logo")
 }
 
+pub fn load_app_icon() -> Result<Icon> {
+    load_icon(LOGO_DATA).map_err(|e| anyhow!("Failed to load app icon - {e}"))
+}
+
 pub fn load_battery_icon(
     config: &Config,
-    bluetooth_battery: u8,
+    battery_level: u8,
     bluetooth_status: bool,
 ) -> Result<Icon> {
     let tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap().clone();
 
     match tray_icon_source {
         TrayIconSource::App => load_app_icon(),
-        TrayIconSource::BatteryCustom { .. } => get_icon_from_custom(bluetooth_battery),
-        TrayIconSource::BatteryFont {
+        TrayIconSource::BatteryCustom { .. } => load_custom_icon(battery_level),
+        TrayIconSource::BatteryNumber {
             address: _,
             font_name,
             font_color,
@@ -49,18 +49,31 @@ pub fn load_battery_icon(
                 .is_some_and(|c| c.eq("ConnectColor"))
                 .then_some(bluetooth_status);
 
-            get_icon_from_font(
-                bluetooth_battery,
+            load_number_icon(
+                battery_level,
                 &font_name,
                 font_color,
                 font_size,
                 should_icon_connect_color,
             )
         }
+        TrayIconSource::BatteryRing {
+            address: _,
+            highlight_color,
+            background_color,
+        } => {
+            let low_battery = config.get_low_battery();
+            load_ring_icon(
+                battery_level,
+                low_battery,
+                highlight_color,
+                background_color,
+            )
+        }
     }
 }
 
-fn get_icon_from_custom(battery_level: u8) -> Result<Icon> {
+fn load_custom_icon(battery_level: u8) -> Result<Icon> {
     let custom_battery_icon_path = std::env::current_exe()
         .map(|exe_path| exe_path.with_file_name("assets"))
         .and_then(|icon_dir| {
@@ -86,7 +99,7 @@ fn get_icon_from_custom(battery_level: u8) -> Result<Icon> {
     load_icon(&icon_data)
 }
 
-fn get_icon_from_font(
+fn load_number_icon(
     battery_level: u8,
     font_name: &str,
     font_color: Option<String>,
@@ -101,13 +114,29 @@ fn get_icon_from_font(
         should_icon_connect_color,
     )?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
+        .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
+}
+
+pub fn load_ring_icon(
+    battery_level: u8,
+    low_battery: u8,
+    highlight_color: Option</* Hex color */ String>,
+    background_color: Option</* Hex color */ String>,
+) -> Result<Icon> {
+    let (icon_rgba, icon_width, icon_height) = render_ring_icon(
+        battery_level,
+        low_battery,
+        highlight_color,
+        background_color,
+    )?;
+    Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Icon - {e}"))
 }
 
 fn render_battery_font_icon(
     battery_level: u8,
     font_name: &str,
-    font_color: Option<String>, // 格式：#123456、#123456FF
+    font_color: Option</* Hex color */ String>,
     font_size: Option<u8>,
     should_icon_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
@@ -115,12 +144,17 @@ fn render_battery_font_icon(
 
     let width = 64;
     let height = 64;
+    let font_name = if font_name.trim().is_empty() {
+        "Arial"
+    } else {
+        font_name
+    };
     let font_size = font_size.and_then(|s| s.ne(&64).then_some(s as f64));
     let font_color = if let Some(should) = should_icon_connect_color {
         if should {
             "#4fc478".to_owned()
         } else {
-            "#fe6666ff".to_owned()
+            "#fe6666".to_owned()
         }
     } else {
         font_color
@@ -188,4 +222,77 @@ fn build_text_layout(
         .text_color(Color::from_hex_str(font_color)?)
         .build()
         .map_err(|e| anyhow!("Failed to build text layout - {e}"))
+}
+
+fn render_ring_icon(
+    battery_level: u8,
+    low_battery: u8,
+    highlight_color: Option</* Hex color */ String>,
+    background_color: Option</* Hex color */ String>,
+) -> Result<(Vec<u8>, u32, u32)> {
+    let width = 64;
+    let height = 64;
+
+    let mut device = Device::new().map_err(|e| anyhow!("Failed to get Device - {e}"))?;
+    let mut bitmap_target = device
+        .bitmap_target(width, height, 1.0)
+        .map_err(|e| anyhow!("Failed to create a new bitmap target. - {e}"))?;
+    let mut piet = bitmap_target.render_context();
+
+    let center = (32.0, 32.0);
+    let inner_radius = 20.0;
+    let outer_radius = 30.0;
+    let stroke_width = outer_radius - inner_radius;
+    let mean_radius = (inner_radius + outer_radius) / 2.0;
+
+    // 起始角度（顶部，-90°）
+    let start_angle = -std::f64::consts::PI / 2.0;
+    let battery_angle = battery_level as f64 * 3.6;
+    let battery_angle_rad = battery_angle.to_radians();
+
+    // 定义圆环的样式（圆角端点）
+    let style = StrokeStyle::new().line_cap(LineCap::Round);
+
+    // 绘制非高亮部分
+    let background_color = background_color
+        .and_then(|hex| Color::from_hex_str(&hex).ok())
+        .or(Color::from_hex_str("#A7A19B").ok())
+        .unwrap_or(Color::GRAY);
+    let background_arc = piet_common::kurbo::Arc {
+        center: center.into(),
+        radii: piet_common::kurbo::Vec2::new(mean_radius, mean_radius),
+        start_angle: start_angle + battery_angle_rad,
+        sweep_angle: (360.0 - battery_angle).to_radians(),
+        x_rotation: 0.0,
+    };
+    piet.stroke_styled(background_arc, &background_color, stroke_width, &style);
+
+    // 绘制高亮部分
+    let highlight_color = if battery_level <= low_battery {
+        Color::from_hex_str("#fe6666").unwrap_or(Color::RED)
+    } else {
+        highlight_color
+            .and_then(|hex| Color::from_hex_str(&hex).ok())
+            .or(Color::from_hex_str("#4fc478").ok())
+            .unwrap_or(Color::GREEN)
+    };
+    let highlight_arc = piet_common::kurbo::Arc {
+        center: center.into(),
+        radii: piet_common::kurbo::Vec2::new(mean_radius, mean_radius),
+        start_angle,
+        sweep_angle: battery_angle_rad,
+        x_rotation: 0.0,
+    };
+
+    piet.stroke_styled(highlight_arc, &highlight_color, stroke_width, &style);
+    piet.finish().map_err(|e| anyhow!("{e}"))?;
+    drop(piet);
+
+    let image_buf = bitmap_target.to_image_buf(ImageFormat::RgbaPremul).unwrap();
+
+    Ok((
+        image_buf.raw_pixels().to_vec(),
+        image_buf.width() as u32,
+        image_buf.height() as u32,
+    ))
 }

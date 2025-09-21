@@ -43,16 +43,23 @@ pub enum TrayIconSource {
     BatteryCustom {
         address: u64,
     },
-    BatteryFont {
+    BatteryNumber {
         address: u64,
         font_name: String,
-        /// "FollowSystemTheme"(Default),
-        /// "ConnectColor"(连接状态颜色)
         /// Font Color in hex format (e.g. "#FFFFFF")
+        /// Default: "FollowSystemTheme"
+        /// Other: "ConnectColor"(连接状态颜色)
         #[serde(skip_serializing_if = "Option::is_none")]
         font_color: Option</* Hex color */ String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         font_size: Option<u8>, // Default: 64
+    },
+    BatteryRing {
+        address: u64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        highlight_color: Option</* Hex color */ String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        background_color: Option</* Hex color */ String>,
     },
 }
 
@@ -72,7 +79,10 @@ impl TrayIconSource {
             Self::BatteryCustom { address } => {
                 *address = new_address;
             }
-            Self::BatteryFont { address, .. } => {
+            Self::BatteryNumber { address, .. } => {
+                *address = new_address;
+            }
+            Self::BatteryRing { address, .. } => {
                 *address = new_address;
             }
         }
@@ -82,30 +92,22 @@ impl TrayIconSource {
         match self {
             Self::App => None,
             Self::BatteryCustom { address } => Some(*address),
-            Self::BatteryFont { address, .. } => Some(*address),
+            Self::BatteryNumber { address, .. } => Some(*address),
+            Self::BatteryRing { address, .. } => Some(*address),
         }
     }
 
     pub fn update_connect_color(&mut self, should_update: bool) {
         match self {
-            Self::App => (),
-            Self::BatteryCustom { address } => {
-                if should_update {
-                    *self = TrayIconSource::BatteryFont {
-                        address: address.to_owned(),
-                        font_name: "Arial".to_owned(),
-                        font_color: Some("FollowSystemTheme".to_owned()),
-                        font_size: Some(64),
-                    }
-                }
-            }
-            Self::BatteryFont { font_color, .. } => {
+            Self::BatteryNumber { font_color, .. } => {
                 if should_update {
                     *font_color = Some("ConnectColor".to_owned());
                 } else if *font_color == Some("ConnectColor".to_owned()) {
                     *font_color = None;
                 }
             }
+            // 圆环暂时不支持连接配色
+            _ => (),
         }
     }
 }
@@ -313,10 +315,9 @@ impl Config {
         } else {
             match toml_config.tray_options.tray_icon_source {
                 TrayIconSource::App => TrayIconSource::App,
-                TrayIconSource::BatteryCustom { address } => {
-                    TrayIconSource::BatteryCustom { address }
-                }
-                TrayIconSource::BatteryFont { address, .. } => {
+                TrayIconSource::BatteryCustom { address }
+                | TrayIconSource::BatteryNumber { address, .. }
+                | TrayIconSource::BatteryRing { address, .. } => {
                     TrayIconSource::BatteryCustom { address }
                 }
             }
@@ -408,7 +409,8 @@ impl Config {
         match tray_icon_source {
             TrayIconSource::App => None,
             TrayIconSource::BatteryCustom { address } => Some(address),
-            TrayIconSource::BatteryFont { address, .. } => Some(address),
+            TrayIconSource::BatteryNumber { address, .. } => Some(address),
+            TrayIconSource::BatteryRing { address, .. } => Some(address),
         }
     }
 }
