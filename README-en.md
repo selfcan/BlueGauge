@@ -107,7 +107,7 @@ There is no effective solution yet. You can use the latest `BlueGauge.Debug` ver
 
 - **Solution::**: Open the tray menu - `Settings`-`Open Config`, and then set the font size in `font_size` under `[tray.icon.font]` to set a font that is one size smaller than the original one.
 
-### 6. T### 5. Connection indicator in tray prompt has no color
+### 6. Connection indicator in tray prompt has no color
 
 Connection indicator only supports displaying colors in Windows 11
 

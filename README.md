@@ -110,7 +110,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 - **解决方案：**: 打开托盘菜单-`设置`-`打开配置`，然后在 `[tray.icon.font]` 下的 `font_size` 中设置字体大小，可以设置比原来小一号的字体。   
 
-### 5. 托盘提示中的连接指示器无颜色
+### 6. 托盘提示中的连接指示器无颜色
 
 连接指示器只支持在Windows11中显示颜色
 
