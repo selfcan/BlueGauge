@@ -9,9 +9,9 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 - [x] Setting：Bluetooth battery level as tray icon  
 
-    - Use system font (default):  
-        1. check the device that needs to display the battery, open tray menu -- `Settings` -- `Open Config`
-        2. set font  
+    - Use number icon (default):  
+        1. check the device that needs to display the battery    
+        2. set font: open tray menu -- `Settings` -- `Open Config`   
         `font_name` = `"System Font Nmae, e.g. Microsoft YaHei UI"`  
         `font_color` = `"Hex color code，e.g. #FFFFFF、#00D26A"` (Default `"FollowSystemTheme"`)  
         `font_size` = `0~255` (Default `64`)   
@@ -26,7 +26,23 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
             </div>
         </div>
 
-    - Use custom pictures  
+    - Use ring icon:
+        1. check the device that needs to display the battery    
+        2. open tray menu - `Settings` - `Tray Options` - `Icon Style` - `Ring Icon`   
+        3. set color, open tray menu -- `Settings` -- `Open Config`  
+        `highlight_color` = `"Hex color code，e.g. #00D26A"`（Default green）    
+        `background_color` = `"Hex color code，e.g.#A7A19B"`（Default gray）   
+        4. restart BlueGauge 
+        5. Highlight color turns red when the device battery is low   
+
+        <div align="center">
+            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+                <img src="screenshots/ring.png" alt="左下图片" style="width:45%; display:block;">
+                <img src="screenshots/ring_low_battery.png" alt="右下图片" style="width:45%; display:block;">
+            </div>
+        </div>
+
+    - Use custom icon  
         1. create an `assets` folder in the BlueGauge directory
             - Default：add `0.png` to `100.png`   
             - Follow system theme：In the `assets` folder, create the `dark` and `light` folders respectively, and add `0.png` to `100.png` photos respectively

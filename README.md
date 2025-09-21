@@ -11,14 +11,14 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 - [x] 设置：蓝牙设备电量作为托盘图标    
 
-    - 使用系统字体（默认）：  
-        1. 勾选需显示电量设备，打开托盘菜单-`设置`-`打开配置`
-        2. 设置相关参数  
+    - 使用数字图标（默认）：  
+        1. 勾选需显示电量设备
+        2. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`  
         `font_name` = `"系统字体名称，如 Microsoft YaHei UI"`（默认 `Arial`）  
         `font_color` = `"十六进制颜色代码，如 #FFFFFF、#00D26A"`（默认 `FollowSystemTheme`，字体颜色跟随系统主题）  
         `font_size` = `0~255`  （默认 `64`）   
         3. 重新启动 BlueGauge
-        4. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
+        4. 其他：仅数字图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
 
         <div align="center">
             <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
@@ -28,7 +28,23 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
             </div>
         </div>
 
-    - 使用自定义图片  
+    - 使用圆环图标：    
+        1. 勾选需显示电量设备    
+        2. 打开托盘菜单 - `设置` - `托盘选项` - `图标样式` - `圆环图标`
+        3. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`   
+        `highlight_color`（电量颜色） = `"十六进制颜色代码，如 #00D26A"`（默认绿色）    
+        `background_color`（无电量颜色） = `"十六进制颜色代码，如#A7A19B"`（默认灰色） 
+        4. 重新启动 BlueGauge   
+        5. 当设备低电量时高亮颜色变为红色    
+
+        <div align="center">
+            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+                <img src="screenshots/ring.png" alt="左下图片" style="width:45%; display:block;">
+                <img src="screenshots/ring_low_battery.png" alt="右下图片" style="width:45%; display:block;">
+            </div>
+        </div>
+
+    - 使用自定义图标 ：  
         1. 在软件目录下创建一个 `assets` 文件夹，
             - 跟随系统主题：在 `assets` 文件夹中，分别创建 `dark` 和 `light` 文件夹，并分别添加 `0.png` 至 `100.png` 照片
             - 不跟随系统主题：在 `assets` 文件夹中添加 `0.png` 至 `100.png` 照片  
