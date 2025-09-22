@@ -255,6 +255,18 @@ pub async fn watch_ble_devices_async(
         guard.insert(ble_address, watch_btc_guard);
     }
 
+    // Init triggle event
+    {
+        let mut devices = bluetooth_devices_info.lock().unwrap();
+        for (_, device) in devices.iter_mut() {
+            let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                device.name.clone(),
+                device.battery,
+                device.address,
+            )));
+        }
+    }
+
     loop {
         tokio::select! {
             maybe_update= rx.recv() => {
@@ -268,21 +280,19 @@ pub async fn watch_ble_devices_async(
                 match update {
                     BluetoothLEUpdate::BatteryLevel(address, battery) => {
                         if let Some(info) = devices.get_mut(&address) {
-                            if info.battery != battery {
-                                info!("BLE [{}]: Battery -> {battery}", info.name);
-                                info.battery = battery;
-                                needs_tray_update = true;
-                                let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
-                                    info.name.clone(),
-                                    battery,
-                                    info.address,
-                                )));
-                            }
+                            info!("BLE [{}]: Battery -> {battery}", info.name);
+                            info.battery = battery;
+                            needs_tray_update = true;
+                            let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                                info.name.clone(),
+                                battery,
+                                info.address,
+                            )));
                         }
                     }
                     BluetoothLEUpdate::ConnectionStatus(address, status) => {
-                        if let Some(info) = devices.get_mut(&address) {
-                            if info.status != status {
+                        if let Some(info) = devices.get_mut(&address)
+                            && info.status != status {
                                 info!("BLE [{}]: Status -> {status}", info.name);
                                 info.status = status;
                                 needs_tray_update = true;
@@ -293,7 +303,6 @@ pub async fn watch_ble_devices_async(
                                 };
                                 let _ = proxy.send_event(UserEvent::Notify(notify_event));
                             }
-                        }
                     }
                 }
 

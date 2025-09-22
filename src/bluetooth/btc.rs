@@ -386,8 +386,8 @@ pub async fn watch_btc_devices_status_async(
                     return Err(anyhow!("Channel closed while watching BTC devices status"));
                 };
                 let mut devices = bluetooth_devices_info.lock().unwrap();
-                if let Some(update_device) = devices.get_mut(&address) {
-                    if update_device.status != status {
+                if let Some(update_device) = devices.get_mut(&address)
+                    && update_device.status != status {
                         info!("BTC [{}]: Status -> {status}", update_device.name);
                         let notify_event = if status {
                             NotifyEvent::Reconnect(update_device.name.clone())
@@ -399,8 +399,6 @@ pub async fn watch_btc_devices_status_async(
                         let _ = proxy.send_event(UserEvent::Notify(notify_event));
                         let _ = proxy.send_event(UserEvent::UnpdatTray);
                     }
-                };
-
             },
             _ = async {
                 loop {
