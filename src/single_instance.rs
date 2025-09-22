@@ -36,7 +36,9 @@ impl SingleInstance {
         let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }
             .context("Failed to create single instance mutex.")?;
 
-        if handle.is_invalid() {
+        let single_instance = Self { handle };
+
+        if single_instance.handle.is_invalid() {
             return Err(anyhow!(
                 "Failed to create single instance mutex: {:?}",
                 unsafe { GetLastError() }
@@ -44,10 +46,16 @@ impl SingleInstance {
         }
 
         if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+            // 如果是重启操作，跳过单实例检查
+            let args: Vec<String> = std::env::args().collect();
+            let is_restart = args.iter().any(|arg| arg == "--restart");
+            if is_restart {
+                return Ok(single_instance);
+            }
             return Err(anyhow!("BlueGauge already running, exit the new process"));
         }
 
-        Ok(Self { handle })
+        Ok(single_instance)
     }
 }
 
