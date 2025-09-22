@@ -257,16 +257,20 @@ fn render_ring_icon(
     // 起始角度（顶部，-90°）
     let start_angle = -std::f64::consts::PI / 2.0;
 
+    // 间隙角度转换为弧度
+    let gap_angle_rad  = 36.0_f64.to_radians();
+
     // 绘制背景圆环（表示剩余电量），使用基础线宽
+    let background_sweep_angle = 2.0 * std::f64::consts::PI - battery_angle_rad - 2.0 * gap_angle_rad;
     let background_color = background_color
         .and_then(|hex| Color::from_hex_str(&hex).ok())
-        .or(Color::from_hex_str("#A7A19B").ok())
+        .or(Color::from_hex_str("#DADADA").ok())
         .unwrap_or(Color::GRAY);
     let background_arc = piet_common::kurbo::Arc {
         center: center.into(),
         radii: piet_common::kurbo::Vec2::new(arc_radius, arc_radius),
-        start_angle: start_angle + battery_angle_rad,
-        sweep_angle: (360.0 - battery_angle).to_radians(),
+        start_angle: start_angle + battery_angle_rad + gap_angle_rad ,
+        sweep_angle: background_sweep_angle,
         x_rotation: 0.0,
     };
     piet.stroke_styled(background_arc, &background_color, stroke_width, &style);
@@ -277,7 +281,7 @@ fn render_ring_icon(
     } else {
         highlight_color
             .and_then(|hex| Color::from_hex_str(&hex).ok())
-            .or(Color::from_hex_str("#4fc478").ok())
+            .or(Color::from_hex_str("#4CD082").ok())
             .unwrap_or(Color::GREEN)
     };
     let highlight_arc = piet_common::kurbo::Arc {
