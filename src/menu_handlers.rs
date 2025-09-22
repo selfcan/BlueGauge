@@ -21,7 +21,10 @@ impl MenuHandlers {
 
     pub fn restart(proxy: EventLoopProxy<UserEvent>) {
         let exe_path = std::env::current_exe().expect("Failed to get path of app");
-        let args_os: Vec<OsString> = std::env::args_os().collect();
+        let mut args_os: Vec<OsString> = std::env::args_os().collect();
+
+        // 添加重启标志（避免与单实例冲突）
+        args_os.push("--restart".into());
 
         if let Err(e) = Command::new(exe_path).args(args_os.iter().skip(1)).spawn() {
             error!("Failed to restart app: {e}");

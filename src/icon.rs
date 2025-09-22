@@ -243,31 +243,35 @@ fn render_ring_icon(
     let inner_radius = 20.0;
     let outer_radius = 30.0;
     let stroke_width = outer_radius - inner_radius;
-    let mean_radius = (inner_radius + outer_radius) / 2.0;
 
-    // 起始角度（顶部，-90°）
-    let start_angle = -std::f64::consts::PI / 2.0;
+    // 使用平均半径作为圆弧半径
+    let arc_radius = (inner_radius + outer_radius) / 2.0;
+
+    // 将电量转换为百分比并计算对应的角度
     let battery_angle = battery_level as f64 * 3.6;
     let battery_angle_rad = battery_angle.to_radians();
 
     // 定义圆环的样式（圆角端点）
     let style = StrokeStyle::new().line_cap(LineCap::Round);
 
-    // 绘制非高亮部分
+    // 起始角度（顶部，-90°）
+    let start_angle = -std::f64::consts::PI / 2.0;
+
+    // 绘制背景圆环（表示剩余电量），使用基础线宽
     let background_color = background_color
         .and_then(|hex| Color::from_hex_str(&hex).ok())
         .or(Color::from_hex_str("#A7A19B").ok())
         .unwrap_or(Color::GRAY);
     let background_arc = piet_common::kurbo::Arc {
         center: center.into(),
-        radii: piet_common::kurbo::Vec2::new(mean_radius, mean_radius),
+        radii: piet_common::kurbo::Vec2::new(arc_radius, arc_radius),
         start_angle: start_angle + battery_angle_rad,
         sweep_angle: (360.0 - battery_angle).to_radians(),
         x_rotation: 0.0,
     };
     piet.stroke_styled(background_arc, &background_color, stroke_width, &style);
 
-    // 绘制高亮部分
+    // 绘制电量圆环（表示当前电量），使用更粗的线宽
     let highlight_color = if battery_level <= low_battery {
         Color::from_hex_str("#fe6666").unwrap_or(Color::RED)
     } else {
@@ -278,13 +282,13 @@ fn render_ring_icon(
     };
     let highlight_arc = piet_common::kurbo::Arc {
         center: center.into(),
-        radii: piet_common::kurbo::Vec2::new(mean_radius, mean_radius),
+        radii: piet_common::kurbo::Vec2::new(arc_radius, arc_radius),
         start_angle,
         sweep_angle: battery_angle_rad,
         x_rotation: 0.0,
     };
+    piet.stroke_styled(highlight_arc, &highlight_color, stroke_width + 2.0, &style);
 
-    piet.stroke_styled(highlight_arc, &highlight_color, stroke_width, &style);
     piet.finish().map_err(|e| anyhow!("{e}"))?;
     drop(piet);
 
