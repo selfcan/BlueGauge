@@ -206,8 +206,8 @@ impl MenuHandlers {
                 if let TrayIconSource::BatteryNumber { address, .. } = *tray_icon_source {
                     *tray_icon_source = TrayIconSource::BatteryRing {
                         address,
-                        highlight_color: Some("#4fc478".to_owned()),
-                        background_color: Some("#A7A19B".to_owned()),
+                        highlight_color: Some("#4CD082".to_owned()),
+                        background_color: Some("#DADADA".to_owned()),
                     }
                 }
             }
