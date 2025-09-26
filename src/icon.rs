@@ -158,7 +158,7 @@ fn render_battery_font_icon(
         }
     } else {
         font_color
-            .and_then(|c| c.ne("FollowSystemTheme").then_some(c))
+            .and_then(|c| Color::from_hex_str(&c).ok().map(|_| c))
             .unwrap_or_else(|| SystemTheme::get().get_font_color())
     };
 
