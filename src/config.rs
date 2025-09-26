@@ -26,7 +26,7 @@ struct TrayOptionsToml {
     #[serde(rename = "tooltip")]
     tray_tooltip: TrayTooltipToml,
     #[serde(rename = "icon")]
-    tray_icon_style: TrayIconSource,
+    tray_icon_style: TrayIconStyle,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ struct TrayTooltipToml {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "style", content = "font")]
-pub enum TrayIconSource {
+pub enum TrayIconStyle {
     App,
     BatteryCustom {
         address: u64,
@@ -72,7 +72,7 @@ struct NotifyOptionsToml {
     removed: bool,
 }
 
-impl TrayIconSource {
+impl TrayIconStyle {
     pub fn update_address(&mut self, new_address: u64) {
         match self {
             Self::App => (),
@@ -155,14 +155,14 @@ pub struct TooltipOptions {
 #[derive(Debug)]
 pub struct TrayOptions {
     pub tooltip_options: TooltipOptions,
-    pub tray_icon_style: Mutex<TrayIconSource>,
+    pub tray_icon_style: Mutex<TrayIconStyle>,
 }
 
 impl Default for TrayOptions {
     fn default() -> Self {
         TrayOptions {
             tooltip_options: TooltipOptions::default(),
-            tray_icon_style: Mutex::new(TrayIconSource::App),
+            tray_icon_style: Mutex::new(TrayIconStyle::App),
         }
     }
 }
@@ -265,7 +265,7 @@ impl Config {
                     truncate_name: false,
                     prefix_battery: false,
                 },
-                tray_icon_style: TrayIconSource::App,
+                tray_icon_style: TrayIconStyle::App,
             },
             notify_options: NotifyOptionsToml {
                 low_battery: 15,
@@ -314,11 +314,11 @@ impl Config {
             toml_config.tray_options.tray_icon_style
         } else {
             match toml_config.tray_options.tray_icon_style {
-                TrayIconSource::App => TrayIconSource::App,
-                TrayIconSource::BatteryCustom { address }
-                | TrayIconSource::BatteryNumber { address, .. }
-                | TrayIconSource::BatteryRing { address, .. } => {
-                    TrayIconSource::BatteryCustom { address }
+                TrayIconStyle::App => TrayIconStyle::App,
+                TrayIconStyle::BatteryCustom { address }
+                | TrayIconStyle::BatteryNumber { address, .. }
+                | TrayIconStyle::BatteryRing { address, .. } => {
+                    TrayIconStyle::BatteryCustom { address }
                 }
             }
         };
@@ -407,10 +407,10 @@ impl Config {
         };
 
         match tray_icon_style {
-            TrayIconSource::App => None,
-            TrayIconSource::BatteryCustom { address } => Some(address),
-            TrayIconSource::BatteryNumber { address, .. } => Some(address),
-            TrayIconSource::BatteryRing { address, .. } => Some(address),
+            TrayIconStyle::App => None,
+            TrayIconStyle::BatteryCustom { address } => Some(address),
+            TrayIconStyle::BatteryNumber { address, .. } => Some(address),
+            TrayIconStyle::BatteryRing { address, .. } => Some(address),
         }
     }
 }

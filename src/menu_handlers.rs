@@ -3,7 +3,7 @@ use std::{ops::Deref, path::Path, sync::atomic::Ordering};
 
 use crate::UserEvent;
 use crate::{
-    config::{Config, TrayIconSource},
+    config::{Config, TrayIconStyle},
     notify::notify,
     startup::set_startup,
 };
@@ -193,8 +193,8 @@ impl MenuHandlers {
 
         match menu_event_id {
             "number_icon" if have_new_icon_style_menu_checkd => {
-                if let TrayIconSource::BatteryRing { address, .. } = *tray_icon_style {
-                    *tray_icon_style = TrayIconSource::BatteryNumber {
+                if let TrayIconStyle::BatteryRing { address, .. } = *tray_icon_style {
+                    *tray_icon_style = TrayIconStyle::BatteryNumber {
                         address,
                         font_name: "Arial".to_owned(),
                         font_color: Some("FollowSystemTheme".to_owned()),
@@ -203,8 +203,8 @@ impl MenuHandlers {
                 }
             }
             "ring_icon" if have_new_icon_style_menu_checkd => {
-                if let TrayIconSource::BatteryNumber { address, .. } = *tray_icon_style {
-                    *tray_icon_style = TrayIconSource::BatteryRing {
+                if let TrayIconStyle::BatteryNumber { address, .. } = *tray_icon_style {
+                    *tray_icon_style = TrayIconStyle::BatteryRing {
                         address,
                         highlight_color: Some("#4CD082".to_owned()),
                         background_color: Some("FollowSystemTheme".to_owned()),
@@ -274,7 +274,7 @@ impl MenuHandlers {
         // · 若原来图标来源为应用图标，且有托盘菜单选择有设备时，根据有无自定义设置相应类型图标
         // · 若原来图标来源指定设备电量图标，如果指定设备取消，则托盘图标变为应用图标，如果为其他设备图标，则更新图标来源中的蓝牙地址
         match tray_icon_style.deref() {
-            TrayIconSource::App if have_new_device_menu_checkd => {
+            TrayIconStyle::App if have_new_device_menu_checkd => {
                 let have_custom_icons = std::env::current_exe()
                     .ok()
                     .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
@@ -305,7 +305,7 @@ impl MenuHandlers {
                     .filter(|item| item.id().as_ref().ends_with("icon"))
                     .for_each(|item| match item.id().as_ref() {
                         "number_icon" if !have_custom_icons => {
-                            *tray_icon_style = TrayIconSource::BatteryNumber {
+                            *tray_icon_style = TrayIconStyle::BatteryNumber {
                                 address: show_battery_icon_bt_address.to_owned(),
                                 font_name: "Arial".to_owned(),
                                 font_color: Some("FollowSystemTheme".to_owned()),
@@ -317,13 +317,13 @@ impl MenuHandlers {
                         _ => item.set_checked(false),
                     });
             }
-            TrayIconSource::BatteryCustom { .. }
-            | TrayIconSource::BatteryNumber { .. }
-            | TrayIconSource::BatteryRing { .. } => {
+            TrayIconStyle::BatteryCustom { .. }
+            | TrayIconStyle::BatteryNumber { .. }
+            | TrayIconStyle::BatteryRing { .. } => {
                 if have_new_device_menu_checkd {
                     tray_icon_style.update_address(show_battery_icon_bt_address);
                 } else {
-                    *tray_icon_style = TrayIconSource::App;
+                    *tray_icon_style = TrayIconStyle::App;
                 }
             }
             _ => (),

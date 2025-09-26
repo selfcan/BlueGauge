@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, TrayIconSource},
+    config::{Config, TrayIconStyle},
     theme::SystemTheme,
 };
 
@@ -36,9 +36,9 @@ pub fn load_battery_icon(
     let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
 
     match tray_icon_style {
-        TrayIconSource::App => load_app_icon(),
-        TrayIconSource::BatteryCustom { .. } => load_custom_icon(battery_level),
-        TrayIconSource::BatteryNumber {
+        TrayIconStyle::App => load_app_icon(),
+        TrayIconStyle::BatteryCustom { .. } => load_custom_icon(battery_level),
+        TrayIconStyle::BatteryNumber {
             address: _,
             font_name,
             font_color,
@@ -57,7 +57,7 @@ pub fn load_battery_icon(
                 should_icon_connect_color,
             )
         }
-        TrayIconSource::BatteryRing {
+        TrayIconStyle::BatteryRing {
             address: _,
             highlight_color,
             background_color,

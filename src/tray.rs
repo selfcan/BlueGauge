@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 
 use crate::bluetooth::info::BluetoothInfo;
-use crate::config::{Config, TrayIconSource};
+use crate::config::{Config, TrayIconStyle};
 use crate::icon::{load_app_icon, load_battery_icon};
 use crate::language::{Language, Localization};
 use crate::startup::get_startup_status;
@@ -82,8 +82,8 @@ impl CreateMenuItem {
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> Submenu {
         let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
-        let select_number_icon = matches!(tray_icon_style, TrayIconSource::BatteryNumber { .. });
-        let select_ring_icon = matches!(tray_icon_style, TrayIconSource::BatteryRing { .. });
+        let select_number_icon = matches!(tray_icon_style, TrayIconStyle::BatteryNumber { .. });
+        let select_ring_icon = matches!(tray_icon_style, TrayIconStyle::BatteryRing { .. });
 
         let select_tray_icon_style_items = [
             CheckMenuItem::with_id(
@@ -160,7 +160,7 @@ impl CreateMenuItem {
         loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> CheckMenuItem {
-        let connection_toggle_menu = if let TrayIconSource::BatteryNumber { font_color, .. } =
+        let connection_toggle_menu = if let TrayIconStyle::BatteryNumber { font_color, .. } =
             config.tray_options.tray_icon_style.lock().unwrap().deref()
         {
             CheckMenuItem::with_id(
