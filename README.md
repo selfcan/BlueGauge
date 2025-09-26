@@ -15,7 +15,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
         1. 勾选需显示电量设备
         2. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`  
         `font_name` = `"系统字体名称，如 Microsoft YaHei UI"`（默认 `Arial`）  
-        `font_color` = `"十六进制颜色代码，如 #FFFFFF、#00D26A"`（默认 `FollowSystemTheme`，字体颜色跟随系统主题）  
+        `font_color` = `"十六进制颜色代码，如 #FFFFFF、#00D26A"`（默认字体颜色跟随系统主题）  
         `font_size` = `0~255`  （默认 `64`）   
         3. 重新启动 BlueGauge
         4. 其他：仅数字图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
@@ -23,8 +23,8 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
         <div align="center">
             <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
             <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/connect.png" alt="左下图片" style="width:45%; display:block;">
-                <img src="screenshots/disconnect.png" alt="右下图片" style="width:45%; display:block;">
+                <img src="screenshots/connect.png" style="width:45%; display:block;">
+                <img src="screenshots/disconnect.png" style="width:45%; display:block;">
             </div>
         </div>
 
@@ -32,16 +32,17 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
         1. 勾选需显示电量设备    
         2. 打开托盘菜单 - `设置` - `托盘选项` - `图标样式` - `圆环图标`
         3. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`   
-        `highlight_color`（电量颜色） = `"十六进制颜色代码，如 #00D26A"`（默认绿色）    
-        `background_color`（无电量颜色） = `"十六进制颜色代码，如#A7A19B"`（默认灰色） 
+        `highlight_color`（电量颜色） = `"十六进制颜色代码，如 #4CD082"`（默认绿色）    
+        `background_color`（无电量颜色） = `"十六进制颜色代码，如 #DADADA"`（默认灰色随系统主题调整，不建议修改） 
         4. 重新启动 BlueGauge   
         5. 当设备低电量时高亮颜色变为红色    
 
         <div align="center">
             <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/ring.png" alt="左下图片" style="width:45%; display:block;">
-                <img src="screenshots/ring_low_battery.png" alt="右下图片" style="width:45%; display:block;">
+                <img src="screenshots/ring.png" style="width:48%; display:block;">
+                <img src="screenshots/ring_low_battery.png" style="width:48%; display:block;">
             </div>
+            <img src="screenshots/ring_custom.png" style="width=90%; display:block; margin:5 auto 10px;" />
         </div>
 
     - 使用自定义图标 ：  
@@ -116,11 +117,11 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 可能与某蓝牙设备频繁发送设备电量信息有关
 
-- **解决方案：**: 暂无有效解决办法，可使用最新 `BlueGauge.Debug` 版本排除并断开相关设备连接。
+- **解决方案：**: 暂无有效解决办法，可使用最新 `BlueGauge.Debug` 版本排除并断开相关设备连接，后续修复设备频繁发送电量问题。
 
 ### 4. 怎么在托盘显示多个设备电量？
 
-- **解决方案：**: 另外创建一个文件夹，并复制 `BlueGauge.exe` 到该文件夹，然后重命名 `BlueGauge.exe` 为其他名字，最后打开并设置开机自启动即可。
+- **解决方案：**: 另外创建一个文件夹，并复制 `BlueGauge.exe` 和 `BlueGague.toml`到该文件夹，然后重命名 `BlueGauge.exe` 为其他名称（不建议使用中文），最后打开并设置开机自启动即可。
 
 ### 5. 托盘电量图标被截断一小部分
 

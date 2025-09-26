@@ -13,7 +13,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
         1. check the device that needs to display the battery    
         2. set font: open tray menu -- `Settings` -- `Open Config`   
         `font_name` = `"System Font Nmae, e.g. Microsoft YaHei UI"`  
-        `font_color` = `"Hex color code，e.g. #FFFFFF、#00D26A"` (Default `"FollowSystemTheme"`)  
+        `font_color` = `"Hex color code，e.g. #FFFFFF、#00D26A"` (Default font color follows system theme)  
         `font_size` = `0~255` (Default `64`)   
         3. restart BlueGauge
         4. others: the icon color supports connection color matching, set the icon color to the connection color in `Settings`-`Tray Options` (connected as green, disconnected as red)
@@ -21,8 +21,8 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
         <div align="center">
             <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
             <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/connect.png" alt="左下图片" style="width:45%; display:block;">
-                <img src="screenshots/disconnect.png" alt="右下图片" style="width:45%; display:block;">
+                <img src="screenshots/connect.png" style="width:45%; display:block;">
+                <img src="screenshots/disconnect.png" style="width:45%; display:block;">
             </div>
         </div>
 
@@ -30,16 +30,17 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
         1. check the device that needs to display the battery    
         2. open tray menu - `Settings` - `Tray Options` - `Icon Style` - `Ring Icon`   
         3. set color, open tray menu -- `Settings` -- `Open Config`  
-        `highlight_color` = `"Hex color code，e.g. #00D26A"`（Default green）    
-        `background_color` = `"Hex color code，e.g.#A7A19B"`（Default gray）   
+        `highlight_color` = `"Hex color code，e.g. #4CD082"`( Default green )    
+        `background_color` = `"Hex color code，e.g. #DADADA"` ( The default gray color is adjusted according to the system theme, and it is not recommended to modify it )   
         4. restart BlueGauge 
         5. Highlight color turns red when the device battery is low   
 
         <div align="center">
             <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/ring.png" alt="左下图片" style="width:45%; display:block;">
-                <img src="screenshots/ring_low_battery.png" alt="右下图片" style="width:45%; display:block;">
+                <img src="screenshots/ring.png" style="width:48%; display:block;">
+                <img src="screenshots/ring_low_battery.png" style="width:48%; display:block;">
             </div>
+            <img src="screenshots/ring_custom.png" style="width=90%; display:block; margin:5 auto 10px;" />
         </div>
 
     - Use custom icon  
@@ -47,7 +48,6 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
             - Default：add `0.png` to `100.png`   
             - Follow system theme：In the `assets` folder, create the `dark` and `light` folders respectively, and add `0.png` to `100.png` photos respectively
         2. restart BlueGauge  
-
 
 - [x] Setting：Auto start
 - [x] Setting：Bluetooth device name aliases
@@ -117,7 +117,7 @@ There is no effective solution yet. You can use the latest `BlueGauge.Debug` ver
 
 ### 4. How to display the power of multiple devices on the pallet?
 
-- **Solution:**: Create another folder, copy `BlueGauge.exe` to the folder, then rename `BlueGauge.exe` to another name, and finally open and set the `Launch at Startup`
+- **Solution:**: Create another folder, copy `BlueGauge.exe` and `BlueGauge.toml` to the folder, then rename `BlueGauge.exe` to another name, and finally open and set the `Launch at Startup`
 
 ### 5. The tray battery icon is cut off by a small part
 
