@@ -33,9 +33,9 @@ pub fn load_battery_icon(
     battery_level: u8,
     bluetooth_status: bool,
 ) -> Result<Icon> {
-    let tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap().clone();
+    let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
 
-    match tray_icon_source {
+    match tray_icon_style {
         TrayIconSource::App => load_app_icon(),
         TrayIconSource::BatteryCustom { .. } => load_custom_icon(battery_level),
         TrayIconSource::BatteryNumber {

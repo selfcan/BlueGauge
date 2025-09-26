@@ -26,7 +26,7 @@ struct TrayOptionsToml {
     #[serde(rename = "tooltip")]
     tray_tooltip: TrayTooltipToml,
     #[serde(rename = "icon")]
-    tray_icon_source: TrayIconSource,
+    tray_icon_style: TrayIconSource,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -37,7 +37,7 @@ struct TrayTooltipToml {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "source", content = "font")]
+#[serde(tag = "style", content = "font")]
 pub enum TrayIconSource {
     App,
     BatteryCustom {
@@ -155,14 +155,14 @@ pub struct TooltipOptions {
 #[derive(Debug)]
 pub struct TrayOptions {
     pub tooltip_options: TooltipOptions,
-    pub tray_icon_source: Mutex<TrayIconSource>,
+    pub tray_icon_style: Mutex<TrayIconSource>,
 }
 
 impl Default for TrayOptions {
     fn default() -> Self {
         TrayOptions {
             tooltip_options: TooltipOptions::default(),
-            tray_icon_source: Mutex::new(TrayIconSource::App),
+            tray_icon_style: Mutex::new(TrayIconSource::App),
         }
     }
 }
@@ -213,8 +213,8 @@ impl Config {
     }
 
     pub fn save(&self) {
-        let tray_icon_source = {
-            let lock = self.tray_options.tray_icon_source.lock().unwrap();
+        let tray_icon_style = {
+            let lock = self.tray_options.tray_icon_style.lock().unwrap();
             lock.clone()
         };
         let toml_config = ConfigToml {
@@ -236,7 +236,7 @@ impl Config {
                         .prefix_battery
                         .load(Ordering::Relaxed),
                 },
-                tray_icon_source,
+                tray_icon_style,
             },
             notify_options: NotifyOptionsToml {
                 low_battery: self.notify_options.low_battery.load(Ordering::Relaxed),
@@ -265,7 +265,7 @@ impl Config {
                     truncate_name: false,
                     prefix_battery: false,
                 },
-                tray_icon_source: TrayIconSource::App,
+                tray_icon_style: TrayIconSource::App,
             },
             notify_options: NotifyOptionsToml {
                 low_battery: 15,
@@ -283,7 +283,7 @@ impl Config {
         Ok(Config {
             config_path,
             tray_options: TrayOptions {
-                tray_icon_source: Mutex::new(default_config.tray_options.tray_icon_source),
+                tray_icon_style: Mutex::new(default_config.tray_options.tray_icon_style),
                 tooltip_options: TooltipOptions {
                     show_disconnected: AtomicBool::new(
                         default_config.tray_options.tray_tooltip.show_disconnected,
@@ -310,10 +310,10 @@ impl Config {
     fn read_toml(config_path: PathBuf) -> Result<Self> {
         let content = std::fs::read_to_string(&config_path)?;
         let toml_config: ConfigToml = toml::from_str(&content)?;
-        let tray_icon_source = if find_custom_icon().is_err() {
-            toml_config.tray_options.tray_icon_source
+        let tray_icon_style = if find_custom_icon().is_err() {
+            toml_config.tray_options.tray_icon_style
         } else {
-            match toml_config.tray_options.tray_icon_source {
+            match toml_config.tray_options.tray_icon_style {
                 TrayIconSource::App => TrayIconSource::App,
                 TrayIconSource::BatteryCustom { address }
                 | TrayIconSource::BatteryNumber { address, .. }
@@ -326,7 +326,7 @@ impl Config {
         Ok(Config {
             config_path,
             tray_options: TrayOptions {
-                tray_icon_source: Mutex::new(tray_icon_source),
+                tray_icon_style: Mutex::new(tray_icon_style),
                 tooltip_options: TooltipOptions {
                     show_disconnected: AtomicBool::new(
                         toml_config.tray_options.tray_tooltip.show_disconnected,
@@ -401,12 +401,12 @@ impl Config {
     }
 
     pub fn get_tray_battery_icon_bt_address(&self) -> Option<u64> {
-        let tray_icon_source = {
-            let lock = self.tray_options.tray_icon_source.lock().unwrap();
+        let tray_icon_style = {
+            let lock = self.tray_options.tray_icon_style.lock().unwrap();
             lock.clone()
         };
 
-        match tray_icon_source {
+        match tray_icon_style {
             TrayIconSource::App => None,
             TrayIconSource::BatteryCustom { address } => Some(address),
             TrayIconSource::BatteryNumber { address, .. } => Some(address),

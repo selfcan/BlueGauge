@@ -76,16 +76,16 @@ impl CreateMenuItem {
         Ok(bluetooth_check_items)
     }
 
-    fn select_tray_icon_source(
+    fn select_tray_icon_style(
         config: &Config,
         loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> Submenu {
-        let tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap().clone();
-        let select_number_icon = matches!(tray_icon_source, TrayIconSource::BatteryNumber { .. });
-        let select_ring_icon = matches!(tray_icon_source, TrayIconSource::BatteryRing { .. });
+        let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
+        let select_number_icon = matches!(tray_icon_style, TrayIconSource::BatteryNumber { .. });
+        let select_ring_icon = matches!(tray_icon_style, TrayIconSource::BatteryRing { .. });
 
-        let select_tray_icon_source_items = [
+        let select_tray_icon_style_items = [
             CheckMenuItem::with_id(
                 "number_icon",
                 loc.number_icon,
@@ -95,11 +95,11 @@ impl CreateMenuItem {
             ),
             CheckMenuItem::with_id("ring_icon", loc.ring_icon, true, select_ring_icon, None),
         ];
-        tray_check_menus.extend(select_tray_icon_source_items.iter().cloned());
+        tray_check_menus.extend(select_tray_icon_style_items.iter().cloned());
 
         let mut menu_tray_icon_style: Vec<&dyn IsMenuItem> = Vec::new();
         menu_tray_icon_style.extend(
-            select_tray_icon_source_items
+            select_tray_icon_style_items
                 .iter()
                 .map(|item| item as &dyn IsMenuItem),
         );
@@ -161,7 +161,7 @@ impl CreateMenuItem {
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> CheckMenuItem {
         let connection_toggle_menu = if let TrayIconSource::BatteryNumber { font_color, .. } =
-            config.tray_options.tray_icon_source.lock().unwrap().deref()
+            config.tray_options.tray_icon_style.lock().unwrap().deref()
         {
             CheckMenuItem::with_id(
                 "set_icon_connect_color",
@@ -217,15 +217,15 @@ pub fn create_menu(
     let menu_open_config = &CreateMenuItem::open_config(loc.open_config);
 
     let menu_tray_options = {
-        let menu_select_tray_icon_source =
-            CreateMenuItem::select_tray_icon_source(config, loc, &mut tray_check_menus);
+        let menu_select_tray_icon_style =
+            CreateMenuItem::select_tray_icon_style(config, loc, &mut tray_check_menus);
         let menu_set_icon_connect_color =
             CreateMenuItem::set_icon_connect_color(config, loc, &mut tray_check_menus);
         let menu_set_tray_tooltip =
             CreateMenuItem::set_tray_tooltip(config, loc, &mut tray_check_menus);
 
         let mut menu_tray_options: Vec<&dyn IsMenuItem> = Vec::new();
-        menu_tray_options.push(&menu_select_tray_icon_source as &dyn IsMenuItem);
+        menu_tray_options.push(&menu_select_tray_icon_style as &dyn IsMenuItem);
         menu_tray_options.push(&menu_set_icon_connect_color as &dyn IsMenuItem);
         menu_tray_options.extend(
             menu_set_tray_tooltip
@@ -313,7 +313,7 @@ pub fn create_tray(
     let tray_icon_bt_address = {
         config
             .tray_options
-            .tray_icon_source
+            .tray_icon_style
             .lock()
             .unwrap()
             .get_address()

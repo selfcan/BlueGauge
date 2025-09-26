@@ -269,7 +269,7 @@ impl ApplicationHandler<UserEvent> for App {
 
                     let tray_icon_bt_address = config
                         .tray_options
-                        .tray_icon_source
+                        .tray_icon_style
                         .lock()
                         .unwrap()
                         .get_address();

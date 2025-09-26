@@ -53,7 +53,7 @@ impl MenuHandlers {
         {
             config
                 .tray_options
-                .tray_icon_source
+                .tray_icon_style
                 .lock()
                 .unwrap()
                 .update_connect_color(item.is_checked());
@@ -189,12 +189,12 @@ impl MenuHandlers {
             item.set_checked(should_check);
         });
 
-        let mut tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap();
+        let mut tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap();
 
         match menu_event_id {
             "number_icon" if have_new_icon_style_menu_checkd => {
-                if let TrayIconSource::BatteryRing { address, .. } = *tray_icon_source {
-                    *tray_icon_source = TrayIconSource::BatteryNumber {
+                if let TrayIconSource::BatteryRing { address, .. } = *tray_icon_style {
+                    *tray_icon_style = TrayIconSource::BatteryNumber {
                         address,
                         font_name: "Arial".to_owned(),
                         font_color: Some("FollowSystemTheme".to_owned()),
@@ -203,8 +203,8 @@ impl MenuHandlers {
                 }
             }
             "ring_icon" if have_new_icon_style_menu_checkd => {
-                if let TrayIconSource::BatteryNumber { address, .. } = *tray_icon_source {
-                    *tray_icon_source = TrayIconSource::BatteryRing {
+                if let TrayIconSource::BatteryNumber { address, .. } = *tray_icon_style {
+                    *tray_icon_style = TrayIconSource::BatteryRing {
                         address,
                         highlight_color: Some("#4CD082".to_owned()),
                         background_color: Some("FollowSystemTheme".to_owned()),
@@ -215,7 +215,7 @@ impl MenuHandlers {
         }
 
         // 优先释放锁，避免Config执行Svae时发生死锁
-        drop(tray_icon_source);
+        drop(tray_icon_style);
         config.save();
 
         let _ = proxy.send_event(UserEvent::UnpdatTray);
@@ -269,11 +269,11 @@ impl MenuHandlers {
             item.set_checked(should_check);
         });
 
-        let mut tray_icon_source = config.tray_options.tray_icon_source.lock().unwrap();
+        let mut tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap();
 
         // · 若原来图标来源为应用图标，且有托盘菜单选择有设备时，根据有无自定义设置相应类型图标
         // · 若原来图标来源指定设备电量图标，如果指定设备取消，则托盘图标变为应用图标，如果为其他设备图标，则更新图标来源中的蓝牙地址
-        match tray_icon_source.deref() {
+        match tray_icon_style.deref() {
             TrayIconSource::App if have_new_device_menu_checkd => {
                 let have_custom_icons = std::env::current_exe()
                     .ok()
@@ -305,7 +305,7 @@ impl MenuHandlers {
                     .filter(|item| item.id().as_ref().ends_with("icon"))
                     .for_each(|item| match item.id().as_ref() {
                         "number_icon" if !have_custom_icons => {
-                            *tray_icon_source = TrayIconSource::BatteryNumber {
+                            *tray_icon_style = TrayIconSource::BatteryNumber {
                                 address: show_battery_icon_bt_address.to_owned(),
                                 font_name: "Arial".to_owned(),
                                 font_color: Some("FollowSystemTheme".to_owned()),
@@ -321,16 +321,16 @@ impl MenuHandlers {
             | TrayIconSource::BatteryNumber { .. }
             | TrayIconSource::BatteryRing { .. } => {
                 if have_new_device_menu_checkd {
-                    tray_icon_source.update_address(show_battery_icon_bt_address);
+                    tray_icon_style.update_address(show_battery_icon_bt_address);
                 } else {
-                    *tray_icon_source = TrayIconSource::App;
+                    *tray_icon_style = TrayIconSource::App;
                 }
             }
             _ => (),
         };
 
         // 优先释放锁，避免Config执行Svae时发生死锁
-        drop(tray_icon_source);
+        drop(tray_icon_style);
         config.save();
 
         let _ = proxy.send_event(UserEvent::UnpdatTray);
