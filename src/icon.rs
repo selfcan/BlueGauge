@@ -255,32 +255,29 @@ fn render_ring_icon(
     let style = StrokeStyle::new().line_cap(LineCap::Round);
 
     // 起始角度（顶部，-90°）
-    let start_angle_rad  = -std::f64::consts::PI / 2.0;
+    let start_angle_rad = -std::f64::consts::PI / 2.0;
 
     // 间隙角度转换为弧度
-    let gap_angle: f64 = if battery_level > 90 {
-        0.0
-    } else {
-        30.0
-    };
-    let gap_angle_rad  = gap_angle.to_radians();
+    let gap_angle: f64 = if battery_level > 90 { 0.0 } else { 30.0 };
+    let gap_angle_rad = gap_angle.to_radians();
 
     // 计算每个圆环应该缩短的角度（各分摊一半的间隙）
-    let shorten_angle_rad  = gap_angle_rad / 2.0;
-    let background_theme_color = match SystemTheme::get() {
+    let shorten_angle_rad = gap_angle_rad / 2.0;
+    let background_theme_color = || match SystemTheme::get() {
         SystemTheme::Light => "#999999",
         SystemTheme::Dark => "#DADADA",
     };
     // 绘制背景圆环（表示剩余电量）
-    let background_sweep_angle = 2.0 * std::f64::consts::PI - battery_angle_rad - 2.0 * shorten_angle_rad ;
+    let background_sweep_angle =
+        2.0 * std::f64::consts::PI - battery_angle_rad - 2.0 * shorten_angle_rad;
     let background_color = background_color
         .and_then(|hex| Color::from_hex_str(&hex).ok())
-        .or(Color::from_hex_str(background_theme_color).ok())
+        .or_else(|| Color::from_hex_str(background_theme_color()).ok())
         .unwrap_or(Color::GRAY);
     let background_arc = piet_common::kurbo::Arc {
         center: center.into(),
         radii: piet_common::kurbo::Vec2::new(arc_radius, arc_radius),
-        start_angle: start_angle_rad  + battery_angle_rad + shorten_angle_rad ,
+        start_angle: start_angle_rad + battery_angle_rad + shorten_angle_rad,
         sweep_angle: background_sweep_angle,
         x_rotation: 0.0,
     };
@@ -298,8 +295,8 @@ fn render_ring_icon(
     let highlight_arc = piet_common::kurbo::Arc {
         center: center.into(),
         radii: piet_common::kurbo::Vec2::new(arc_radius, arc_radius),
-        start_angle: start_angle_rad  + shorten_angle_rad ,
-        sweep_angle: battery_angle_rad - 2.0 * shorten_angle_rad ,
+        start_angle: start_angle_rad + shorten_angle_rad,
+        sweep_angle: battery_angle_rad - 2.0 * shorten_angle_rad,
         x_rotation: 0.0,
     };
     piet.stroke_styled(highlight_arc, &highlight_color, stroke_width, &style);
