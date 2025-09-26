@@ -207,7 +207,7 @@ impl MenuHandlers {
                     *tray_icon_source = TrayIconSource::BatteryRing {
                         address,
                         highlight_color: Some("#4CD082".to_owned()),
-                        background_color: Some("#DADADA".to_owned()),
+                        background_color: Some("FollowSystemTheme".to_owned()),
                     }
                 }
             }

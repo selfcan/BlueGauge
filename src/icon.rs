@@ -267,12 +267,15 @@ fn render_ring_icon(
 
     // 计算每个圆环应该缩短的角度（各分摊一半的间隙）
     let shorten_angle_rad  = gap_angle_rad / 2.0;
-
+    let background_theme_color = match SystemTheme::get() {
+        SystemTheme::Light => "#999999",
+        SystemTheme::Dark => "#DADADA",
+    };
     // 绘制背景圆环（表示剩余电量）
     let background_sweep_angle = 2.0 * std::f64::consts::PI - battery_angle_rad - 2.0 * shorten_angle_rad ;
     let background_color = background_color
         .and_then(|hex| Color::from_hex_str(&hex).ok())
-        .or(Color::from_hex_str("#DADADA").ok())
+        .or(Color::from_hex_str(background_theme_color).ok())
         .unwrap_or(Color::GRAY);
     let background_arc = piet_common::kurbo::Arc {
         center: center.into(),
@@ -285,7 +288,7 @@ fn render_ring_icon(
 
     // 绘制高亮圆环（表示当前电量）
     let highlight_color = if battery_level <= low_battery {
-        Color::from_hex_str("#fe6666").unwrap_or(Color::RED)
+        Color::from_hex_str("#FE6666").unwrap_or(Color::RED)
     } else {
         highlight_color
             .and_then(|hex| Color::from_hex_str(&hex).ok())
