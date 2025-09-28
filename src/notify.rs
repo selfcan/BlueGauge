@@ -36,16 +36,23 @@ impl NotifyEvent {
     pub fn send(&self, config: &Config, notifyed_devices: Arc<Mutex<HashSet<u64>>>) {
         let language = Language::get_system_language();
         let loc = Localization::get(language);
+        let battery_offset = 100;
+        let battery_zore = 0 + battery_offset;
 
         match self {
             NotifyEvent::LowBattery(name, battery, address) => {
-                if *battery <= config.get_low_battery() {
-                    if notifyed_devices.lock().unwrap().insert(*address) {
-                        let message = format!("{name}: {} {battery}", loc.bluetooth_battery_below);
-                        notify(message);
+                match battery_zore + *battery - config.get_low_battery() {
+                    num if num <= battery_zore => {
+                        if notifyed_devices.lock().unwrap().insert(*address) {
+                            let message =
+                                format!("{name}: {} {battery}", loc.bluetooth_battery_below);
+                            notify(message);
+                        }
                     }
-                } else {
-                    notifyed_devices.lock().unwrap().remove(address);
+                    num if num < 15 + battery_zore => (), // In case, battery level wave
+                    _ => {
+                        notifyed_devices.lock().unwrap().remove(address);
+                    }
                 }
             }
             NotifyEvent::Added(name) if config.get_added() => {
