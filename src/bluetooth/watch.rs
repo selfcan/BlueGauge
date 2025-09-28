@@ -74,6 +74,20 @@ impl Watcher {
     pub fn start(&mut self) {
         info!("Starting the watch thread...");
 
+        // Init triggle event
+        {
+            let mut devices = self.bluetooth_devices_info.lock().unwrap();
+            for (_, device) in devices.iter_mut() {
+                let _ = self
+                    .proxy
+                    .send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                        device.name.clone(),
+                        device.battery,
+                        device.address,
+                    )));
+            }
+        }
+
         let watch_handles = self.watch_loop();
 
         self.watch_handles = Some(watch_handles);
