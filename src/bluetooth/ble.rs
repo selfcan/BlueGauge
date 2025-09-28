@@ -15,7 +15,10 @@ use std::{
 use anyhow::{Context, Result, anyhow};
 use futures::{StreamExt, future::join_all};
 use log::{info, warn};
-use tokio::sync::{Mutex, mpsc::Sender};
+use tokio::{
+    sync::{Mutex, mpsc::Sender},
+    time::{Duration, Instant, sleep},
+};
 use windows::{
     Devices::Bluetooth::{
         BluetoothConnectionStatus, BluetoothLEDevice,
@@ -206,6 +209,13 @@ async fn watch_ble_device(
     ))
 }
 
+struct BatteryState {
+    last_update: Instant,
+    last_value: u8,
+}
+
+const BATTERY_THRESHOLD: i16 = 3;
+
 pub async fn watch_ble_devices_async(
     bluetooth_devices_info: BluetoothDevicesInfo,
     exit_flag: &Arc<AtomicBool>,
@@ -249,22 +259,13 @@ pub async fn watch_ble_devices_async(
         }
     });
 
+    // 对电量更新进行去抖（Debounce）及节流（Throttle）
+    let mut battery_states: HashMap<u64, BatteryState> = HashMap::new();
+
     for (ble_address, ble_device) in ble_devices {
         let watch_btc_guard = watch_ble_device(ble_address, ble_device, tx.clone()).await?;
 
         guard.insert(ble_address, watch_btc_guard);
-    }
-
-    // Init triggle event
-    {
-        let mut devices = bluetooth_devices_info.lock().unwrap();
-        for (_, device) in devices.iter_mut() {
-            let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
-                device.name.clone(),
-                device.battery,
-                device.address,
-            )));
-        }
     }
 
     loop {
@@ -279,15 +280,36 @@ pub async fn watch_ble_devices_async(
 
                 match update {
                     BluetoothLEUpdate::BatteryLevel(address, battery) => {
-                        if let Some(info) = devices.get_mut(&address) {
-                            info!("BLE [{}]: Battery -> {battery}", info.name);
-                            info.battery = battery;
-                            needs_tray_update = true;
-                            let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
-                                info.name.clone(),
-                                battery,
-                                info.address,
-                            )));
+                        let state = battery_states.entry(address).or_insert(BatteryState {
+                            last_update: Instant::now(),
+                            last_value: battery,
+                        });
+
+                         // 如果电量值变化，但离上次更新时间太近，且电量波动低于阈值则忽略
+                        if (state.last_value as i16 - battery as i16).abs() >= BATTERY_THRESHOLD
+                            && state.last_update.elapsed() > Duration::from_secs(5)
+                        {
+                            if let Some(info) = devices.get_mut(&address) {
+                                info!("BLE [{}]: Battery -> {battery}", info.name);
+
+                                state.last_update = Instant::now();
+                                state.last_value = battery;
+
+                                info.battery = battery;
+                                needs_tray_update = true;
+
+                                let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                                    info.name.clone(),
+                                    battery,
+                                    info.address,
+                                )));
+                            }
+                        } else {
+                            let (ble_name, last_battery) = devices.get(&address).map(|i| (i.name.as_str(), i.battery)).unwrap_or_default();
+                            warn!(
+                                "BLE [{ble_name}]: Battery level fluctuating rapidly with small change ({last_battery} -> {battery})"
+                            );
+                            std::thread::sleep(Duration::from_secs(2));
                         }
                     }
                     BluetoothLEUpdate::ConnectionStatus(address, status) => {
@@ -351,7 +373,7 @@ pub async fn watch_ble_devices_async(
                         }
 
                         for added_device_address in added_devices {
-                            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                            sleep(Duration::from_secs(1)).await;
                             let Ok(ble_device) = get_ble_device_from_address(added_device_address).await else {
                                 // 移除错误设备
                                 warn!("Failed to get added BLE Device from address");
@@ -375,7 +397,7 @@ pub async fn watch_ble_devices_async(
                         }
                     }
 
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    sleep(Duration::from_secs(1)).await;
                 }
             } => return Ok(()),
         }
