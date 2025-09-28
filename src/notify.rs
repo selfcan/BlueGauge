@@ -49,7 +49,7 @@ impl NotifyEvent {
                             notify(message);
                         }
                     }
-                    num if num < 15 + battery_zore => (), // In case, battery level wave
+                    num if num < 10 + battery_zore => (), // In case, battery level wave
                     _ => {
                         notifyed_devices.lock().unwrap().remove(address);
                     }
