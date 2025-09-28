@@ -12,7 +12,7 @@ futures = "0.3.31"
 log = { version = "0.4.28", features = ["release_max_level_off"] }
 image = { version = "0.25.8", default-features = false, features = ["ico", "png"] }
 piet-common = "0.8.0" # 字体渲染
-serde= { version = "1.0.225", features = ["derive"] }
+serde= { version = "1.0.227", features = ["derive"] }
 scopeguard = "1.2.0"
 tauri-winrt-notification = "0.7"
 tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "sync", "time"] }
@@ -23,7 +23,7 @@ winit = "0.30.12"
 winreg = "0.55.0"
 
 [dependencies.windows]
-version = "0.62.0"
+version = "0.62.1"
 features = [
     "Devices_Bluetooth",
     "Devices_Bluetooth_GenericAttributeProfile",
@@ -37,7 +37,7 @@ features = [
 ]
 
 [dependencies.windows-sys]
-version = "0.61.0"
+version = "0.61.1"
 features = [
     "Win32_Devices_Properties",
     "Win32_Devices_DeviceAndDriverInstallation",
@@ -45,7 +45,7 @@ features = [
 ]
 
 [dev-dependencies.windows]
-version = "0.62.0"
+version = "0.62.1"
 features = [
     "Win32_Devices_Bluetooth",
     "Devices_Bluetooth_Rfcomm",
