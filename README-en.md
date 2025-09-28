@@ -107,23 +107,15 @@ Welcome contributions from developers who can help us extend support for these d
 
 3. **Hide Disconnected Devices**: Consider not displaying disconnected devices in the tray notifications. This approach would reduce clutter and ensure that only relevant information is shown, thereby preventing text overflow.
 
-### 3. High CPU usage rate
-
-It may be related to the frequent sending of device battery information in a Bluetooth device
-
-**Solution:**:   
-
-There is no effective solution yet. You can use the latest `BlueGauge.Debug` version to exclude and disconnect related devices.   
-
-### 4. How to display the power of multiple devices on the pallet?
+### 3. How to display the power of multiple devices on the pallet?
 
 - **Solution:**: Create another folder, copy `BlueGauge.exe` and `BlueGauge.toml` to the folder, then rename `BlueGauge.exe` to another name, and finally open and set the `Launch at Startup`
 
-### 5. The tray battery icon is cut off by a small part
+### 4. The tray battery number icon is cut off by a small part
 
 - **Solution::**: Open the tray menu - `Settings`-`Open Config`, and then set the font size in `font_size` under `[tray.icon.font]` to set a font that is one size smaller than the original one.
 
-### 6. Connection indicator in tray prompt has no color
+### 5. Connection indicator in tray prompt has no color
 
 Connection indicator only supports displaying colors in Windows 11
 
