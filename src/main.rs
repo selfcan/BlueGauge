@@ -18,10 +18,10 @@ use crate::notify::{NotifyEvent, notify};
 use crate::single_instance::SingleInstance;
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{
+    convert_tray_info, create_tray,
     icon::{load_app_icon, load_battery_icon},
     menu_handlers::MenuHandlers,
     menu_item::create_menu,
-    tray::{convert_tray_info, create_tray},
 };
 
 use std::collections::{HashMap, HashSet};
