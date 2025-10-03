@@ -36,24 +36,26 @@ impl NotifyEvent {
     pub fn send(&self, config: &Config, notifyed_devices: Arc<Mutex<HashSet<u64>>>) {
         let language = Language::get_system_language();
         let loc = Localization::get(language);
-        let battery_offset = 100;
-        let battery_zore = 0 + battery_offset;
 
         match self {
             NotifyEvent::LowBattery(name, battery, address) => {
-                match battery_zore + *battery - config.get_low_battery() {
-                    num if num <= battery_zore => {
-                        if notifyed_devices.lock().unwrap().insert(*address) {
-                            let message =
-                                format!("{name}: {} {battery}", loc.bluetooth_battery_below);
-                            notify(message);
-                        }
+                let low_threshold = config.get_low_battery() as i32;
+                let current_battery = *battery as i32;
+                let diff = current_battery - low_threshold;
+
+                if diff <= 0 {
+                    if notifyed_devices.lock().unwrap().insert(*address) {
+                        let message =
+                            format!("{name}: {} {battery}", loc.bluetooth_battery_below);
+                        notify(message);
                     }
-                    num if num < 10 + battery_zore => (), // In case, battery level wave
-                    _ => {
-                        notifyed_devices.lock().unwrap().remove(address);
-                    }
+                } else if diff > 10 {
+                    notifyed_devices.lock().unwrap().remove(address);
                 }
+                // else {
+                //   // 电量在 (low_threshold, low_threshold + 10] 范围内：
+                //   // 处于“防抖缓冲区”，不通知也不清除，避免反复触发
+                // }
             }
             NotifyEvent::Added(name) if config.get_added() => {
                 notify(format!("{name}: {}", loc.new_bluetooth_device_add));
