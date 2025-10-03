@@ -1,5 +1,8 @@
+use std::sync::Arc;
 use std::{ffi::OsString, process::Command};
 use std::{ops::Deref, path::Path, sync::atomic::Ordering};
+
+use super::menu_item::UserMenuItem;
 
 use crate::UserEvent;
 use crate::{
@@ -9,17 +12,66 @@ use crate::{
 };
 
 use log::error;
-use tray_icon::menu::CheckMenuItem;
+use tray_icon::menu::{CheckMenuItem, MenuId};
 use winit::event_loop::EventLoopProxy;
 
-pub struct MenuHandlers;
+pub struct MenuHandlers {
+    menu_id: MenuId,
+    config: Arc<Config>,
+    proxy: EventLoopProxy<UserEvent>,
+    tray_check_menus: Vec<CheckMenuItem>,
+}
 
 impl MenuHandlers {
-    pub fn exit(proxy: EventLoopProxy<UserEvent>) {
-        let _ = proxy.send_event(UserEvent::Exit);
+    pub fn new(
+        menu_id: MenuId,
+        config: Arc<Config>,
+        proxy: EventLoopProxy<UserEvent>,
+        tray_check_menus: Vec<CheckMenuItem>,
+    ) -> Self {
+        MenuHandlers {
+            menu_id,
+            config,
+            proxy,
+            tray_check_menus,
+        }
     }
 
-    pub fn restart(proxy: EventLoopProxy<UserEvent>) {
+    pub fn run(&self) {
+        let menu_id = &self.menu_id;
+        let low_battery_menu_id = UserMenuItem::low_battery_menu_id();
+        let notify_menu_id = UserMenuItem::notify_menu_id();
+        let tray_icon_style_menu_id = UserMenuItem::tray_icon_style_menu_id();
+        let tray_tooltip_menu_id = UserMenuItem::tray_tooltip_menu_id();
+
+        if menu_id == &UserMenuItem::Quit.id() {
+            self.quit();
+        } else if menu_id == &UserMenuItem::Restart.id() {
+            self.restart();
+        } else if menu_id == &UserMenuItem::Startup.id() {
+            self.startup();
+        } else if menu_id == &UserMenuItem::OpenConfig.id() {
+            self.open_config();
+        } else if menu_id == &UserMenuItem::SetIconConnectColor.id() {
+            self.set_icon_connect_color();
+        } else if low_battery_menu_id.contains(menu_id) {
+            self.set_notify_low_battery();
+        } else if notify_menu_id.contains(menu_id) {
+            self.set_notify_device_change();
+        } else if tray_icon_style_menu_id.contains(menu_id) {
+            self.set_battery_icon_style();
+        } else if tray_tooltip_menu_id.contains(menu_id) {
+            self.set_tray_tooltip();
+        } else {
+            self.handle_device_click();
+        }
+    }
+
+    fn quit(&self) {
+        let _ = self.proxy.send_event(UserEvent::Exit);
+    }
+
+    fn restart(&self) {
         let exe_path = std::env::current_exe().expect("Failed to get path of app");
         let mut args_os: Vec<OsString> = std::env::args_os().collect();
 
@@ -30,41 +82,41 @@ impl MenuHandlers {
             error!("Failed to restart app: {e}");
         }
 
-        let _ = proxy.send_event(UserEvent::Exit);
+        let _ = self.proxy.send_event(UserEvent::Exit);
     }
 
-    pub fn startup(tray_check_menus: Vec<CheckMenuItem>) {
-        if let Some(item) = tray_check_menus.iter().find(|item| item.id() == "startup") {
+    fn startup(&self) {
+        if let Some(item) = self
+            .tray_check_menus
+            .iter()
+            .find(|item| item.id() == "startup")
+        {
             set_startup(item.is_checked()).expect("Failed to set Launch at Startup")
         } else {
             error!("Not find startup menu id")
         }
     }
 
-    pub fn set_icon_connect_color(
-        config: &Config,
-        menu_event_id: &str,
-        proxy: EventLoopProxy<UserEvent>,
-        tray_check_menus: Vec<CheckMenuItem>,
-    ) {
-        if let Some(item) = tray_check_menus
+    fn set_icon_connect_color(&self) {
+        if let Some(item) = self
+            .tray_check_menus
             .iter()
-            .find(|item| item.id().as_ref() == menu_event_id)
+            .find(|item| item.id() == &self.menu_id)
         {
-            config
+            self.config
                 .tray_options
                 .tray_icon_style
                 .lock()
                 .unwrap()
                 .update_connect_color(item.is_checked());
 
-            config.save();
+            self.config.save();
 
-            let _ = proxy.send_event(UserEvent::UnpdatTray);
+            let _ = self.proxy.send_event(UserEvent::UnpdatTray);
         }
     }
 
-    pub fn open_config() {
+    fn open_config(&self) {
         let config_path = std::env::current_exe()
             .ok()
             .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
@@ -78,28 +130,23 @@ impl MenuHandlers {
         };
     }
 
-    pub fn set_notify_low_battery(
-        config: &Config,
-        menu_event_id: &str,
-        tray_check_menus: Vec<CheckMenuItem>,
-    ) {
+    fn set_notify_low_battery(&self) {
         // 只处理低电量阈值相关的菜单项
-        let low_battery_items: Vec<_> = tray_check_menus
+        let low_battery_menu_id = UserMenuItem::low_battery_menu_id();
+        let low_battery_items: Vec<_> = self
+            .tray_check_menus
             .iter()
-            .filter(|item| {
-                ["0.01", "0.05", "0.10", "0.15", "0.20", "0.25", "0.30"]
-                    .contains(&item.id().as_ref())
-            })
+            .filter(|item| low_battery_menu_id.contains(item.id()))
             .collect();
 
         // 是否存在被点击且为勾选的项目
         let is_checked = low_battery_items
             .iter()
-            .any(|item| item.id().as_ref() == menu_event_id && item.is_checked());
+            .any(|item| item.id() == &self.menu_id && item.is_checked());
 
         // 托盘菜单的其余电量项目设置为未勾选状态
         low_battery_items.iter().for_each(|item| {
-            let should_check = item.id().as_ref() == menu_event_id && is_checked;
+            let should_check = item.id() == &self.menu_id && is_checked;
             item.set_checked(should_check);
         });
 
@@ -107,18 +154,17 @@ impl MenuHandlers {
         let selected_low_battery = low_battery_items
             .iter()
             .find(|item| item.is_checked())
-            .and_then(|item| item.id().as_ref().parse::<f64>().ok());
+            .and_then(|item| item.id().as_ref().parse::<u8>().ok());
 
         // 更新配置
         if let Some(low_battery) = selected_low_battery {
-            let low_battery = (low_battery * 100.0).round() as u8;
-            config
+            self.config
                 .notify_options
                 .low_battery
                 .store(low_battery, Ordering::Relaxed);
         } else {
             let default_low_battery = 15;
-            config
+            self.config
                 .notify_options
                 .low_battery
                 .store(default_low_battery, Ordering::Relaxed);
@@ -130,49 +176,40 @@ impl MenuHandlers {
             }
         }
 
-        config.save();
+        self.config.save();
     }
 
-    pub fn set_notify_device_change(
-        config: &Config,
-        menu_event_id: &str,
-        tray_check_menus: Vec<CheckMenuItem>,
-    ) {
-        if let Some(item) = tray_check_menus
+    fn set_notify_device_change(&self) {
+        if let Some(item) = self
+            .tray_check_menus
             .iter()
-            .find(|item| item.id().as_ref() == menu_event_id)
+            .find(|item| item.id() == &self.menu_id)
         {
-            config
+            self.config
                 .notify_options
-                .update(menu_event_id, item.is_checked());
-            config.save();
+                .update(&self.menu_id, item.is_checked());
+            self.config.save();
         }
     }
 
-    pub fn set_tray_tooltip(
-        config: &Config,
-        menu_event_id: &str,
-        proxy: EventLoopProxy<UserEvent>,
-        tray_check_menus: Vec<CheckMenuItem>,
-    ) {
-        if let Some(item) = tray_check_menus
+    fn set_tray_tooltip(&self) {
+        if let Some(item) = self
+            .tray_check_menus
             .iter()
-            .find(|item| item.id().as_ref() == menu_event_id)
+            .find(|item| item.id() == &self.menu_id)
         {
-            config.tray_options.update(menu_event_id, item.is_checked());
-            config.save();
-            let _ = proxy.send_event(UserEvent::UnpdatTray);
+            self.config
+                .tray_options
+                .update(&self.menu_id, item.is_checked());
+            self.config.save();
+            let _ = self.proxy.send_event(UserEvent::UnpdatTray);
         }
     }
 
-    pub fn set_battery_icon_style(
-        config: &Config,
-        menu_event_id: &str,
-        proxy: EventLoopProxy<UserEvent>,
-        tray_check_menus: Vec<CheckMenuItem>,
-    ) {
+    fn set_battery_icon_style(&self) {
         // // 获取托盘中图标样式菜单
-        let icon_style_menus: Vec<_> = tray_check_menus
+        let icon_style_menus: Vec<_> = self
+            .tray_check_menus
             .iter()
             .filter(|item| ["number_icon", "ring_icon"].contains(&item.id().as_ref()))
             .collect();
@@ -180,96 +217,71 @@ impl MenuHandlers {
         // 有无勾选样式菜单
         let have_new_icon_style_menu_checkd = icon_style_menus
             .iter()
-            .any(|item| item.id().as_ref() == menu_event_id && item.is_checked());
+            .any(|item| item.id() == &self.menu_id && item.is_checked());
 
         // 托盘菜单的其余样式菜单设置为未勾选状态
         icon_style_menus.iter().for_each(|item| {
-            let should_check =
-                item.id().as_ref() == menu_event_id && have_new_icon_style_menu_checkd;
+            let should_check = item.id() == &self.menu_id && have_new_icon_style_menu_checkd;
             item.set_checked(should_check);
         });
 
-        let mut tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap();
+        let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
 
-        match menu_event_id {
-            "number_icon" if have_new_icon_style_menu_checkd => {
-                if let TrayIconStyle::BatteryRing { address, .. } = *tray_icon_style {
-                    *tray_icon_style = TrayIconStyle::BatteryNumber {
-                        address,
-                        font_name: "Arial".to_owned(),
-                        font_color: Some("FollowSystemTheme".to_owned()),
-                        font_size: Some(64),
-                    }
+        if have_new_icon_style_menu_checkd {
+            if self.menu_id == &UserMenuItem::TrayIconStyleNumber.id()
+                && let TrayIconStyle::BatteryRing { address, .. } = *tray_icon_style
+            {
+                *tray_icon_style = TrayIconStyle::BatteryNumber {
+                    address,
+                    font_name: "Arial".to_owned(),
+                    font_color: Some("FollowSystemTheme".to_owned()),
+                    font_size: Some(64),
                 }
             }
-            "ring_icon" if have_new_icon_style_menu_checkd => {
-                if let TrayIconStyle::BatteryNumber { address, .. } = *tray_icon_style {
-                    *tray_icon_style = TrayIconStyle::BatteryRing {
-                        address,
-                        highlight_color: Some("#4CD082".to_owned()),
-                        background_color: Some("FollowSystemTheme".to_owned()),
-                    }
+
+            if self.menu_id == &UserMenuItem::TrayIconStyleRing.id()
+                && let TrayIconStyle::BatteryNumber { address, .. } = *tray_icon_style
+            {
+                *tray_icon_style = TrayIconStyle::BatteryRing {
+                    address,
+                    highlight_color: Some("#4CD082".to_owned()),
+                    background_color: Some("FollowSystemTheme".to_owned()),
                 }
             }
-            _ => (),
         }
-
         // 优先释放锁，避免Config执行Svae时发生死锁
         drop(tray_icon_style);
-        config.save();
+        self.config.save();
 
-        let _ = proxy.send_event(UserEvent::UnpdatTray);
+        let _ = self.proxy.send_event(UserEvent::UnpdatTray);
     }
 
     // 点击托盘中的设备时的事件
-    pub fn handle_device_click(
-        config: &Config,
-        menu_event_id: &str,
-        proxy: EventLoopProxy<UserEvent>,
-        tray_check_menus: Vec<CheckMenuItem>,
-    ) {
-        let not_bluetooth_item_id = [
-            "quit",
-            "startup",
-            "open_config",
-            "0.01",
-            "0.05",
-            "0.10",
-            "0.15",
-            "0.20",
-            "0.25",
-            "0.30",
-            "disconnection",
-            "reconnection",
-            "added",
-            "removed",
-            "show_disconnected",
-            "truncate_name",
-            "prefix_battery",
-            "number_icon",
-            "ring_icon",
-        ];
+    fn handle_device_click(&self) {
+        let exclude_items_id = UserMenuItem::exclude_bt_address_menu_id();
 
-        let show_battery_icon_bt_address = menu_event_id.parse::<u64>().expect("Menu Event Id");
+        let show_battery_icon_bt_address =
+            self.menu_id.as_ref().parse::<u64>().expect("Menu Event Id");
 
         // 获取托盘中蓝牙设备菜单（排除其他设备）
-        let bluetooth_menus: Vec<_> = tray_check_menus
+        let bluetooth_menus: Vec<_> = self
+            .tray_check_menus
             .iter()
-            .filter(|item| !not_bluetooth_item_id.contains(&item.id().as_ref()))
+            .filter(|item| !exclude_items_id.contains(item.id()))
             .collect();
 
         // 有无勾选新设备菜单
         let have_new_device_menu_checkd = bluetooth_menus
             .iter()
-            .any(|item| item.id().as_ref() == menu_event_id && item.is_checked());
+            .any(|item| item.id() == &self.menu_id && item.is_checked());
 
         // 托盘菜单的其余蓝牙设备设置为未勾选状态
         bluetooth_menus.iter().for_each(|item| {
-            let should_check = item.id().as_ref() == menu_event_id && have_new_device_menu_checkd;
+            let should_check = item.id() == &self.menu_id && have_new_device_menu_checkd;
             item.set_checked(should_check);
         });
 
-        let mut tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap();
+        let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
 
         // · 若原来图标来源为应用图标，且有托盘菜单选择有设备时，根据有无自定义设置相应类型图标
         // · 若原来图标来源指定设备电量图标，如果指定设备取消，则托盘图标变为应用图标，如果为其他设备图标，则更新图标来源中的蓝牙地址
@@ -300,7 +312,7 @@ impl MenuHandlers {
                     })
                     .unwrap_or(false);
 
-                tray_check_menus
+                self.tray_check_menus
                     .iter()
                     .filter(|item| item.id().as_ref().ends_with("icon"))
                     .for_each(|item| match item.id().as_ref() {
@@ -331,8 +343,8 @@ impl MenuHandlers {
 
         // 优先释放锁，避免Config执行Svae时发生死锁
         drop(tray_icon_style);
-        config.save();
+        self.config.save();
 
-        let _ = proxy.send_event(UserEvent::UnpdatTray);
+        let _ = self.proxy.send_event(UserEvent::UnpdatTray);
     }
 }

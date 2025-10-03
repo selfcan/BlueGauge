@@ -10,7 +10,7 @@ use piet_common::{
 };
 use tray_icon::Icon;
 
-const LOGO_DATA: &[u8] = include_bytes!("../assets/logo.ico");
+const LOGO_DATA: &[u8] = include_bytes!("../../assets/logo.ico");
 
 pub fn load_icon(icon_date: &[u8]) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) = {

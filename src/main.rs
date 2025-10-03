@@ -4,9 +4,7 @@
 
 mod bluetooth;
 mod config;
-mod icon;
 mod language;
-mod menu_handlers;
 mod notify;
 mod single_instance;
 mod startup;
@@ -16,12 +14,15 @@ mod tray;
 use crate::bluetooth::info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info};
 use crate::bluetooth::watch::Watcher;
 use crate::config::*;
-use crate::icon::{load_app_icon, load_battery_icon};
-use crate::menu_handlers::MenuHandlers;
 use crate::notify::{NotifyEvent, notify};
 use crate::single_instance::SingleInstance;
 use crate::theme::{SystemTheme, listen_system_theme};
-use crate::tray::{convert_tray_info, create_menu, create_tray};
+use crate::tray::{
+    icon::{load_app_icon, load_battery_icon},
+    menu_handlers::MenuHandlers,
+    menu_item::create_menu,
+    tray::{convert_tray_info, create_tray},
+};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -183,62 +184,14 @@ impl ApplicationHandler<UserEvent> for App {
                     .clone()
                     .expect("Tray check menus not initialized");
 
-                let menu_event_id = event.id().as_ref();
-                match menu_event_id {
-                    "quit" => MenuHandlers::exit(self.event_loop_proxy.clone().unwrap()),
-                    "restart" => MenuHandlers::restart(self.event_loop_proxy.clone().unwrap()),
-                    "startup" => MenuHandlers::startup(tray_check_menus),
-                    "open_config" => MenuHandlers::open_config(),
-                    "set_icon_connect_color" => MenuHandlers::set_icon_connect_color(
-                        &config,
-                        menu_event_id,
-                        self.event_loop_proxy.clone().unwrap(),
-                        tray_check_menus,
-                    ),
-                    // 通知设置：低电量
-                    "0.01" | "0.05" | "0.10" | "0.15" | "0.20" | "0.25" | "0.30" => {
-                        MenuHandlers::set_notify_low_battery(
-                            &config,
-                            menu_event_id,
-                            tray_check_menus,
-                        );
-                    }
-                    // 通知设置：静音/断开连接/重新连接/添加/删除
-                    "disconnection" | "reconnection" | "added" | "removed" => {
-                        MenuHandlers::set_notify_device_change(
-                            &config,
-                            menu_event_id,
-                            tray_check_menus,
-                        );
-                    }
-                    // 托盘设置：图标样式
-                    "number_icon" | "ring_icon" => {
-                        MenuHandlers::set_battery_icon_style(
-                            &config,
-                            menu_event_id,
-                            self.event_loop_proxy.clone().unwrap(),
-                            tray_check_menus,
-                        );
-                    }
-                    // 托盘设置：提示内容设置
-                    "show_disconnected" | "truncate_name" | "prefix_battery" => {
-                        MenuHandlers::set_tray_tooltip(
-                            &config,
-                            menu_event_id,
-                            self.event_loop_proxy.clone().unwrap(),
-                            tray_check_menus,
-                        );
-                    }
-                    // 托盘设置：设备点击事件
-                    _ => {
-                        MenuHandlers::handle_device_click(
-                            &config,
-                            menu_event_id,
-                            self.event_loop_proxy.clone().unwrap(),
-                            tray_check_menus,
-                        );
-                    }
-                }
+                let menu_id = event.id();
+                let menu_handlers = MenuHandlers::new(
+                    menu_id.clone(),
+                    Arc::clone(&config),
+                    self.event_loop_proxy.clone().unwrap(),
+                    tray_check_menus,
+                );
+                menu_handlers.run();
             }
             UserEvent::Notify(notify_event) => {
                 notify_event.send(&self.config, self.notified_devices.clone())

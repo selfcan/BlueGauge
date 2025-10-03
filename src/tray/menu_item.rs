@@ -3,16 +3,133 @@ use std::ops::Deref;
 
 use crate::bluetooth::info::BluetoothInfo;
 use crate::config::{Config, TrayIconStyle};
-use crate::icon::{load_app_icon, load_battery_icon};
 use crate::language::{Language, Localization};
 use crate::startup::get_startup_status;
 
-use anyhow::{Context, Result, anyhow};
-use tray_icon::menu::{IsMenuItem, Submenu};
-use tray_icon::{
-    TrayIcon, TrayIconBuilder,
-    menu::{AboutMetadata, CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
+use anyhow::{Context, Result};
+use tray_icon::menu::{
+    AboutMetadata, CheckMenuItem, IsMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem, Submenu,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UserMenuItem {
+    Quit,
+    Restart,
+    Startup,
+    //
+    BluetoothDeviceAddress(u64),
+    //
+    OpenConfig,
+    //
+    TrayIconStyleNumber,
+    TrayIconStyleRing,
+    SetIconConnectColor,
+    //
+    TrayTooltipShowDisconnected,
+    TrayTooltipTruncateName,
+    TrayTooltipPrefixBattery,
+    //
+    NotifyLowBattery(u8),
+    NotifyDeviceChangeDisconnection,
+    NotifyDeviceChangeReconnection,
+    NotifyDeviceChangeAdded,
+    NotifyDeviceChangeRemoved,
+}
+
+impl UserMenuItem {
+    // 将枚举转换为MenuId
+    pub fn id(&self) -> MenuId {
+        match self {
+            UserMenuItem::Quit => MenuId::new("quit"),
+            UserMenuItem::Restart => MenuId::new("restart"),
+            UserMenuItem::Startup => MenuId::new("startup"),
+            //
+            UserMenuItem::BluetoothDeviceAddress(u64) => MenuId::from(u64),
+            //
+            UserMenuItem::OpenConfig => MenuId::new("open_config"),
+            //
+            UserMenuItem::TrayIconStyleNumber => MenuId::new("number_icon"),
+            UserMenuItem::TrayIconStyleRing => MenuId::new("ring_icon"),
+            UserMenuItem::SetIconConnectColor => MenuId::new("set_icon_connect_color"),
+            //
+            UserMenuItem::TrayTooltipShowDisconnected => MenuId::new("show_disconnected"),
+            UserMenuItem::TrayTooltipTruncateName => MenuId::new("truncate_name"),
+            UserMenuItem::TrayTooltipPrefixBattery => MenuId::new("prefix_battery"),
+            //
+            UserMenuItem::NotifyLowBattery(u8) => MenuId::from(u8),
+            UserMenuItem::NotifyDeviceChangeDisconnection => MenuId::new("disconnection"),
+            UserMenuItem::NotifyDeviceChangeReconnection => MenuId::new("reconnection"),
+            UserMenuItem::NotifyDeviceChangeAdded => MenuId::new("added"),
+            UserMenuItem::NotifyDeviceChangeRemoved => MenuId::new("removed"),
+        }
+    }
+
+    pub fn exclude_bt_address_menu_id() -> [MenuId; 21] {
+        [
+            UserMenuItem::Quit.id(),
+            UserMenuItem::Restart.id(),
+            UserMenuItem::Startup.id(),
+            //
+            UserMenuItem::OpenConfig.id(),
+            //
+            UserMenuItem::TrayIconStyleNumber.id(),
+            UserMenuItem::TrayIconStyleRing.id(),
+            UserMenuItem::SetIconConnectColor.id(),
+            //
+            UserMenuItem::TrayTooltipShowDisconnected.id(),
+            UserMenuItem::TrayTooltipTruncateName.id(),
+            UserMenuItem::TrayTooltipPrefixBattery.id(),
+            //
+            UserMenuItem::NotifyLowBattery(1).id(),
+            UserMenuItem::NotifyLowBattery(5).id(),
+            UserMenuItem::NotifyLowBattery(10).id(),
+            UserMenuItem::NotifyLowBattery(15).id(),
+            UserMenuItem::NotifyLowBattery(20).id(),
+            UserMenuItem::NotifyLowBattery(25).id(),
+            UserMenuItem::NotifyLowBattery(30).id(),
+            UserMenuItem::NotifyDeviceChangeDisconnection.id(),
+            UserMenuItem::NotifyDeviceChangeReconnection.id(),
+            UserMenuItem::NotifyDeviceChangeAdded.id(),
+            UserMenuItem::NotifyDeviceChangeRemoved.id(),
+        ]
+    }
+
+    pub fn low_battery_menu_id() -> [MenuId; 7] {
+        [
+            UserMenuItem::NotifyLowBattery(1).id(),
+            UserMenuItem::NotifyLowBattery(5).id(),
+            UserMenuItem::NotifyLowBattery(10).id(),
+            UserMenuItem::NotifyLowBattery(15).id(),
+            UserMenuItem::NotifyLowBattery(20).id(),
+            UserMenuItem::NotifyLowBattery(25).id(),
+            UserMenuItem::NotifyLowBattery(30).id(),
+        ]
+    }
+
+    pub fn notify_menu_id() -> [MenuId; 4] {
+        [
+            UserMenuItem::NotifyDeviceChangeDisconnection.id(),
+            UserMenuItem::NotifyDeviceChangeReconnection.id(),
+            UserMenuItem::NotifyDeviceChangeAdded.id(),
+            UserMenuItem::NotifyDeviceChangeRemoved.id(),
+        ]
+    }
+
+    pub fn tray_icon_style_menu_id() -> [MenuId; 2] {
+        [
+            UserMenuItem::TrayIconStyleNumber.id(),
+            UserMenuItem::TrayIconStyleRing.id(),
+        ]
+    }
+
+    pub fn tray_tooltip_menu_id() -> [MenuId; 3] {
+        [
+            UserMenuItem::TrayTooltipShowDisconnected.id(),
+            UserMenuItem::TrayTooltipTruncateName.id(),
+            UserMenuItem::TrayTooltipPrefixBattery.id(),
+        ]
+    }
+}
 
 struct CreateMenuItem;
 impl CreateMenuItem {
@@ -21,7 +138,7 @@ impl CreateMenuItem {
     }
 
     fn quit(text: &str) -> MenuItem {
-        MenuItem::with_id("quit", text, true, None)
+        MenuItem::with_id(UserMenuItem::Quit.id(), text, true, None)
     }
 
     fn about(text: &str) -> PredefinedMenuItem {
@@ -38,16 +155,17 @@ impl CreateMenuItem {
     }
 
     fn restart(text: &str) -> MenuItem {
-        MenuItem::with_id("restart", text, true, None)
+        MenuItem::with_id(UserMenuItem::Restart.id(), text, true, None)
     }
 
     fn open_config(text: &str) -> MenuItem {
-        MenuItem::with_id("open_config", text, true, None)
+        MenuItem::with_id(UserMenuItem::OpenConfig.id(), text, true, None)
     }
 
     fn startup(text: &str, tray_check_menus: &mut Vec<CheckMenuItem>) -> Result<CheckMenuItem> {
         let should_startup = get_startup_status()?;
-        let menu_startup = CheckMenuItem::with_id("startup", text, true, should_startup, None);
+        let menu_startup =
+            CheckMenuItem::with_id(UserMenuItem::Startup.id(), text, true, should_startup, None);
         tray_check_menus.push(menu_startup.clone());
         Ok(menu_startup)
     }
@@ -62,7 +180,7 @@ impl CreateMenuItem {
             .values()
             .map(|info| {
                 CheckMenuItem::with_id(
-                    info.address,
+                    UserMenuItem::BluetoothDeviceAddress(info.address).id(),
                     config.get_device_aliases_name(&info.name),
                     true,
                     show_tray_battery_icon_bt_address.is_some_and(|id| id.eq(&info.address)),
@@ -87,13 +205,19 @@ impl CreateMenuItem {
 
         let select_tray_icon_style_items = [
             CheckMenuItem::with_id(
-                "number_icon",
+                UserMenuItem::TrayIconStyleNumber.id(),
                 loc.number_icon,
                 true,
                 select_number_icon,
                 None,
             ),
-            CheckMenuItem::with_id("ring_icon", loc.ring_icon, true, select_ring_icon, None),
+            CheckMenuItem::with_id(
+                UserMenuItem::TrayIconStyleRing.id(),
+                loc.ring_icon,
+                true,
+                select_ring_icon,
+                None,
+            ),
         ];
         tray_check_menus.extend(select_tray_icon_style_items.iter().cloned());
 
@@ -114,9 +238,9 @@ impl CreateMenuItem {
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> [CheckMenuItem; 3] {
         let menu_set_tray_tooltip = [
-            CheckMenuItem::with_id("show_disconnected", loc.show_disconnected, true, config.get_show_disconnected(), None),
-            CheckMenuItem::with_id("truncate_name", loc.truncate_name, true, config.get_truncate_name(), None),
-            CheckMenuItem::with_id("prefix_battery", loc.prefix_battery, true, config.get_prefix_battery(), None),
+            CheckMenuItem::with_id(UserMenuItem::TrayTooltipShowDisconnected.id(), loc.show_disconnected, true, config.get_show_disconnected(), None),
+            CheckMenuItem::with_id(UserMenuItem::TrayTooltipTruncateName.id(), loc.truncate_name, true, config.get_truncate_name(), None),
+            CheckMenuItem::with_id(UserMenuItem::TrayTooltipPrefixBattery.id(), loc.prefix_battery, true, config.get_prefix_battery(), None),
         ];
         tray_check_menus.extend(menu_set_tray_tooltip.iter().cloned());
         menu_set_tray_tooltip
@@ -126,15 +250,12 @@ impl CreateMenuItem {
         low_battery: u8,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> [CheckMenuItem; 7] {
-        let menu_low_battery = [
-            CheckMenuItem::with_id("0.01", "1%", true, low_battery == 0, None),
-            CheckMenuItem::with_id("0.05", "5%", true, low_battery == 5, None),
-            CheckMenuItem::with_id("0.10", "10%", true, low_battery == 10, None),
-            CheckMenuItem::with_id("0.15", "15%", true, low_battery == 15, None),
-            CheckMenuItem::with_id("0.20", "20%", true, low_battery == 20, None),
-            CheckMenuItem::with_id("0.25", "25%", true, low_battery == 25, None),
-            CheckMenuItem::with_id("0.30", "30%", true, low_battery == 30, None),
-        ];
+        let low_battery_menu_id = UserMenuItem::low_battery_menu_id();
+        let menu_low_battery = low_battery_menu_id.map(|menu_id| {
+            let id = menu_id.as_ref().parse::<u8>().unwrap();
+            CheckMenuItem::with_id(menu_id, format!("{id}%"), true, low_battery == id, None)
+        });
+
         tray_check_menus.extend(menu_low_battery.iter().cloned());
         menu_low_battery
     }
@@ -146,10 +267,10 @@ impl CreateMenuItem {
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> [CheckMenuItem; 4] {
         let menu_device_change = [
-            CheckMenuItem::with_id("disconnection", loc.disconnection, true, config.get_disconnection(), None),
-            CheckMenuItem::with_id("reconnection", loc.reconnection, true, config.get_reconnection(), None),
-            CheckMenuItem::with_id("added", loc.added, true, config.get_added(), None),
-            CheckMenuItem::with_id("removed", loc.removed, true, config.get_removed(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeDisconnection.id(), loc.disconnection, true, config.get_disconnection(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeReconnection.id(), loc.reconnection, true, config.get_reconnection(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeAdded.id(), loc.added, true, config.get_added(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeRemoved.id(), loc.removed, true, config.get_removed(), None),
         ];
         tray_check_menus.extend(menu_device_change.iter().cloned());
         menu_device_change
@@ -164,7 +285,7 @@ impl CreateMenuItem {
             config.tray_options.tray_icon_style.lock().unwrap().deref()
         {
             CheckMenuItem::with_id(
-                "set_icon_connect_color",
+                UserMenuItem::SetIconConnectColor.id(),
                 loc.set_icon_connect_color,
                 true,
                 font_color.as_ref().is_some_and(|c| c == "ConnectColor"),
@@ -172,7 +293,7 @@ impl CreateMenuItem {
             )
         } else {
             CheckMenuItem::with_id(
-                "set_icon_connect_color",
+                UserMenuItem::SetIconConnectColor.id(),
                 loc.set_icon_connect_color,
                 false,
                 false,
@@ -300,86 +421,4 @@ pub fn create_menu(
         .context("Failed to apped 'Quit' to Tray Menu")?;
 
     Ok((tray_menu, tray_check_menus))
-}
-
-#[rustfmt::skip]
-pub fn create_tray(
-    config: &Config,
-    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
-) -> Result<(TrayIcon, Vec<CheckMenuItem>)> {
-    let (tray_menu, tray_check_menus) =
-        create_menu(config, bluetooth_devices_info).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
-
-    let tray_icon_bt_address = {
-        config
-            .tray_options
-            .tray_icon_style
-            .lock()
-            .unwrap()
-            .get_address()
-    };
-
-    let icon = tray_icon_bt_address
-        .and_then(|address| bluetooth_devices_info.get(&address))
-        .map(|info| (info.battery, info.status))
-        .and_then(|(battery, status)| load_battery_icon(config, battery, status).ok())
-        .or_else(|| load_app_icon().ok())
-        .expect("Failed to create tray's icon");
-
-    let bluetooth_tooltip_info = convert_tray_info(bluetooth_devices_info, config);
-
-    let tray_icon = TrayIconBuilder::new()
-        .with_menu_on_left_click(true)
-        .with_icon(icon)
-        .with_tooltip(bluetooth_tooltip_info.join("\n"))
-        .with_menu(Box::new(tray_menu))
-        .build()
-        .map_err(|e| anyhow!("Failed to build tray - {e}"))?;
-
-    Ok((tray_icon, tray_check_menus))
-}
-
-/// 返回托盘提示及菜单内容
-pub fn convert_tray_info(
-    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
-    config: &Config,
-) -> Vec<String> {
-    let should_truncate_name = config.get_truncate_name();
-    let should_prefix_battery = config.get_prefix_battery();
-    let should_show_disconnected = config.get_show_disconnected();
-
-    bluetooth_devices_info
-        .iter()
-        .filter_map(|(_, info)| {
-            // 根据配置和设备状态决定是否包含在提示中
-            let include_in_tooltip = info.status || should_show_disconnected;
-
-            if include_in_tooltip {
-                let name = {
-                    let name = config.get_device_aliases_name(&info.name);
-                    truncate_with_ellipsis(should_truncate_name, name, 10)
-                };
-                let battery = info.battery;
-                let status_icon = if info.status { "🟢" } else { "🔴" };
-                let info = if should_prefix_battery {
-                    format!("{status_icon}{battery:3}% - {name}")
-                } else {
-                    format!("{status_icon}{name} - {battery}%")
-                };
-                Some(info)
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-fn truncate_with_ellipsis(truncate_device_name: bool, name: String, max_chars: usize) -> String {
-    if truncate_device_name && name.chars().count() > max_chars {
-        let mut result = name.chars().take(max_chars).collect::<String>();
-        result.push_str("...");
-        result
-    } else {
-        name.to_string()
-    }
 }
