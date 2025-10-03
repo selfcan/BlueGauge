@@ -69,7 +69,7 @@ pub fn convert_tray_info(
                 let battery = info.battery;
                 let status_icon = if info.status { "🟢" } else { "🔴" };
                 let info = if should_prefix_battery {
-                    format!("{status_icon}{battery:3}% - {name}")
+                    format!("{status_icon}{battery}% - {name}")
                 } else {
                     format!("{status_icon}{name} - {battery}%")
                 };
@@ -84,7 +84,7 @@ pub fn convert_tray_info(
 fn truncate_with_ellipsis(truncate_device_name: bool, name: String, max_chars: usize) -> String {
     if truncate_device_name && name.chars().count() > max_chars {
         let mut result = name.chars().take(max_chars).collect::<String>();
-        result.push_str("...");
+        result.push('…');
         result
     } else {
         name.to_string()
