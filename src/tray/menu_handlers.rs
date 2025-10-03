@@ -228,7 +228,7 @@ impl MenuHandlers {
         let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
 
         if have_new_icon_style_menu_checkd {
-            if self.menu_id == &UserMenuItem::TrayIconStyleNumber.id()
+            if self.menu_id == UserMenuItem::TrayIconStyleNumber.id()
                 && let TrayIconStyle::BatteryRing { address, .. } = *tray_icon_style
             {
                 *tray_icon_style = TrayIconStyle::BatteryNumber {
@@ -239,7 +239,7 @@ impl MenuHandlers {
                 }
             }
 
-            if self.menu_id == &UserMenuItem::TrayIconStyleRing.id()
+            if self.menu_id == UserMenuItem::TrayIconStyleRing.id()
                 && let TrayIconStyle::BatteryNumber { address, .. } = *tray_icon_style
             {
                 *tray_icon_style = TrayIconStyle::BatteryRing {
