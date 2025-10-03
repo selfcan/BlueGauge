@@ -1,5 +1,5 @@
 # BlueGauge
-A lightweight tray tool for easily checking the battery level of your Bluetooth devices.
+A lightweight tray tool for easily viewing the battery level of your Bluetooth devices.
 
 ![image](screenshots/app.png)
 
@@ -109,7 +109,7 @@ Welcome contributions from developers who can help us extend support for these d
 
 ### 3. How to display the power of multiple devices on the pallet?
 
-- **Solution:**: Create another folder, copy `BlueGauge.exe` and `BlueGauge.toml` to the folder, then rename `BlueGauge.exe` to another name, and finally open and set the `Launch at Startup`
+- **Solution:**: Create another folder, copy `BlueGauge.exe` and `BlueGauge.toml` to the folder, then rename `BlueGauge.exe` to another name, and finally turn on and set the display battert level to other Bluetooth device, set the `Launch at Startup`.
 
 ### 4. The tray battery number icon is cut off by a small part
 

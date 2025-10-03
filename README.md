@@ -1,5 +1,5 @@
 # BlueGauge
-A lightweight tray tool for easily checking the battery level of your Bluetooth devices.
+A lightweight tray tool for easily viewing the battery level of your Bluetooth devices.
 
 一款轻便的托盘工具，可轻松查看蓝牙设备的电池电量。
 
@@ -115,7 +115,7 @@ A lightweight tray tool for easily checking the battery level of your Bluetooth 
 
 ### 3. 怎么在托盘显示多个设备电量？
 
-- **解决方案：**: 另外创建一个文件夹，并复制 `BlueGauge.exe` 和 `BlueGague.toml`到该文件夹，然后重命名 `BlueGauge.exe` 为其他名称（不建议使用中文命名），最后打开并设置开机自启动即可。
+- **解决方案：**: 另外创建一个文件夹，并复制 `BlueGauge.exe` 和 `BlueGague.toml`到该文件夹，然后重命名 `BlueGauge.exe` 为其他名称（不建议使用中文命名），最后打开并设置显示电量为其他蓝牙设备、开机自启动等设置即可。
 
 ### 4. 托盘电量数字图标被截断一小部分
 
