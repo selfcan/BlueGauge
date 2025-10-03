@@ -45,8 +45,7 @@ impl NotifyEvent {
 
                 if diff <= 0 {
                     if notifyed_devices.lock().unwrap().insert(*address) {
-                        let message =
-                            format!("{name}: {} {battery}", loc.bluetooth_battery_below);
+                        let message = format!("{name}: {} {battery}", loc.bluetooth_battery_below);
                         notify(message);
                     }
                 } else if diff > 10 {
