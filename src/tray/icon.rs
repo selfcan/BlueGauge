@@ -264,7 +264,7 @@ fn render_ring_icon(
     // 计算每个圆环应该缩短的角度（各分摊一半的间隙）
     let shorten_angle_rad = gap_angle_rad / 2.0;
     let background_theme_color = || match SystemTheme::get() {
-        SystemTheme::Light => "#999999",
+        SystemTheme::Light => "#DADADA8A",
         SystemTheme::Dark => "#DADADA",
     };
     // 绘制背景圆环（表示剩余电量）
