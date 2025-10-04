@@ -5,7 +5,10 @@ use crate::{
 };
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{
+        HashMap, HashSet,
+        hash_map::Entry::{Occupied, Vacant},
+    },
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -212,9 +215,11 @@ async fn watch_ble_device(
 struct BatteryState {
     last_update: Instant,
     last_value: u8,
+    // Stores a potential new value and when we first saw it.
+    pending_state: Option<(u8, Instant)>,
 }
-
-const BATTERY_THRESHOLD: i16 = 3;
+const BATTERY_STABILITY_DURATION: Duration = Duration::from_secs(15);
+const MINIMUM_UPDATE_INTERVAL: Duration = Duration::from_secs(20);
 
 pub async fn watch_ble_devices_async(
     bluetooth_devices_info: BluetoothDevicesInfo,
@@ -276,40 +281,85 @@ pub async fn watch_ble_devices_async(
                 };
 
                 let mut devices = bluetooth_devices_info.lock().unwrap();
-                let mut needs_tray_update = false;
+                let mut need_update_tray = false;
 
                 match update {
-                    BluetoothLEUpdate::BatteryLevel(address, battery) => {
-                        let state = battery_states.entry(address).or_insert(BatteryState {
-                            last_update: Instant::now(),
-                            last_value: battery,
-                        });
+                    BluetoothLEUpdate::BatteryLevel(address, new_battery) => {
+                        let Some(info) = devices.get_mut(&address) else {
+                            // 如果在主设备列表中找不到该地址，则跳过
+                            continue;
+                        };
+                        match battery_states.entry(address) {
+                            // First time seeing this device
+                            Vacant(entry) => {
+                                info!("BLE [{}]: Battery -> {new_battery}", info.name);
+                                info.battery = new_battery;
+                                need_update_tray = true;
 
-                         // 如果电量值变化，但离上次更新时间太近，且电量波动低于阈值则忽略
-                        if (state.last_value as i16 - battery as i16).abs() >= BATTERY_THRESHOLD
-                            && state.last_update.elapsed() > Duration::from_secs(5)
-                        {
-                            if let Some(info) = devices.get_mut(&address) {
-                                info!("BLE [{}]: Battery -> {battery}", info.name);
-
-                                state.last_update = Instant::now();
-                                state.last_value = battery;
-
-                                info.battery = battery;
-                                needs_tray_update = true;
-
-                                let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
-                                    info.name.clone(),
-                                    battery,
-                                    info.address,
-                                )));
+                                // Insert its initial state
+                                entry.insert(BatteryState {
+                                    last_update: Instant::now(),
+                                    last_value: new_battery,
+                                    pending_state: None,
+                                });
                             }
-                        } else {
-                            let (ble_name, last_battery) = devices.get(&address).map(|i| (i.name.as_str(), i.battery)).unwrap_or_default();
-                            warn!(
-                                "BLE [{ble_name}]: Battery level fluctuating rapidly with small change ({last_battery} -> {battery})"
-                            );
-                            std::thread::sleep(Duration::from_secs(2));
+                            Occupied(mut entry) => {
+                                let state = entry.get_mut();
+                                let mut should_report = false;
+                                let mut value_to_report = new_battery;
+
+                                // 逻辑A: 检查数值是否稳定
+                                if state.last_value == new_battery {
+                                    state.pending_state = None;
+                                } else {
+                                    match &mut state.pending_state {
+                                        Some((pending_value, first_seen_time)) => {
+                                            if *pending_value == new_battery {
+                                                // 新值和待定值相同，检查是否已稳定足够长的时间
+                                                if first_seen_time.elapsed() >= BATTERY_STABILITY_DURATION {
+                                                    should_report = true;
+                                                }
+                                                // else: 时间还不够长，继续等待
+                                            } else {
+                                                // 值再次跳变，重置待定状态为这个更新的值
+                                                info!("BLE [{}]: Battery fluctuated again to {new_battery}, resetting stability check.", info.name);
+                                                state.pending_state = Some((new_battery, Instant::now()));
+                                            }
+                                        },
+                                        None => {
+                                            info!("BLE [{}]: New potential battery value {new_battery}. Waiting for stability.", info.name);
+                                            state.pending_state = Some((new_battery, Instant::now()));
+                                        }
+                                    }
+                                }
+
+                                // 逻辑B: 强制周期性更新 (备用策略)
+                                if !should_report
+                                    && state.last_update.elapsed() >= MINIMUM_UPDATE_INTERVAL
+                                    && state.last_value != new_battery
+                                {
+                                    should_report = true;
+                                    value_to_report = state.pending_state.map_or(new_battery, |(v, _)| v);
+                                }
+
+                                if should_report {
+                                    info!("BLE [{}]: Battery -> {value_to_report}", info.name);
+
+                                    state.last_value = value_to_report;
+                                    state.last_update = Instant::now();
+                                    state.pending_state = None; // 成功报告后，清空待定状态
+
+                                    info.battery = value_to_report;
+                                    need_update_tray = true;
+
+                                    // 发送通知
+                                    let _ = proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                                        info.name.clone(),
+                                        value_to_report,
+                                        info.address,
+                                    )));
+                                }
+                            }
                         }
                     }
                     BluetoothLEUpdate::ConnectionStatus(address, status) => {
@@ -317,7 +367,7 @@ pub async fn watch_ble_devices_async(
                             && info.status != status {
                                 info!("BLE [{}]: Status -> {status}", info.name);
                                 info.status = status;
-                                needs_tray_update = true;
+                                need_update_tray = true;
                                 let notify_event = if status {
                                     NotifyEvent::Reconnect(info.name.clone())
                                 } else {
@@ -328,9 +378,10 @@ pub async fn watch_ble_devices_async(
                     }
                 }
 
+                // 显性释放锁，避免后续更新托盘时发生死锁
                 drop(devices);
 
-                if needs_tray_update {
+                if need_update_tray {
                     let _ = proxy.send_event(UserEvent::UnpdatTray);
                 }
             },
