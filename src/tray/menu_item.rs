@@ -281,14 +281,15 @@ impl CreateMenuItem {
         loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> CheckMenuItem {
-        let connection_toggle_menu = if let TrayIconStyle::BatteryNumber { font_color, .. } =
+        let connection_toggle_menu = if let TrayIconStyle::BatteryNumber { color_scheme, .. }
+        | TrayIconStyle::BatteryRing { color_scheme, .. } =
             config.tray_options.tray_icon_style.lock().unwrap().deref()
         {
             CheckMenuItem::with_id(
                 UserMenuItem::SetIconConnectColor.id(),
                 loc.set_icon_connect_color,
                 true,
-                font_color.as_ref().is_some_and(|c| c == "ConnectColor"),
+                color_scheme.is_connect_color(),
                 None,
             )
         } else {

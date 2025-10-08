@@ -5,6 +5,7 @@ use std::{ops::Deref, path::Path, sync::atomic::Ordering};
 use super::menu_item::UserMenuItem;
 
 use crate::UserEvent;
+use crate::config::ColorScheme;
 use crate::{
     config::{Config, TrayIconStyle},
     notify::notify,
@@ -108,7 +109,7 @@ impl MenuHandlers {
                 .tray_icon_style
                 .lock()
                 .unwrap()
-                .update_connect_color(item.is_checked());
+                .set_connect_color(item.is_checked());
 
             self.config.save();
 
@@ -170,7 +171,9 @@ impl MenuHandlers {
                 .store(default_low_battery, Ordering::Relaxed);
 
             // 找到并选中默认项
-            if let Some(default_item) = low_battery_items.iter().find(|i| i.id().as_ref() == "0.15")
+            if let Some(default_item) = low_battery_items
+                .iter()
+                .find(|i| i.id() == &UserMenuItem::NotifyLowBattery(15).id())
             {
                 default_item.set_checked(true);
             }
@@ -211,7 +214,7 @@ impl MenuHandlers {
         let icon_style_menus: Vec<_> = self
             .tray_check_menus
             .iter()
-            .filter(|item| ["number_icon", "ring_icon"].contains(&item.id().as_ref()))
+            .filter(|item| UserMenuItem::tray_icon_style_menu_id().contains(item.id()))
             .collect();
 
         // 有无勾选样式菜单
@@ -233,8 +236,9 @@ impl MenuHandlers {
             {
                 *tray_icon_style = TrayIconStyle::BatteryNumber {
                     address,
+                    color_scheme: ColorScheme::FollowSystemTheme,
                     font_name: "Arial".to_owned(),
-                    font_color: Some("FollowSystemTheme".to_owned()),
+                    font_color: Some(String::new()),
                     font_size: Some(64),
                 }
             }
@@ -244,11 +248,13 @@ impl MenuHandlers {
             {
                 *tray_icon_style = TrayIconStyle::BatteryRing {
                     address,
-                    highlight_color: Some("#4CD082".to_owned()),
-                    background_color: Some("FollowSystemTheme".to_owned()),
+                    color_scheme: ColorScheme::FollowSystemTheme,
+                    highlight_color: Some(String::new()),
+                    background_color: Some(String::new()),
                 }
             }
         }
+
         // 优先释放锁，避免Config执行Svae时发生死锁
         drop(tray_icon_style);
         self.config.save();
@@ -314,19 +320,26 @@ impl MenuHandlers {
 
                 self.tray_check_menus
                     .iter()
-                    .filter(|item| item.id().as_ref().ends_with("icon"))
-                    .for_each(|item| match item.id().as_ref() {
-                        "number_icon" if !have_custom_icons => {
-                            *tray_icon_style = TrayIconStyle::BatteryNumber {
-                                address: show_battery_icon_bt_address.to_owned(),
-                                font_name: "Arial".to_owned(),
-                                font_color: Some("FollowSystemTheme".to_owned()),
-                                font_size: Some(64),
-                            };
+                    .filter(|item| UserMenuItem::tray_icon_style_menu_id().contains(item.id()))
+                    .for_each(|item| {
+                        if have_custom_icons {
+                            item.set_checked(false);
+                        } else {
+                            // 无自定义图标时，有设备被勾选时，首选数字图标
+                            if item.id() == &UserMenuItem::TrayIconStyleNumber.id() {
+                                *tray_icon_style = TrayIconStyle::BatteryNumber {
+                                    address: show_battery_icon_bt_address.to_owned(),
+                                    color_scheme: ColorScheme::FollowSystemTheme,
+                                    font_name: "Arial".to_owned(),
+                                    font_color: Some(String::new()),
+                                    font_size: Some(64),
+                                };
 
-                            item.set_checked(true);
+                                item.set_checked(true);
+                            } else {
+                                item.set_checked(false);
+                            }
                         }
-                        _ => item.set_checked(false),
                     });
             }
             TrayIconStyle::BatteryCustom { .. }

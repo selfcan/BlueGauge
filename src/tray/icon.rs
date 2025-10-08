@@ -40,34 +40,37 @@ pub fn load_battery_icon(
         TrayIconStyle::BatteryCustom { .. } => load_custom_icon(battery_level),
         TrayIconStyle::BatteryNumber {
             address: _,
+            color_scheme,
             font_name,
             font_color,
             font_size,
         } => {
-            let should_icon_connect_color = font_color
-                .as_ref()
-                .is_some_and(|c| c.eq("ConnectColor"))
-                .then_some(bluetooth_status);
+            let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
 
             load_number_icon(
                 battery_level,
                 &font_name,
                 font_color,
                 font_size,
-                should_icon_connect_color,
+                is_connect_color,
             )
         }
         TrayIconStyle::BatteryRing {
             address: _,
+            color_scheme,
             highlight_color,
             background_color,
         } => {
-            let low_battery = config.get_low_battery();
+            let is_low_battery = battery_level <= config.get_low_battery();
+
+            let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
+
             load_ring_icon(
                 battery_level,
-                low_battery,
+                is_low_battery,
                 highlight_color,
                 background_color,
+                is_connect_color,
             )
         }
     }
@@ -104,14 +107,14 @@ fn load_number_icon(
     font_name: &str,
     font_color: Option<String>,
     font_size: Option<u8>,
-    should_icon_connect_color: Option<bool>,
+    is_connect_color: Option<bool>,
 ) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) = render_battery_font_icon(
         battery_level,
         font_name,
         font_color,
         font_size,
-        should_icon_connect_color,
+        is_connect_color,
     )?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
@@ -119,15 +122,17 @@ fn load_number_icon(
 
 pub fn load_ring_icon(
     battery_level: u8,
-    low_battery: u8,
+    is_low_battery: bool,
     highlight_color: Option</* Hex color */ String>,
     background_color: Option</* Hex color */ String>,
+    is_connect_color: Option<bool>,
 ) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) = render_ring_icon(
         battery_level,
-        low_battery,
+        is_low_battery,
         highlight_color,
         background_color,
+        is_connect_color,
     )?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Icon - {e}"))
@@ -138,7 +143,7 @@ fn render_battery_font_icon(
     font_name: &str,
     font_color: Option</* Hex color */ String>,
     font_size: Option<u8>,
-    should_icon_connect_color: Option<bool>,
+    is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
     let indicator = battery_level.to_string();
 
@@ -150,7 +155,7 @@ fn render_battery_font_icon(
         font_name
     };
     let font_size = font_size.and_then(|s| s.ne(&64).then_some(s as f64));
-    let font_color = if let Some(should) = should_icon_connect_color {
+    let font_color = if let Some(should) = is_connect_color {
         if should {
             "#4fc478".to_owned()
         } else {
@@ -226,9 +231,10 @@ fn build_text_layout(
 
 fn render_ring_icon(
     battery_level: u8,
-    low_battery: u8,
+    is_low_battery: bool,
     highlight_color: Option</* Hex color */ String>,
     background_color: Option</* Hex color */ String>,
+    is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
     let width = 64;
     let height = 64;
@@ -263,16 +269,26 @@ fn render_ring_icon(
 
     // 计算每个圆环应该缩短的角度（各分摊一半的间隙）
     let shorten_angle_rad = gap_angle_rad / 2.0;
-    let background_theme_color = || match SystemTheme::get() {
-        SystemTheme::Light => "#DADADA8A",
-        SystemTheme::Dark => "#DADADA",
+    let not_custome_color = || {
+        let is_connect = is_connect_color.unwrap_or(true); // None 视为连接（根据你原逻辑）
+        if is_connect {
+            match SystemTheme::get() {
+                SystemTheme::Light => "#919191",
+                SystemTheme::Dark => "#DADADA",
+            }
+        } else {
+            match SystemTheme::get() {
+                SystemTheme::Light => "#C4C4C4",
+                SystemTheme::Dark => "#DADADAA0",
+            }
+        }
     };
     // 绘制背景圆环（表示剩余电量）
     let background_sweep_angle =
         2.0 * std::f64::consts::PI - battery_angle_rad - 2.0 * shorten_angle_rad;
     let background_color = background_color
-        .and_then(|hex| Color::from_hex_str(&hex).ok())
-        .or_else(|| Color::from_hex_str(background_theme_color()).ok())
+        .and_then(|hex| Color::from_hex_str(&hex).ok()) // 优先配置颜色
+        .or_else(|| Color::from_hex_str(&not_custome_color()).ok())
         .unwrap_or(Color::GRAY);
     let background_arc = piet_common::kurbo::Arc {
         center: center.into(),
@@ -284,12 +300,21 @@ fn render_ring_icon(
     piet.stroke_styled(background_arc, &background_color, stroke_width, &style);
 
     // 绘制高亮圆环（表示当前电量）
-    let highlight_color = if battery_level <= low_battery {
-        Color::from_hex_str("#FE6666").unwrap_or(Color::RED)
+    let highlight_color = if is_low_battery {
+        // 低电量颜色（不支持配置）
+        let color = is_connect_color
+            .map(|is_connect| if is_connect { "#FE6666" } else { "#FE6666C0" })
+            .unwrap_or("#FE6666");
+        Color::from_hex_str(color).unwrap_or(Color::RED)
     } else {
         highlight_color
-            .and_then(|hex| Color::from_hex_str(&hex).ok())
-            .or(Color::from_hex_str("#4CD082").ok())
+            .and_then(|hex| Color::from_hex_str(&hex).ok()) // 优先配置颜色
+            .or_else(|| {
+                let color = is_connect_color
+                    .map(|is_connect| if is_connect { "#4CD082" } else { "#4CD083A0" })
+                    .unwrap_or("#4CD082");
+                Color::from_hex_str(color).ok()
+            })
             .unwrap_or(Color::GREEN)
     };
     let highlight_arc = piet_common::kurbo::Arc {

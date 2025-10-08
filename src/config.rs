@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use anyhow::{Result, anyhow};
 use log::warn;
+use piet_common::Color;
 use serde::{Deserialize, Serialize};
 use tray_icon::menu::MenuId;
 
@@ -20,7 +21,6 @@ struct ConfigToml {
     notify_options: NotifyOptionsToml,
 
     #[serde(default)]
-    #[serde(rename = "device_aliases")]
     device_aliases: HashMap<String, String>,
 }
 
@@ -34,36 +34,67 @@ struct TrayOptionsToml {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct TrayTooltipToml {
+    #[serde(default)]
     show_disconnected: bool,
+    #[serde(default)]
     truncate_name: bool,
+    #[serde(default)]
     prefix_battery: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "style", content = "font")]
+#[serde(tag = "style")]
 pub enum TrayIconStyle {
     App,
     BatteryCustom {
+        #[serde(rename = "bluetooth_address")]
         address: u64,
     },
     BatteryNumber {
+        color_scheme: ColorScheme,
+        #[serde(rename = "bluetooth_address")]
         address: u64,
         font_name: String,
-        /// Font Color in hex format (e.g. "#FFFFFF")
-        /// Default: "FollowSystemTheme"
-        /// Other: "ConnectColor"(连接状态颜色)
         #[serde(skip_serializing_if = "Option::is_none")]
         font_color: Option</* Hex color */ String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         font_size: Option<u8>, // Default: 64
     },
     BatteryRing {
+        color_scheme: ColorScheme,
+        #[serde(rename = "bluetooth_address")]
         address: u64,
         #[serde(skip_serializing_if = "Option::is_none")]
         highlight_color: Option</* Hex color */ String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         background_color: Option</* Hex color */ String>,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum ColorScheme {
+    ConnectColor, // 连接状态颜色
+    Custom,
+    #[default]
+    FollowSystemTheme, // 跟随系统主题
+}
+
+impl ColorScheme {
+    pub fn is_connect_color(&self) -> bool {
+        matches!(self, ColorScheme::ConnectColor)
+    }
+
+    pub fn is_custom(&self) -> bool {
+        matches!(self, ColorScheme::Custom)
+    }
+
+    pub fn set_custom(&mut self) {
+        *self = Self::Custom;
+    }
+
+    pub fn set_follow_system_theme(&mut self) {
+        *self = Self::FollowSystemTheme;
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -100,16 +131,15 @@ impl TrayIconStyle {
         }
     }
 
-    pub fn update_connect_color(&mut self, should_update: bool) {
+    pub fn set_connect_color(&mut self, should_set: bool) {
         match self {
-            Self::BatteryNumber { font_color, .. } => {
-                if should_update {
-                    *font_color = Some("ConnectColor".to_owned());
-                } else if *font_color == Some("ConnectColor".to_owned()) {
-                    *font_color = None;
+            Self::BatteryNumber { color_scheme, .. } | Self::BatteryRing { color_scheme, .. } => {
+                if should_set {
+                    *color_scheme = ColorScheme::ConnectColor;
+                } else {
+                    *color_scheme = ColorScheme::FollowSystemTheme;
                 }
             }
-            // 圆环暂时不支持连接配色
             _ => (),
         }
     }
@@ -324,7 +354,47 @@ impl Config {
         let content = std::fs::read_to_string(&config_path)?;
         let toml_config: ConfigToml = toml::from_str(&content)?;
         let tray_icon_style = if find_custom_icon().is_err() {
-            toml_config.tray_options.tray_icon_style
+            let mut tray_icon_style = toml_config.tray_options.tray_icon_style;
+            match tray_icon_style {
+                TrayIconStyle::BatteryNumber {
+                    ref mut color_scheme,
+                    ref font_color,
+                    ..
+                } => {
+                    if font_color
+                        .as_ref()
+                        .is_some_and(|c| Color::from_hex_str(c).is_ok())
+                    {
+                        color_scheme.set_custom();
+                    } else if color_scheme.is_custom() {
+                        color_scheme.set_follow_system_theme();
+                    }
+
+                    tray_icon_style
+                }
+                TrayIconStyle::BatteryRing {
+                    ref mut color_scheme,
+                    ref highlight_color,
+                    ref background_color,
+                    ..
+                } => {
+                    let has_valid_custom_color = highlight_color
+                        .as_ref()
+                        .is_some_and(|c| Color::from_hex_str(c).is_ok())
+                        || background_color
+                            .as_ref()
+                            .is_some_and(|c| Color::from_hex_str(c).is_ok());
+
+                    if has_valid_custom_color {
+                        color_scheme.set_custom();
+                    } else if color_scheme.is_custom() {
+                        color_scheme.set_follow_system_theme();
+                    }
+
+                    tray_icon_style
+                }
+                _ => tray_icon_style,
+            }
         } else {
             match toml_config.tray_options.tray_icon_style {
                 TrayIconStyle::App => TrayIconStyle::App,
