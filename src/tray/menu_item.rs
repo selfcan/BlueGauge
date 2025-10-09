@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 use crate::bluetooth::info::BluetoothInfo;
 use crate::config::{Config, TrayIconStyle};
-use crate::language::{Language, Localization};
+use crate::language::LOC;
 use crate::startup::get_startup_status;
 
 use anyhow::{Context, Result};
@@ -196,7 +196,6 @@ impl CreateMenuItem {
 
     fn select_tray_icon_style(
         config: &Config,
-        loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> Submenu {
         let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
@@ -206,14 +205,14 @@ impl CreateMenuItem {
         let select_tray_icon_style_items = [
             CheckMenuItem::with_id(
                 UserMenuItem::TrayIconStyleNumber.id(),
-                loc.number_icon,
+                LOC.number_icon,
                 true,
                 select_number_icon,
                 None,
             ),
             CheckMenuItem::with_id(
                 UserMenuItem::TrayIconStyleRing.id(),
-                loc.ring_icon,
+                LOC.ring_icon,
                 true,
                 select_ring_icon,
                 None,
@@ -227,20 +226,19 @@ impl CreateMenuItem {
                 .iter()
                 .map(|item| item as &dyn IsMenuItem),
         );
-        Submenu::with_items(loc.icon_style, true, &menu_tray_icon_style)
+        Submenu::with_items(LOC.icon_style, true, &menu_tray_icon_style)
             .expect("Failed to create submenu for tray icon style")
     }
 
     #[rustfmt::skip]
     fn set_tray_tooltip(
         config: &Config,
-        loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> [CheckMenuItem; 3] {
         let menu_set_tray_tooltip = [
-            CheckMenuItem::with_id(UserMenuItem::TrayTooltipShowDisconnected.id(), loc.show_disconnected, true, config.get_show_disconnected(), None),
-            CheckMenuItem::with_id(UserMenuItem::TrayTooltipTruncateName.id(), loc.truncate_name, true, config.get_truncate_name(), None),
-            CheckMenuItem::with_id(UserMenuItem::TrayTooltipPrefixBattery.id(), loc.prefix_battery, true, config.get_prefix_battery(), None),
+            CheckMenuItem::with_id(UserMenuItem::TrayTooltipShowDisconnected.id(), LOC.show_disconnected, true, config.get_show_disconnected(), None),
+            CheckMenuItem::with_id(UserMenuItem::TrayTooltipTruncateName.id(), LOC.truncate_name, true, config.get_truncate_name(), None),
+            CheckMenuItem::with_id(UserMenuItem::TrayTooltipPrefixBattery.id(), LOC.prefix_battery, true, config.get_prefix_battery(), None),
         ];
         tray_check_menus.extend(menu_set_tray_tooltip.iter().cloned());
         menu_set_tray_tooltip
@@ -263,14 +261,13 @@ impl CreateMenuItem {
     #[rustfmt::skip]
     fn notify_device_change(
         config: &Config,
-        loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> [CheckMenuItem; 4] {
         let menu_device_change = [
-            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeDisconnection.id(), loc.disconnection, true, config.get_disconnection(), None),
-            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeReconnection.id(), loc.reconnection, true, config.get_reconnection(), None),
-            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeAdded.id(), loc.added, true, config.get_added(), None),
-            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeRemoved.id(), loc.removed, true, config.get_removed(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeDisconnection.id(), LOC.disconnection, true, config.get_disconnection(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeReconnection.id(), LOC.reconnection, true, config.get_reconnection(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeAdded.id(), LOC.added, true, config.get_added(), None),
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceChangeRemoved.id(), LOC.removed, true, config.get_removed(), None),
         ];
         tray_check_menus.extend(menu_device_change.iter().cloned());
         menu_device_change
@@ -278,7 +275,6 @@ impl CreateMenuItem {
 
     fn set_icon_connect_color(
         config: &Config,
-        loc: &Localization,
         tray_check_menus: &mut Vec<CheckMenuItem>,
     ) -> CheckMenuItem {
         let connection_toggle_menu = if let TrayIconStyle::BatteryNumber { color_scheme, .. }
@@ -287,7 +283,7 @@ impl CreateMenuItem {
         {
             CheckMenuItem::with_id(
                 UserMenuItem::SetIconConnectColor.id(),
-                loc.set_icon_connect_color,
+                LOC.set_icon_connect_color,
                 true,
                 color_scheme.is_connect_color(),
                 None,
@@ -295,7 +291,7 @@ impl CreateMenuItem {
         } else {
             CheckMenuItem::with_id(
                 UserMenuItem::SetIconConnectColor.id(),
-                loc.set_icon_connect_color,
+                LOC.set_icon_connect_color,
                 false,
                 false,
                 None,
@@ -312,20 +308,17 @@ pub fn create_menu(
     config: &Config,
     bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
 ) -> Result<(Menu, Vec<CheckMenuItem>)> {
-    let language = Language::get_system_language();
-    let loc = Localization::get(language);
-
     let mut tray_check_menus: Vec<CheckMenuItem> = Vec::new();
 
     let tray_menu = Menu::new();
 
     let menu_separator = CreateMenuItem::separator();
 
-    let menu_quit = CreateMenuItem::quit(loc.quit);
+    let menu_quit = CreateMenuItem::quit(LOC.quit);
 
-    let menu_about = CreateMenuItem::about(loc.about);
+    let menu_about = CreateMenuItem::about(LOC.about);
 
-    let menu_restart = CreateMenuItem::restart(loc.restart);
+    let menu_restart = CreateMenuItem::restart(LOC.restart);
 
     let menu_bluetooth_devicess =
         CreateMenuItem::bluetooth_devices(config, &mut tray_check_menus, bluetooth_devices_info)?;
@@ -334,17 +327,16 @@ pub fn create_menu(
         .map(|item| item as &dyn IsMenuItem)
         .collect();
 
-    let menu_startup = CreateMenuItem::startup(loc.startup, &mut tray_check_menus)?;
+    let menu_startup = CreateMenuItem::startup(LOC.startup, &mut tray_check_menus)?;
 
-    let menu_open_config = &CreateMenuItem::open_config(loc.open_config);
+    let menu_open_config = &CreateMenuItem::open_config(LOC.open_config);
 
     let menu_tray_options = {
         let menu_select_tray_icon_style =
-            CreateMenuItem::select_tray_icon_style(config, loc, &mut tray_check_menus);
+            CreateMenuItem::select_tray_icon_style(config, &mut tray_check_menus);
         let menu_set_icon_connect_color =
-            CreateMenuItem::set_icon_connect_color(config, loc, &mut tray_check_menus);
-        let menu_set_tray_tooltip =
-            CreateMenuItem::set_tray_tooltip(config, loc, &mut tray_check_menus);
+            CreateMenuItem::set_icon_connect_color(config, &mut tray_check_menus);
+        let menu_set_tray_tooltip = CreateMenuItem::set_tray_tooltip(config, &mut tray_check_menus);
 
         let mut menu_tray_options: Vec<&dyn IsMenuItem> = Vec::new();
         menu_tray_options.push(&menu_select_tray_icon_style as &dyn IsMenuItem);
@@ -354,7 +346,7 @@ pub fn create_menu(
                 .iter()
                 .map(|item| item as &dyn IsMenuItem),
         );
-        &Submenu::with_items(loc.tray_config, true, &menu_tray_options)?
+        &Submenu::with_items(LOC.tray_config, true, &menu_tray_options)?
     };
 
     let menu_notify_options = {
@@ -365,10 +357,10 @@ pub fn create_menu(
             .map(|item| item as &dyn IsMenuItem)
             .collect();
         let menu_notify_low_battery =
-            &Submenu::with_items(loc.low_battery, true, &menu_notify_low_battery)?;
+            &Submenu::with_items(LOC.low_battery, true, &menu_notify_low_battery)?;
 
         let menu_notify_device_change =
-            CreateMenuItem::notify_device_change(config, loc, &mut tray_check_menus);
+            CreateMenuItem::notify_device_change(config, &mut tray_check_menus);
 
         let mut menu_notify_options: Vec<&dyn IsMenuItem> = Vec::new();
         menu_notify_options.push(menu_notify_low_battery as &dyn IsMenuItem);
@@ -377,7 +369,7 @@ pub fn create_menu(
                 .iter()
                 .map(|item| item as &dyn IsMenuItem),
         );
-        &Submenu::with_items(loc.notify_options, true, &menu_notify_options)?
+        &Submenu::with_items(LOC.notify_options, true, &menu_notify_options)?
     };
 
     let settings_items = &[
@@ -385,7 +377,7 @@ pub fn create_menu(
         menu_notify_options as &dyn IsMenuItem,
         menu_open_config as &dyn IsMenuItem,
     ];
-    let menu_setting = Submenu::with_items(loc.settings, true, settings_items)?;
+    let menu_setting = Submenu::with_items(LOC.settings, true, settings_items)?;
 
     tray_menu
         .prepend_items(&menu_bluetooth_devicess)

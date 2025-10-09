@@ -1,5 +1,12 @@
+use std::sync::LazyLock;
+
+pub static LOC: LazyLock<&Localization> = LazyLock::new(|| {
+    let language = Language::get_system_language();
+    Localization::get(language)
+});
+
 impl Localization {
-    pub fn get(language: Language) -> &'static Self {
+    fn get(language: Language) -> &'static Self {
         match language {
             Language::Arabic_SaudiArabia => &AR_SA,
             Language::Chinese_HongKongSAR => &ZH_HANT,
@@ -302,7 +309,7 @@ const FR_FR: Localization = Localization {
 };
 
 impl Language {
-    pub fn get_system_language() -> Language {
+    fn get_system_language() -> Language {
         let sys_lcid = unsafe { windows::Win32::Globalization::GetSystemDefaultLCID() };
 
         TABLE
