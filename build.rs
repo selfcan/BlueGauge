@@ -4,6 +4,6 @@ fn main() {
 
 fn load_logo() {
     embed_resource::compile("assets/logo.rc", embed_resource::NONE)
-        .manifest_required()
+        .manifest_optional()
         .unwrap();
 }
