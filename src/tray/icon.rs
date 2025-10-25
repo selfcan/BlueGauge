@@ -288,7 +288,7 @@ fn render_ring_icon(
         2.0 * std::f64::consts::PI - battery_angle_rad - 2.0 * shorten_angle_rad;
     let background_color = background_color
         .and_then(|hex| Color::from_hex_str(&hex).ok()) // 优先配置颜色
-        .or_else(|| Color::from_hex_str(&not_custome_color()).ok())
+        .or_else(|| Color::from_hex_str(not_custome_color()).ok())
         .unwrap_or(Color::GRAY);
     let background_arc = piet_common::kurbo::Arc {
         center: center.into(),
