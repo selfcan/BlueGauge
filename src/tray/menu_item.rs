@@ -28,6 +28,7 @@ pub enum UserMenuItem {
     TrayTooltipShowDisconnected,
     TrayTooltipTruncateName,
     TrayTooltipPrefixBattery,
+    TrayTooltipStayOnScreen,
     //
     NotifyLowBattery(u8),
     NotifyDeviceChangeDisconnection,
@@ -55,6 +56,7 @@ impl UserMenuItem {
             UserMenuItem::TrayTooltipShowDisconnected => MenuId::new("show_disconnected"),
             UserMenuItem::TrayTooltipTruncateName => MenuId::new("truncate_name"),
             UserMenuItem::TrayTooltipPrefixBattery => MenuId::new("prefix_battery"),
+            UserMenuItem::TrayTooltipStayOnScreen => MenuId::new("stay_on_screen"),
             //
             UserMenuItem::NotifyLowBattery(u8) => MenuId::from(u8),
             UserMenuItem::NotifyDeviceChangeDisconnection => MenuId::new("disconnection"),
@@ -64,7 +66,7 @@ impl UserMenuItem {
         }
     }
 
-    pub fn exclude_bt_address_menu_id() -> [MenuId; 21] {
+    pub fn exclude_bt_address_menu_id() -> [MenuId; 22] {
         [
             UserMenuItem::Quit.id(),
             UserMenuItem::Restart.id(),
@@ -79,6 +81,7 @@ impl UserMenuItem {
             UserMenuItem::TrayTooltipShowDisconnected.id(),
             UserMenuItem::TrayTooltipTruncateName.id(),
             UserMenuItem::TrayTooltipPrefixBattery.id(),
+            UserMenuItem::TrayTooltipStayOnScreen.id(),
             //
             UserMenuItem::NotifyLowBattery(1).id(),
             UserMenuItem::NotifyLowBattery(5).id(),
@@ -122,11 +125,12 @@ impl UserMenuItem {
         ]
     }
 
-    pub fn tray_tooltip_menu_id() -> [MenuId; 3] {
+    pub fn tray_tooltip_menu_id() -> [MenuId; 4] {
         [
             UserMenuItem::TrayTooltipShowDisconnected.id(),
             UserMenuItem::TrayTooltipTruncateName.id(),
             UserMenuItem::TrayTooltipPrefixBattery.id(),
+            UserMenuItem::TrayTooltipStayOnScreen.id(),
         ]
     }
 }
@@ -234,11 +238,13 @@ impl CreateMenuItem {
     fn set_tray_tooltip(
         config: &Config,
         tray_check_menus: &mut Vec<CheckMenuItem>,
-    ) -> [CheckMenuItem; 3] {
+    ) -> [CheckMenuItem; 4] {
         let menu_set_tray_tooltip = [
             CheckMenuItem::with_id(UserMenuItem::TrayTooltipShowDisconnected.id(), LOC.show_disconnected, true, config.get_show_disconnected(), None),
             CheckMenuItem::with_id(UserMenuItem::TrayTooltipTruncateName.id(), LOC.truncate_name, true, config.get_truncate_name(), None),
             CheckMenuItem::with_id(UserMenuItem::TrayTooltipPrefixBattery.id(), LOC.prefix_battery, true, config.get_prefix_battery(), None),
+            // todo: require localization
+            CheckMenuItem::with_id(UserMenuItem::TrayTooltipStayOnScreen.id(), "stay_on_screen", true, config.get_stay_on_screen(), None),
         ];
         tray_check_menus.extend(menu_set_tray_tooltip.iter().cloned());
         menu_set_tray_tooltip
