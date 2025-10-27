@@ -301,7 +301,7 @@ pub async fn watch_btc_devices_battery(
         }
 
         if need_update {
-            let _ = proxy.send_event(UserEvent::UnpdatTray);
+            let _ = proxy.send_event(UserEvent::UpdateTray);
         }
     }
 
@@ -397,7 +397,7 @@ pub async fn watch_btc_devices_status_async(
                         update_device.status = status;
                         drop(devices);
                         let _ = proxy.send_event(UserEvent::Notify(notify_event));
-                        let _ = proxy.send_event(UserEvent::UnpdatTray);
+                        let _ = proxy.send_event(UserEvent::UpdateTray);
                     }
             },
             _ = async {

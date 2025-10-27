@@ -119,7 +119,7 @@ enum UserEvent {
     Exit,
     MenuEvent(MenuEvent),
     Notify(NotifyEvent),
-    UnpdatTray,
+    UpdateTray,
 }
 
 impl App {
@@ -196,12 +196,12 @@ impl ApplicationHandler<UserEvent> for App {
             UserEvent::Notify(notify_event) => {
                 notify_event.send(&self.config, self.notified_devices.clone())
             }
-            UserEvent::UnpdatTray => {
-                let cuurent_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
+            UserEvent::UpdateTray => {
+                let current_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
                 let config = self.config.clone();
 
                 let (tray_menu, new_tray_check_menus) =
-                    match create_menu(&config, &cuurent_devices_info) {
+                    match create_menu(&config, &current_devices_info) {
                         Ok(menu) => menu,
                         Err(e) => {
                             notify(format!("Failed to create tray menu - {e}"));
@@ -213,7 +213,7 @@ impl ApplicationHandler<UserEvent> for App {
                     *tray_check_menus = new_tray_check_menus;
                 }
 
-                let bluetooth_tooltip_info = convert_tray_info(&cuurent_devices_info, &config);
+                let bluetooth_tooltip_info = convert_tray_info(&current_devices_info, &config);
 
                 if let Some(tray) = self.tray.lock().unwrap().as_mut() {
                     tray.set_menu(Some(Box::new(tray_menu)));
@@ -228,7 +228,7 @@ impl ApplicationHandler<UserEvent> for App {
                         .get_address();
 
                     let icon = tray_icon_bt_address
-                        .and_then(|address| cuurent_devices_info.get(&address))
+                        .and_then(|address| current_devices_info.get(&address))
                         .and_then(|info| load_battery_icon(&config, info.battery, info.status).ok())
                         .or_else(|| load_app_icon().ok());
 
