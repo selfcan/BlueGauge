@@ -28,13 +28,13 @@ pub enum UserMenuItem {
     TrayTooltipShowDisconnected,
     TrayTooltipTruncateName,
     TrayTooltipPrefixBattery,
-    TrayTooltipStayOnScreen,
     //
     NotifyLowBattery(u8),
     NotifyDeviceChangeDisconnection,
     NotifyDeviceChangeReconnection,
     NotifyDeviceChangeAdded,
     NotifyDeviceChangeRemoved,
+    NotifyDeviceStayOnScreen,
 }
 
 impl UserMenuItem {
@@ -56,13 +56,13 @@ impl UserMenuItem {
             UserMenuItem::TrayTooltipShowDisconnected => MenuId::new("show_disconnected"),
             UserMenuItem::TrayTooltipTruncateName => MenuId::new("truncate_name"),
             UserMenuItem::TrayTooltipPrefixBattery => MenuId::new("prefix_battery"),
-            UserMenuItem::TrayTooltipStayOnScreen => MenuId::new("stay_on_screen"),
             //
             UserMenuItem::NotifyLowBattery(u8) => MenuId::from(u8),
             UserMenuItem::NotifyDeviceChangeDisconnection => MenuId::new("disconnection"),
             UserMenuItem::NotifyDeviceChangeReconnection => MenuId::new("reconnection"),
             UserMenuItem::NotifyDeviceChangeAdded => MenuId::new("added"),
             UserMenuItem::NotifyDeviceChangeRemoved => MenuId::new("removed"),
+            UserMenuItem::NotifyDeviceStayOnScreen => MenuId::new("stay_on_screen"),
         }
     }
 
@@ -81,7 +81,6 @@ impl UserMenuItem {
             UserMenuItem::TrayTooltipShowDisconnected.id(),
             UserMenuItem::TrayTooltipTruncateName.id(),
             UserMenuItem::TrayTooltipPrefixBattery.id(),
-            UserMenuItem::TrayTooltipStayOnScreen.id(),
             //
             UserMenuItem::NotifyLowBattery(1).id(),
             UserMenuItem::NotifyLowBattery(5).id(),
@@ -94,6 +93,7 @@ impl UserMenuItem {
             UserMenuItem::NotifyDeviceChangeReconnection.id(),
             UserMenuItem::NotifyDeviceChangeAdded.id(),
             UserMenuItem::NotifyDeviceChangeRemoved.id(),
+            UserMenuItem::NotifyDeviceStayOnScreen.id(),
         ]
     }
 
@@ -109,12 +109,13 @@ impl UserMenuItem {
         ]
     }
 
-    pub fn notify_menu_id() -> [MenuId; 4] {
+    pub fn notify_menu_id() -> [MenuId; 5] {
         [
             UserMenuItem::NotifyDeviceChangeDisconnection.id(),
             UserMenuItem::NotifyDeviceChangeReconnection.id(),
             UserMenuItem::NotifyDeviceChangeAdded.id(),
             UserMenuItem::NotifyDeviceChangeRemoved.id(),
+            UserMenuItem::NotifyDeviceStayOnScreen.id(),
         ]
     }
 
@@ -125,12 +126,11 @@ impl UserMenuItem {
         ]
     }
 
-    pub fn tray_tooltip_menu_id() -> [MenuId; 4] {
+    pub fn tray_tooltip_menu_id() -> [MenuId; 3] {
         [
             UserMenuItem::TrayTooltipShowDisconnected.id(),
             UserMenuItem::TrayTooltipTruncateName.id(),
             UserMenuItem::TrayTooltipPrefixBattery.id(),
-            UserMenuItem::TrayTooltipStayOnScreen.id(),
         ]
     }
 }
@@ -238,13 +238,11 @@ impl CreateMenuItem {
     fn set_tray_tooltip(
         config: &Config,
         tray_check_menus: &mut Vec<CheckMenuItem>,
-    ) -> [CheckMenuItem; 4] {
+    ) -> [CheckMenuItem; 3] {
         let menu_set_tray_tooltip = [
             CheckMenuItem::with_id(UserMenuItem::TrayTooltipShowDisconnected.id(), LOC.show_disconnected, true, config.get_show_disconnected(), None),
             CheckMenuItem::with_id(UserMenuItem::TrayTooltipTruncateName.id(), LOC.truncate_name, true, config.get_truncate_name(), None),
             CheckMenuItem::with_id(UserMenuItem::TrayTooltipPrefixBattery.id(), LOC.prefix_battery, true, config.get_prefix_battery(), None),
-            // todo: require localization
-            CheckMenuItem::with_id(UserMenuItem::TrayTooltipStayOnScreen.id(), "stay_on_screen", true, config.get_stay_on_screen(), None),
         ];
         tray_check_menus.extend(menu_set_tray_tooltip.iter().cloned());
         menu_set_tray_tooltip
@@ -277,6 +275,19 @@ impl CreateMenuItem {
         ];
         tray_check_menus.extend(menu_device_change.iter().cloned());
         menu_device_change
+    }
+
+    #[rustfmt::skip]
+    fn notify_style_config(
+        config: &Config,
+        tray_check_menus: &mut Vec<CheckMenuItem>,
+    ) -> [CheckMenuItem; 1] {
+        // todo: require localization
+        let _notify_style_config = [
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceStayOnScreen.id(), "stay_on_screen", true, config.get_stay_on_screen(), None),
+        ];
+        tray_check_menus.extend(_notify_style_config.iter().cloned());
+        _notify_style_config
     }
 
     fn set_icon_connect_color(
@@ -368,10 +379,17 @@ pub fn create_menu(
         let menu_notify_device_change =
             CreateMenuItem::notify_device_change(config, &mut tray_check_menus);
 
+        let menu_notify_style_config = CreateMenuItem::notify_style_config(config, &mut tray_check_menus);
+
         let mut menu_notify_options: Vec<&dyn IsMenuItem> = Vec::new();
         menu_notify_options.push(menu_notify_low_battery as &dyn IsMenuItem);
         menu_notify_options.extend(
             menu_notify_device_change
+                .iter()
+                .map(|item| item as &dyn IsMenuItem),
+        );
+        menu_notify_options.extend(
+            menu_notify_style_config
                 .iter()
                 .map(|item| item as &dyn IsMenuItem),
         );
