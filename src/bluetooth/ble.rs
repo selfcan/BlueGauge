@@ -382,7 +382,7 @@ pub async fn watch_ble_devices_async(
                 drop(devices);
 
                 if need_update_tray {
-                    let _ = proxy.send_event(UserEvent::UnpdatTray);
+                    let _ = proxy.send_event(UserEvent::UpdateTray);
                 }
             },
             _ = async {

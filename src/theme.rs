@@ -64,7 +64,7 @@ pub fn listen_system_theme(
                 *system_theme = current_system_theme;
 
                 proxy
-                    .send_event(UserEvent::UnpdatTray)
+                    .send_event(UserEvent::UpdateTray)
                     .expect("Failed to send UpdateTray Event");
             }
 

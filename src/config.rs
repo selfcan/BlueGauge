@@ -104,6 +104,7 @@ struct NotifyOptionsToml {
     reconnection: bool,
     added: bool,
     removed: bool,
+    stay_on_screen: bool,
 }
 
 impl TrayIconStyle {
@@ -152,6 +153,7 @@ pub struct NotifyOptions {
     pub reconnection: AtomicBool,
     pub added: AtomicBool,
     pub removed: AtomicBool,
+    pub stay_on_screen: AtomicBool,
 }
 
 impl Default for NotifyOptions {
@@ -162,6 +164,7 @@ impl Default for NotifyOptions {
             reconnection: AtomicBool::new(false),
             added: AtomicBool::new(false),
             removed: AtomicBool::new(false),
+            stay_on_screen: AtomicBool::new(false),
         }
     }
 }
@@ -182,6 +185,9 @@ impl NotifyOptions {
 
         if menu_id == &UserMenuItem::NotifyDeviceChangeRemoved.id() {
             self.removed.store(check, Ordering::Relaxed)
+        }
+        if menu_id == &UserMenuItem::NotifyDeviceStayOnScreen.id() {
+            self.stay_on_screen.store(check, Ordering::Relaxed)
         }
     }
 }
@@ -287,6 +293,7 @@ impl Config {
                 reconnection: self.notify_options.reconnection.load(Ordering::Relaxed),
                 added: self.notify_options.added.load(Ordering::Relaxed),
                 removed: self.notify_options.removed.load(Ordering::Relaxed),
+                stay_on_screen: self.notify_options.stay_on_screen.load(Ordering::Relaxed),
             },
             device_aliases: self.device_aliases.clone(),
         };
@@ -316,6 +323,7 @@ impl Config {
                 reconnection: false,
                 added: false,
                 removed: false,
+                stay_on_screen:false,
             },
             device_aliases: device_aliases.clone(),
         };
@@ -345,6 +353,7 @@ impl Config {
                 reconnection: AtomicBool::new(default_config.notify_options.reconnection),
                 added: AtomicBool::new(default_config.notify_options.added),
                 removed: AtomicBool::new(default_config.notify_options.removed),
+                stay_on_screen: AtomicBool::new(default_config.notify_options.stay_on_screen),
             },
             device_aliases,
         })
@@ -428,6 +437,7 @@ impl Config {
                 reconnection: AtomicBool::new(toml_config.notify_options.reconnection),
                 added: AtomicBool::new(toml_config.notify_options.added),
                 removed: AtomicBool::new(toml_config.notify_options.removed),
+                stay_on_screen: AtomicBool::new(toml_config.notify_options.stay_on_screen),
             },
             device_aliases: toml_config.device_aliases,
         })
@@ -440,6 +450,12 @@ impl Config {
             .get(device_name)
             .unwrap_or(device_name)
             .to_owned()
+    }
+    
+    pub fn get_stay_on_screen(&self) -> bool {
+        self.notify_options
+            .stay_on_screen
+            .load(Ordering::Relaxed)
     }
 
     pub fn get_prefix_battery(&self) -> bool {

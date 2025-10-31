@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use tauri_winrt_notification::*;
+use tauri_winrt_notification::{Duration, Result, Scenario, Sound, Toast};
 
 use crate::{config::Config, language::LOC};
 
@@ -11,11 +11,27 @@ use crate::{config::Config, language::LOC};
 const BLUETOOTH_APP_ID: &str = "Windows.SystemToast.BthQuickPair";
 
 pub fn notify(text: impl AsRef<str>) {
+    notify_default(text);
+}
+
+fn notify_default(text: impl AsRef<str>) {
     Toast::new(BLUETOOTH_APP_ID)
         .title("BlueGauge")
         .text1(text.as_ref())
         .sound(Some(Sound::Default))
         .duration(Duration::Short)
+        .show()
+        .expect("Failied to send notification");
+}
+
+fn notify_stay(text: impl AsRef<str>) {
+    Toast::new(BLUETOOTH_APP_ID)
+        .title("BlueGauge")
+        .text1(text.as_ref())
+        .sound(Some(Sound::Default))
+        .scenario(Scenario::Reminder)
+        .add_button("OK", "OK")
+        .on_activated(|_| Result::Ok(()))
         .show()
         .expect("Failied to send notification");
 }
@@ -31,6 +47,11 @@ pub enum NotifyEvent {
 
 impl NotifyEvent {
     pub fn send(&self, config: &Config, notifyed_devices: Arc<Mutex<HashSet<u64>>>) {
+        let notify = if config.get_stay_on_screen() {
+            notify_stay
+        } else {
+            notify_default
+        };
         match self {
             NotifyEvent::LowBattery(name, battery, address) => {
                 let low_threshold = config.get_low_battery() as i32;

@@ -34,6 +34,7 @@ pub enum UserMenuItem {
     NotifyDeviceChangeReconnection,
     NotifyDeviceChangeAdded,
     NotifyDeviceChangeRemoved,
+    NotifyDeviceStayOnScreen,
 }
 
 impl UserMenuItem {
@@ -61,10 +62,11 @@ impl UserMenuItem {
             UserMenuItem::NotifyDeviceChangeReconnection => MenuId::new("reconnection"),
             UserMenuItem::NotifyDeviceChangeAdded => MenuId::new("added"),
             UserMenuItem::NotifyDeviceChangeRemoved => MenuId::new("removed"),
+            UserMenuItem::NotifyDeviceStayOnScreen => MenuId::new("stay_on_screen"),
         }
     }
 
-    pub fn exclude_bt_address_menu_id() -> [MenuId; 21] {
+    pub fn exclude_bt_address_menu_id() -> [MenuId; 22] {
         [
             UserMenuItem::Quit.id(),
             UserMenuItem::Restart.id(),
@@ -91,6 +93,7 @@ impl UserMenuItem {
             UserMenuItem::NotifyDeviceChangeReconnection.id(),
             UserMenuItem::NotifyDeviceChangeAdded.id(),
             UserMenuItem::NotifyDeviceChangeRemoved.id(),
+            UserMenuItem::NotifyDeviceStayOnScreen.id(),
         ]
     }
 
@@ -106,12 +109,13 @@ impl UserMenuItem {
         ]
     }
 
-    pub fn notify_menu_id() -> [MenuId; 4] {
+    pub fn notify_menu_id() -> [MenuId; 5] {
         [
             UserMenuItem::NotifyDeviceChangeDisconnection.id(),
             UserMenuItem::NotifyDeviceChangeReconnection.id(),
             UserMenuItem::NotifyDeviceChangeAdded.id(),
             UserMenuItem::NotifyDeviceChangeRemoved.id(),
+            UserMenuItem::NotifyDeviceStayOnScreen.id(),
         ]
     }
 
@@ -273,6 +277,19 @@ impl CreateMenuItem {
         menu_device_change
     }
 
+    #[rustfmt::skip]
+    fn notify_style_config(
+        config: &Config,
+        tray_check_menus: &mut Vec<CheckMenuItem>,
+    ) -> [CheckMenuItem; 1] {
+        // todo: require localization
+        let _notify_style_config = [
+            CheckMenuItem::with_id(UserMenuItem::NotifyDeviceStayOnScreen.id(), "stay_on_screen", true, config.get_stay_on_screen(), None),
+        ];
+        tray_check_menus.extend(_notify_style_config.iter().cloned());
+        _notify_style_config
+    }
+
     fn set_icon_connect_color(
         config: &Config,
         tray_check_menus: &mut Vec<CheckMenuItem>,
@@ -362,10 +379,17 @@ pub fn create_menu(
         let menu_notify_device_change =
             CreateMenuItem::notify_device_change(config, &mut tray_check_menus);
 
+        let menu_notify_style_config = CreateMenuItem::notify_style_config(config, &mut tray_check_menus);
+
         let mut menu_notify_options: Vec<&dyn IsMenuItem> = Vec::new();
         menu_notify_options.push(menu_notify_low_battery as &dyn IsMenuItem);
         menu_notify_options.extend(
             menu_notify_device_change
+                .iter()
+                .map(|item| item as &dyn IsMenuItem),
+        );
+        menu_notify_options.extend(
+            menu_notify_style_config
                 .iter()
                 .map(|item| item as &dyn IsMenuItem),
         );

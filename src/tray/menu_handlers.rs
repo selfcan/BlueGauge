@@ -113,7 +113,7 @@ impl MenuHandlers {
 
             self.config.save();
 
-            let _ = self.proxy.send_event(UserEvent::UnpdatTray);
+            let _ = self.proxy.send_event(UserEvent::UpdateTray);
         }
     }
 
@@ -205,7 +205,7 @@ impl MenuHandlers {
                 .tray_options
                 .update(&self.menu_id, item.is_checked());
             self.config.save();
-            let _ = self.proxy.send_event(UserEvent::UnpdatTray);
+            let _ = self.proxy.send_event(UserEvent::UpdateTray);
         }
     }
 
@@ -259,7 +259,7 @@ impl MenuHandlers {
         drop(tray_icon_style);
         self.config.save();
 
-        let _ = self.proxy.send_event(UserEvent::UnpdatTray);
+        let _ = self.proxy.send_event(UserEvent::UpdateTray);
     }
 
     // 点击托盘中的设备时的事件
@@ -358,6 +358,6 @@ impl MenuHandlers {
         drop(tray_icon_style);
         self.config.save();
 
-        let _ = self.proxy.send_event(UserEvent::UnpdatTray);
+        let _ = self.proxy.send_event(UserEvent::UpdateTray);
     }
 }

@@ -74,7 +74,7 @@ impl Watcher {
     pub fn start(&mut self) {
         info!("Starting the watch thread...");
 
-        // Init triggle event
+        // Init trigger event
         {
             let mut devices = self.bluetooth_devices_info.lock().unwrap();
             for (_, device) in devices.iter_mut() {
@@ -334,7 +334,7 @@ async fn watch_bt_presence_async(
                     // 设备添加/移除后，所有监听增加或移除设备
                     restart_flag.fetch_add(1, Ordering::Relaxed);
                     // 更新托盘信息
-                    let _ = proxy.send_event(UserEvent::UnpdatTray);
+                    let _ = proxy.send_event(UserEvent::UpdateTray);
                     // 因 Watcher 无 Config，需传递给有通知配置的 APP 结构体
                     match presence {
                         BluetoothPresence::Added => {
