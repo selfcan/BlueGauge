@@ -29,6 +29,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use log::error;
+use tray_icon::menu::MenuId;
 use tray_icon::{
     TrayIcon,
     menu::{CheckMenuItem, MenuEvent},
@@ -80,7 +81,7 @@ struct App {
     notified_devices: Arc<Mutex<HashSet<u64>>>,
     system_theme: Arc<RwLock<SystemTheme>>,
     tray: Mutex<TrayIcon>,
-    tray_check_menus: Mutex<Vec<CheckMenuItem>>,
+    tray_check_menus: Mutex<HashMap<MenuId, CheckMenuItem>>,
     worker_threads: Vec<std::thread::JoinHandle<()>>,
 }
 

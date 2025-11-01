@@ -184,6 +184,7 @@ impl NotifyOptions {
         if menu_id == &UserMenuItem::NotifyDeviceChangeRemoved.id() {
             self.removed.store(check, Ordering::Relaxed)
         }
+
         if menu_id == &UserMenuItem::NotifyDeviceStayOnScreen.id() {
             self.stay_on_screen.store(check, Ordering::Relaxed)
         }
@@ -289,12 +290,12 @@ impl Config {
     }
 
     fn read_toml(config_path: &Path) -> Result<Self> {
-        let content = std::fs::read_to_string(&config_path)?;
+        let content = std::fs::read_to_string(config_path)?;
         let toml_config: Config = toml::from_str(&content)?;
 
         {
             let mut tray_icon_style = toml_config.tray_options.tray_icon_style.lock().unwrap();
-            
+
             if find_custom_icon().is_ok() {
                 *tray_icon_style = match &*tray_icon_style {
                     TrayIconStyle::App => TrayIconStyle::App,
@@ -355,11 +356,9 @@ impl Config {
             .unwrap_or(device_name)
             .to_owned()
     }
-    
+
     pub fn get_stay_on_screen(&self) -> bool {
-        self.notify_options
-            .stay_on_screen
-            .load(Ordering::Relaxed)
+        self.notify_options.stay_on_screen.load(Ordering::Relaxed)
     }
 
     pub fn get_prefix_battery(&self) -> bool {

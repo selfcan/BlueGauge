@@ -74,10 +74,10 @@ fn test() {
     };
 
     let toml_str = toml::to_string_pretty(&notify_options)
-            .expect("Failed to serialize ConfigToml structure as a String of TOML.");
+        .expect("Failed to serialize ConfigToml structure as a String of TOML.");
 
     std::fs::write(r"C:\Users\11593\Downloads\serde.toml", toml_str)
-            .expect("Failed to TOML String to BlueGauge.toml");
+        .expect("Failed to TOML String to BlueGauge.toml");
 }
 
 macro_rules! impl_atomic_serde {
