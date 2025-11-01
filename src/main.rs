@@ -79,8 +79,8 @@ struct App {
     /// 存储已经通知过的低电量设备（地址），避免再次通知
     notified_devices: Arc<Mutex<HashSet<u64>>>,
     system_theme: Arc<RwLock<SystemTheme>>,
-    tray: Mutex<Option<TrayIcon>>,
-    tray_check_menus: Mutex<Option<Vec<CheckMenuItem>>>,
+    tray: Mutex<TrayIcon>,
+    tray_check_menus: Mutex<Vec<CheckMenuItem>>,
     worker_threads: Vec<std::thread::JoinHandle<()>>,
 }
 
@@ -107,8 +107,8 @@ impl App {
             exit_threads: Arc::new(AtomicBool::new(false)),
             notified_devices: Arc::new(Mutex::new(HashSet::new())),
             system_theme: Arc::new(RwLock::new(SystemTheme::get())),
-            tray: Mutex::new(Some(tray)),
-            tray_check_menus: Mutex::new(Some(tray_check_menus)),
+            tray: Mutex::new(tray),
+            tray_check_menus: Mutex::new(tray_check_menus),
             worker_threads: Vec::new(),
         }
     }
@@ -177,12 +177,7 @@ impl ApplicationHandler<UserEvent> for App {
             }
             UserEvent::MenuEvent(event) => {
                 let config = Arc::clone(&self.config);
-                let tray_check_menus = self
-                    .tray_check_menus
-                    .lock()
-                    .unwrap()
-                    .clone()
-                    .expect("Tray check menus not initialized");
+                let tray_check_menus = self.tray_check_menus.lock().unwrap().clone();
 
                 let menu_id = event.id();
                 let menu_handlers = MenuHandlers::new(
@@ -200,40 +195,36 @@ impl ApplicationHandler<UserEvent> for App {
                 let current_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
                 let config = self.config.clone();
 
-                let (tray_menu, new_tray_check_menus) =
-                    match create_menu(&config, &current_devices_info) {
-                        Ok(menu) => menu,
-                        Err(e) => {
-                            notify(format!("Failed to create tray menu - {e}"));
-                            return;
-                        }
-                    };
+                let tray = self.tray.lock().unwrap();
 
-                if let Some(tray_check_menus) = self.tray_check_menus.lock().unwrap().as_mut() {
-                    *tray_check_menus = new_tray_check_menus;
-                }
+                let tray_menu = match create_menu(&config, &current_devices_info) {
+                    Ok((tray_menu, new_tray_check_menus)) => {
+                        let mut tray_check_menus = self.tray_check_menus.lock().unwrap();
+                        *tray_check_menus = new_tray_check_menus;
+                        tray_menu
+                    }
+                    Err(e) => {
+                        notify(format!("Failed to create tray menu - {e}"));
+                        return;
+                    }
+                };
+                tray.set_menu(Some(Box::new(tray_menu)));
 
                 let bluetooth_tooltip_info = convert_tray_info(&current_devices_info, &config);
+                tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")))
+                    .expect("Failed to set tray tooltip");
 
-                if let Some(tray) = self.tray.lock().unwrap().as_mut() {
-                    tray.set_menu(Some(Box::new(tray_menu)));
-
-                    let _ = tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")));
-
-                    let tray_icon_bt_address = config
-                        .tray_options
-                        .tray_icon_style
-                        .lock()
-                        .unwrap()
-                        .get_address();
-
-                    let icon = tray_icon_bt_address
-                        .and_then(|address| current_devices_info.get(&address))
-                        .and_then(|info| load_battery_icon(&config, info.battery, info.status).ok())
-                        .or_else(|| load_app_icon().ok());
-
-                    let _ = tray.set_icon(icon);
-                }
+                let tray_icon_bt_address = config
+                    .tray_options
+                    .tray_icon_style
+                    .lock()
+                    .unwrap()
+                    .get_address();
+                let icon = tray_icon_bt_address
+                    .and_then(|address| current_devices_info.get(&address))
+                    .and_then(|info| load_battery_icon(&config, info.battery, info.status).ok())
+                    .or_else(|| load_app_icon().ok());
+                let _ = tray.set_icon(icon);
             }
         }
     }
