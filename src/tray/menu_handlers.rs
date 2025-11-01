@@ -210,7 +210,7 @@ impl MenuHandlers {
     }
 
     fn set_battery_icon_style(&self) {
-        // // 获取托盘中图标样式菜单
+        // 获取托盘中图标样式菜单
         let icon_style_menus: Vec<_> = self
             .tray_check_menus
             .iter()
@@ -228,35 +228,36 @@ impl MenuHandlers {
             item.set_checked(should_check);
         });
 
-        let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
+        // ****************************注意，有新图标样式的时候，请重构这里
+        {
+            let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
 
-        if have_new_icon_style_menu_checkd {
-            if self.menu_id == UserMenuItem::TrayIconStyleNumber.id()
-                && let TrayIconStyle::BatteryRing { address, .. } = *tray_icon_style
-            {
-                *tray_icon_style = TrayIconStyle::BatteryNumber {
-                    address,
-                    color_scheme: ColorScheme::FollowSystemTheme,
-                    font_name: "Arial".to_owned(),
-                    font_color: Some(String::new()),
-                    font_size: Some(64),
+            if have_new_icon_style_menu_checkd {
+                if self.menu_id == UserMenuItem::TrayIconStyleNumber.id() // 若勾选数字图标，且当前图标是圆圈图标
+                    && let TrayIconStyle::BatteryRing { address, .. } = *tray_icon_style
+                {
+                    *tray_icon_style = TrayIconStyle::BatteryNumber {
+                        address,
+                        color_scheme: ColorScheme::FollowSystemTheme,
+                        font_name: "Arial".to_owned(),
+                        font_color: Some(String::new()),
+                        font_size: Some(64),
+                    }
                 }
-            }
 
-            if self.menu_id == UserMenuItem::TrayIconStyleRing.id()
-                && let TrayIconStyle::BatteryNumber { address, .. } = *tray_icon_style
-            {
-                *tray_icon_style = TrayIconStyle::BatteryRing {
-                    address,
-                    color_scheme: ColorScheme::FollowSystemTheme,
-                    highlight_color: Some(String::new()),
-                    background_color: Some(String::new()),
+                if self.menu_id == UserMenuItem::TrayIconStyleRing.id() // 若勾选圆圈图标，且当前图标是数字图标
+                    && let TrayIconStyle::BatteryNumber { address, .. } = *tray_icon_style
+                {
+                    *tray_icon_style = TrayIconStyle::BatteryRing {
+                        address,
+                        color_scheme: ColorScheme::FollowSystemTheme,
+                        highlight_color: Some(String::new()),
+                        background_color: Some(String::new()),
+                    }
                 }
             }
         }
 
-        // 优先释放锁，避免Config执行Svae时发生死锁
-        drop(tray_icon_style);
         self.config.save();
 
         let _ = self.proxy.send_event(UserEvent::UpdateTray);
@@ -287,75 +288,75 @@ impl MenuHandlers {
             item.set_checked(should_check);
         });
 
-        let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
+        {
+            let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
 
-        // · 若原来图标来源为应用图标，且有托盘菜单选择有设备时，根据有无自定义设置相应类型图标
-        // · 若原来图标来源指定设备电量图标，如果指定设备取消，则托盘图标变为应用图标，如果为其他设备图标，则更新图标来源中的蓝牙地址
-        match tray_icon_style.deref() {
-            TrayIconStyle::App if have_new_device_menu_checkd => {
-                let have_custom_icons = std::env::current_exe()
-                    .ok()
-                    .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
-                    .map(|p| {
-                        let assets_path = p.join("assets");
-                        if assets_path.is_dir() {
-                            let light_dir = assets_path.join("light");
-                            let dark_dir = assets_path.join("dark");
-                            match (light_dir.is_dir(), dark_dir.is_dir()) {
-                                (true, true) => [light_dir, dark_dir].into_iter().all(|p| {
-                                    (0..=100u32)
+            // · 若原来图标来源为应用图标，且有托盘菜单选择有设备时，根据有无自定义设置相应类型图标
+            // · 若原来图标来源指定设备电量图标，如果指定设备取消，则托盘图标变为应用图标，如果为其他设备图标，则更新图标来源中的蓝牙地址
+            match tray_icon_style.deref() {
+                TrayIconStyle::App if have_new_device_menu_checkd => {
+                    let have_custom_icons = std::env::current_exe()
+                        .ok()
+                        .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
+                        .map(|p| {
+                            let assets_path = p.join("assets");
+                            if assets_path.is_dir() {
+                                let light_dir = assets_path.join("light");
+                                let dark_dir = assets_path.join("dark");
+                                match (light_dir.is_dir(), dark_dir.is_dir()) {
+                                    (true, true) => [light_dir, dark_dir].into_iter().all(|p| {
+                                        (0..=100u32)
+                                            .into_iter()
+                                            .all(|i| p.join(format!("{i}.png")).is_file())
+                                    }), // 有主题图标
+                                    (false, false) => (0..=100u32)
                                         .into_iter()
-                                        .all(|i| p.join(format!("{i}.png")).is_file())
-                                }), // 有主题图标
-                                (false, false) => (0..=100u32)
-                                    .into_iter()
-                                    .all(|i| assets_path.join(format!("{i}.png")).is_file()), //无主题图标
-                                _ => false, // 主题图标文件夹缺某一个
-                            }
-                        } else {
-                            false
-                        }
-                    })
-                    .unwrap_or(false);
-
-                self.tray_check_menus
-                    .iter()
-                    .filter(|item| UserMenuItem::tray_icon_style_menu_id().contains(item.id()))
-                    .for_each(|item| {
-                        if have_custom_icons {
-                            item.set_checked(false);
-                        } else {
-                            // 无自定义图标时，有设备被勾选时，首选数字图标
-                            if item.id() == &UserMenuItem::TrayIconStyleNumber.id() {
-                                *tray_icon_style = TrayIconStyle::BatteryNumber {
-                                    address: show_battery_icon_bt_address.to_owned(),
-                                    color_scheme: ColorScheme::FollowSystemTheme,
-                                    font_name: "Arial".to_owned(),
-                                    font_color: Some(String::new()),
-                                    font_size: Some(64),
-                                };
-
-                                item.set_checked(true);
+                                        .all(|i| assets_path.join(format!("{i}.png")).is_file()), //无主题图标
+                                    _ => false, // 主题图标文件夹缺某一个
+                                }
                             } else {
-                                item.set_checked(false);
+                                false
                             }
-                        }
-                    });
-            }
-            TrayIconStyle::BatteryCustom { .. }
-            | TrayIconStyle::BatteryNumber { .. }
-            | TrayIconStyle::BatteryRing { .. } => {
-                if have_new_device_menu_checkd {
-                    tray_icon_style.update_address(show_battery_icon_bt_address);
-                } else {
-                    *tray_icon_style = TrayIconStyle::App;
-                }
-            }
-            _ => (),
-        };
+                        })
+                        .unwrap_or(false);
 
-        // 优先释放锁，避免Config执行Svae时发生死锁
-        drop(tray_icon_style);
+                    self.tray_check_menus
+                        .iter()
+                        .filter(|item| UserMenuItem::tray_icon_style_menu_id().contains(item.id()))
+                        .for_each(|item| {
+                            if have_custom_icons {
+                                item.set_checked(false);
+                            } else {
+                                // 无自定义图标时，有设备被勾选时，首选数字图标
+                                if item.id() == &UserMenuItem::TrayIconStyleNumber.id() {
+                                    *tray_icon_style = TrayIconStyle::BatteryNumber {
+                                        address: show_battery_icon_bt_address.to_owned(),
+                                        color_scheme: ColorScheme::FollowSystemTheme,
+                                        font_name: "Arial".to_owned(),
+                                        font_color: Some(String::new()),
+                                        font_size: Some(64),
+                                    };
+
+                                    item.set_checked(true);
+                                } else {
+                                    item.set_checked(false);
+                                }
+                            }
+                        });
+                }
+                TrayIconStyle::BatteryCustom { .. }
+                | TrayIconStyle::BatteryNumber { .. }
+                | TrayIconStyle::BatteryRing { .. } => {
+                    if have_new_device_menu_checkd {
+                        tray_icon_style.update_address(show_battery_icon_bt_address);
+                    } else {
+                        *tray_icon_style = TrayIconStyle::App;
+                    }
+                }
+                _ => (),
+            };
+        }
+
         self.config.save();
 
         let _ = self.proxy.send_event(UserEvent::UpdateTray);
