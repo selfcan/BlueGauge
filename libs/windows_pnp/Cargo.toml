@@ -5,20 +5,20 @@ edition = "2024"
 repository = "https://github.com/scalefs/scalefs-windowspnp-lib-rs"
 
 [dependencies]
-libc = "0.2"
+libc = "0.2.177"
 windows_pnp_common = { path = "libs/windows_pnp_common" }
 windows_pnp_primitives = { path = "libs/windows_pnp_primitives" }
 windows_pnp_uuid = { path = "libs/windows_pnp_uuid" }
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
-version = "0.62.1"
+version = "0.62.2"
 features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Foundation",
 ]
 
 [target.'cfg(target_os = "windows")'.dependencies.windows-sys]
-version = "0.61.1"
+version = "0.61.2"
 features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Devices_Properties",
