@@ -74,9 +74,9 @@ impl UserMenuItem {
             //
             UserMenuItem::OpenConfig => MenuId::new("open_config"),
             //
+            UserMenuItem::SetIconConnectColor => MenuId::new("set_icon_connect_color"),
             UserMenuItem::TrayIconStyleNumber => MenuId::new("number_icon"),
             UserMenuItem::TrayIconStyleRing => MenuId::new("ring_icon"),
-            UserMenuItem::SetIconConnectColor => MenuId::new("set_icon_connect_color"),
             //
             UserMenuItem::TrayTooltipShowDisconnected => MenuId::new("show_disconnected"),
             UserMenuItem::TrayTooltipTruncateName => MenuId::new("truncate_name"),
@@ -91,35 +91,22 @@ impl UserMenuItem {
         }
     }
 
-    pub fn exclude_bt_address_menu_id() -> [MenuId; 22] {
-        [
+    // WARN: 注意数量
+    pub fn exclude_bt_address_menu_id() -> Vec<MenuId> {
+        let mut include_ids = vec![
             UserMenuItem::Quit.id(),
             UserMenuItem::Restart.id(),
             UserMenuItem::Startup.id(),
             //
             UserMenuItem::OpenConfig.id(),
             //
-            UserMenuItem::TrayIconStyleNumber.id(),
-            UserMenuItem::TrayIconStyleRing.id(),
             UserMenuItem::SetIconConnectColor.id(),
-            //
-            UserMenuItem::TrayTooltipShowDisconnected.id(),
-            UserMenuItem::TrayTooltipTruncateName.id(),
-            UserMenuItem::TrayTooltipPrefixBattery.id(),
-            //
-            UserMenuItem::NotifyLowBattery(1).id(),
-            UserMenuItem::NotifyLowBattery(5).id(),
-            UserMenuItem::NotifyLowBattery(10).id(),
-            UserMenuItem::NotifyLowBattery(15).id(),
-            UserMenuItem::NotifyLowBattery(20).id(),
-            UserMenuItem::NotifyLowBattery(25).id(),
-            UserMenuItem::NotifyLowBattery(30).id(),
-            UserMenuItem::NotifyDeviceChangeDisconnection.id(),
-            UserMenuItem::NotifyDeviceChangeReconnection.id(),
-            UserMenuItem::NotifyDeviceChangeAdded.id(),
-            UserMenuItem::NotifyDeviceChangeRemoved.id(),
-            UserMenuItem::NotifyDeviceStayOnScreen.id(),
-        ]
+        ];
+        include_ids.extend(UserMenuItem::tray_icon_style_menu_id());
+        include_ids.extend(UserMenuItem::tray_tooltip_menu_id());
+        include_ids.extend(UserMenuItem::low_battery_menu_id());
+        include_ids.extend(UserMenuItem::notify_menu_id());
+        include_ids
     }
 
     pub fn low_battery_menu_id() -> [MenuId; 7] {
