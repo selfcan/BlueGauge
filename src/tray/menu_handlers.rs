@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::{ffi::OsString, process::Command};
 use std::{ops::Deref, path::Path, sync::atomic::Ordering};
@@ -20,7 +21,7 @@ pub struct MenuHandlers {
     menu_id: MenuId,
     config: Arc<Config>,
     proxy: EventLoopProxy<UserEvent>,
-    tray_check_menus: Vec<CheckMenuItem>,
+    tray_check_menus: HashMap<MenuId, CheckMenuItem>,
 }
 
 impl MenuHandlers {
@@ -28,7 +29,7 @@ impl MenuHandlers {
         menu_id: MenuId,
         config: Arc<Config>,
         proxy: EventLoopProxy<UserEvent>,
-        tray_check_menus: Vec<CheckMenuItem>,
+        tray_check_menus: HashMap<MenuId, CheckMenuItem>,
     ) -> Self {
         MenuHandlers {
             menu_id,
@@ -87,11 +88,8 @@ impl MenuHandlers {
     }
 
     fn startup(&self) {
-        if let Some(item) = self
-            .tray_check_menus
-            .iter()
-            .find(|item| item.id() == "startup")
-        {
+        // let start_up_item = CheckMenuItem::
+        if let Some(item) = self.tray_check_menus.get(&self.menu_id) {
             set_startup(item.is_checked()).expect("Failed to set Launch at Startup")
         } else {
             error!("Not find startup menu id")
@@ -99,11 +97,7 @@ impl MenuHandlers {
     }
 
     fn set_icon_connect_color(&self) {
-        if let Some(item) = self
-            .tray_check_menus
-            .iter()
-            .find(|item| item.id() == &self.menu_id)
-        {
+        if let Some(item) = self.tray_check_menus.get(&self.menu_id) {
             self.config
                 .tray_options
                 .tray_icon_style
@@ -134,10 +128,9 @@ impl MenuHandlers {
     fn set_notify_low_battery(&self) {
         // 只处理低电量阈值相关的菜单项
         let low_battery_menu_id = UserMenuItem::low_battery_menu_id();
-        let low_battery_items: Vec<_> = self
-            .tray_check_menus
+        let low_battery_items: Vec<_> = low_battery_menu_id
             .iter()
-            .filter(|item| low_battery_menu_id.contains(item.id()))
+            .filter_map(|id| self.tray_check_menus.get(id))
             .collect();
 
         // 是否存在被点击且为勾选的项目
@@ -147,7 +140,7 @@ impl MenuHandlers {
 
         // 托盘菜单的其余电量项目设置为未勾选状态
         low_battery_items.iter().for_each(|item| {
-            let should_check = item.id() == &self.menu_id && is_checked;
+            let should_check = (item.id() == &self.menu_id) && is_checked;
             item.set_checked(should_check);
         });
 
@@ -183,11 +176,7 @@ impl MenuHandlers {
     }
 
     fn set_notify_device_change(&self) {
-        if let Some(item) = self
-            .tray_check_menus
-            .iter()
-            .find(|item| item.id() == &self.menu_id)
-        {
+        if let Some(item) = self.tray_check_menus.get(&self.menu_id) {
             self.config
                 .notify_options
                 .update(&self.menu_id, item.is_checked());
@@ -196,11 +185,7 @@ impl MenuHandlers {
     }
 
     fn set_tray_tooltip(&self) {
-        if let Some(item) = self
-            .tray_check_menus
-            .iter()
-            .find(|item| item.id() == &self.menu_id)
-        {
+        if let Some(item) = self.tray_check_menus.get(&self.menu_id) {
             self.config
                 .tray_options
                 .update(&self.menu_id, item.is_checked());
@@ -211,10 +196,10 @@ impl MenuHandlers {
 
     fn set_battery_icon_style(&self) {
         // 获取托盘中图标样式菜单
-        let icon_style_menus: Vec<_> = self
-            .tray_check_menus
+        let menu_tray_icon_style_id = UserMenuItem::tray_icon_style_menu_id();
+        let icon_style_menus: Vec<_> = menu_tray_icon_style_id
             .iter()
-            .filter(|item| UserMenuItem::tray_icon_style_menu_id().contains(item.id()))
+            .filter_map(|id| self.tray_check_menus.get(id))
             .collect();
 
         // 有无勾选样式菜单
@@ -267,14 +252,21 @@ impl MenuHandlers {
     fn handle_device_click(&self) {
         let exclude_items_id = UserMenuItem::exclude_bt_address_menu_id();
 
-        let show_battery_icon_bt_address =
-            self.menu_id.as_ref().parse::<u64>().expect("Menu Event Id");
+        if exclude_items_id.contains(&self.menu_id) {
+            return;
+        }
+
+        let menu_bluetooth_devices_id: Vec<_> = self
+            .tray_check_menus
+            .keys()
+            .filter(|id| !exclude_items_id.contains(id))
+            .cloned()
+            .collect();
 
         // 获取托盘中蓝牙设备菜单（排除其他设备）
-        let bluetooth_menus: Vec<_> = self
-            .tray_check_menus
+        let bluetooth_menus: Vec<_> = menu_bluetooth_devices_id
             .iter()
-            .filter(|item| !exclude_items_id.contains(item.id()))
+            .filter_map(|id| self.tray_check_menus.get(id))
             .collect();
 
         // 有无勾选新设备菜单
@@ -289,60 +281,43 @@ impl MenuHandlers {
         });
 
         {
+            let show_battery_icon_bt_address =
+                self.menu_id.as_ref().parse::<u64>().expect("Menu Event Id");
+
             let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
 
             // · 若原来图标来源为应用图标，且有托盘菜单选择有设备时，根据有无自定义设置相应类型图标
             // · 若原来图标来源指定设备电量图标，如果指定设备取消，则托盘图标变为应用图标，如果为其他设备图标，则更新图标来源中的蓝牙地址
             match tray_icon_style.deref() {
                 TrayIconStyle::App if have_new_device_menu_checkd => {
-                    let have_custom_icons = std::env::current_exe()
-                        .ok()
-                        .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
-                        .map(|p| {
-                            let assets_path = p.join("assets");
-                            if assets_path.is_dir() {
-                                let light_dir = assets_path.join("light");
-                                let dark_dir = assets_path.join("dark");
-                                match (light_dir.is_dir(), dark_dir.is_dir()) {
-                                    (true, true) => [light_dir, dark_dir].into_iter().all(|p| {
-                                        (0..=100u32)
-                                            .into_iter()
-                                            .all(|i| p.join(format!("{i}.png")).is_file())
-                                    }), // 有主题图标
-                                    (false, false) => (0..=100u32)
-                                        .into_iter()
-                                        .all(|i| assets_path.join(format!("{i}.png")).is_file()), //无主题图标
-                                    _ => false, // 主题图标文件夹缺某一个
-                                }
-                            } else {
-                                false
-                            }
-                        })
-                        .unwrap_or(false);
+                    let have_custom_icons = have_custom_icon();
 
-                    self.tray_check_menus
+                    let menu_icon_style_id = UserMenuItem::tray_icon_style_menu_id();
+                    let icon_style_menu: Vec<_> = menu_icon_style_id
                         .iter()
-                        .filter(|item| UserMenuItem::tray_icon_style_menu_id().contains(item.id()))
-                        .for_each(|item| {
-                            if have_custom_icons {
-                                item.set_checked(false);
-                            } else {
-                                // 无自定义图标时，有设备被勾选时，首选数字图标
-                                if item.id() == &UserMenuItem::TrayIconStyleNumber.id() {
-                                    *tray_icon_style = TrayIconStyle::BatteryNumber {
-                                        address: show_battery_icon_bt_address.to_owned(),
-                                        color_scheme: ColorScheme::FollowSystemTheme,
-                                        font_name: "Arial".to_owned(),
-                                        font_color: Some(String::new()),
-                                        font_size: Some(64),
-                                    };
+                        .filter_map(|id| self.tray_check_menus.get(id))
+                        .collect();
 
-                                    item.set_checked(true);
-                                } else {
-                                    item.set_checked(false);
-                                }
+                    icon_style_menu.iter().for_each(|item| {
+                        if have_custom_icons {
+                            item.set_checked(false);
+                        } else {
+                            // 无自定义图标时，有设备被勾选时，首选数字图标
+                            if item.id() == &UserMenuItem::TrayIconStyleNumber.id() {
+                                *tray_icon_style = TrayIconStyle::BatteryNumber {
+                                    address: show_battery_icon_bt_address.to_owned(),
+                                    color_scheme: ColorScheme::FollowSystemTheme,
+                                    font_name: "Arial".to_owned(),
+                                    font_color: Some(String::new()),
+                                    font_size: Some(64),
+                                };
+
+                                item.set_checked(true);
+                            } else {
+                                item.set_checked(false);
                             }
-                        });
+                        }
+                    });
                 }
                 TrayIconStyle::BatteryCustom { .. }
                 | TrayIconStyle::BatteryNumber { .. }
@@ -361,4 +336,31 @@ impl MenuHandlers {
 
         let _ = self.proxy.send_event(UserEvent::UpdateTray);
     }
+}
+
+fn have_custom_icon() -> bool {
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
+        .map(|p| {
+            let assets_path = p.join("assets");
+            if assets_path.is_dir() {
+                let light_dir = assets_path.join("light");
+                let dark_dir = assets_path.join("dark");
+                match (light_dir.is_dir(), dark_dir.is_dir()) {
+                    (true, true) => [light_dir, dark_dir].into_iter().all(|p| {
+                        (0..=100u32)
+                            .into_iter()
+                            .all(|i| p.join(format!("{i}.png")).is_file())
+                    }), // 有主题图标
+                    (false, false) => (0..=100u32)
+                        .into_iter()
+                        .all(|i| assets_path.join(format!("{i}.png")).is_file()), //无主题图标
+                    _ => false, // 主题图标文件夹缺某一个
+                }
+            } else {
+                false
+            }
+        })
+        .unwrap_or(false)
 }

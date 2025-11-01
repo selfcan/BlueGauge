@@ -12,13 +12,16 @@ use super::tray::{
 use crate::{bluetooth::info::BluetoothInfo, config::Config};
 
 use anyhow::{Result, anyhow};
-use tray_icon::{TrayIcon, TrayIconBuilder, menu::CheckMenuItem};
+use tray_icon::{
+    TrayIcon, TrayIconBuilder,
+    menu::{CheckMenuItem, MenuId},
+};
 
 #[rustfmt::skip]
 pub fn create_tray(
     config: &Config,
     bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
-) -> Result<(TrayIcon, Vec<CheckMenuItem>)> {
+) -> Result<(TrayIcon, HashMap<MenuId, CheckMenuItem>)> {
     let (tray_menu, tray_check_menus) =
         create_menu(config, bluetooth_devices_info).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
 
