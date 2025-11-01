@@ -216,10 +216,20 @@ impl MenuHandlers {
         // ****************************注意，有新图标样式的时候，请重构这里
         {
             let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
-
+            let address = tray_icon_style.get_address();
             if have_new_icon_style_menu_checkd {
+                if self.menu_id == UserMenuItem::TrayIconStyleBatteryIcon.id() // 若勾选电池图标，且当前图标是圆圈图标
+                    && let Some(address) = address
+                {
+                    *tray_icon_style = TrayIconStyle::BatteryIcon {
+                        address,
+                        color_scheme: ColorScheme::FollowSystemTheme,
+                        font_size: Some(74),
+                    }
+                }
+
                 if self.menu_id == UserMenuItem::TrayIconStyleNumber.id() // 若勾选数字图标，且当前图标是圆圈图标
-                    && let TrayIconStyle::BatteryRing { address, .. } = *tray_icon_style
+                    && let Some(address) = address
                 {
                     *tray_icon_style = TrayIconStyle::BatteryNumber {
                         address,
@@ -231,7 +241,7 @@ impl MenuHandlers {
                 }
 
                 if self.menu_id == UserMenuItem::TrayIconStyleRing.id() // 若勾选圆圈图标，且当前图标是数字图标
-                    && let TrayIconStyle::BatteryNumber { address, .. } = *tray_icon_style
+                    && let Some(address) = address
                 {
                     *tray_icon_style = TrayIconStyle::BatteryRing {
                         address,
@@ -320,6 +330,7 @@ impl MenuHandlers {
                     });
                 }
                 TrayIconStyle::BatteryCustom { .. }
+                | TrayIconStyle::BatteryIcon { .. }
                 | TrayIconStyle::BatteryNumber { .. }
                 | TrayIconStyle::BatteryRing { .. } => {
                     if have_new_device_menu_checkd {

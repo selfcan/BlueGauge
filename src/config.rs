@@ -47,6 +47,15 @@ pub enum TrayIconStyle {
         #[serde(rename = "bluetooth_address")]
         address: u64,
     },
+    BatteryIcon {
+        color_scheme: ColorScheme,
+        #[serde(rename = "bluetooth_address")]
+        address: u64,
+        // #[serde(skip_serializing_if = "Option::is_none")]
+        // font_color: Option</* Hex color */ String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        font_size: Option<u8>, // Default: 64
+    },
     BatteryNumber {
         color_scheme: ColorScheme,
         #[serde(rename = "bluetooth_address")]
@@ -98,13 +107,10 @@ impl TrayIconStyle {
     pub fn update_address(&mut self, new_address: u64) {
         match self {
             Self::App => (),
-            Self::BatteryCustom { address } => {
-                *address = new_address;
-            }
-            Self::BatteryNumber { address, .. } => {
-                *address = new_address;
-            }
-            Self::BatteryRing { address, .. } => {
+            Self::BatteryCustom { address }
+            | Self::BatteryIcon { address, .. }
+            | Self::BatteryNumber { address, .. }
+            | Self::BatteryRing { address, .. } => {
                 *address = new_address;
             }
         }
@@ -113,15 +119,18 @@ impl TrayIconStyle {
     pub fn get_address(&self) -> Option<u64> {
         match self {
             Self::App => None,
-            Self::BatteryCustom { address } => Some(*address),
-            Self::BatteryNumber { address, .. } => Some(*address),
-            Self::BatteryRing { address, .. } => Some(*address),
+            Self::BatteryCustom { address }
+            | Self::BatteryIcon { address, .. }
+            | Self::BatteryNumber { address, .. }
+            | Self::BatteryRing { address, .. } => Some(*address),
         }
     }
 
     pub fn set_connect_color(&mut self, should_set: bool) {
         match self {
-            Self::BatteryNumber { color_scheme, .. } | Self::BatteryRing { color_scheme, .. } => {
+            Self::BatteryNumber { color_scheme, .. }
+            | Self::BatteryIcon { color_scheme, .. }
+            | Self::BatteryRing { color_scheme, .. } => {
                 if should_set {
                     *color_scheme = ColorScheme::ConnectColor;
                 } else {
@@ -300,6 +309,7 @@ impl Config {
                 *tray_icon_style = match &*tray_icon_style {
                     TrayIconStyle::App => TrayIconStyle::App,
                     TrayIconStyle::BatteryCustom { address }
+                    | TrayIconStyle::BatteryIcon { address, .. }
                     | TrayIconStyle::BatteryNumber { address, .. }
                     | TrayIconStyle::BatteryRing { address, .. } => {
                         TrayIconStyle::BatteryCustom { address: *address }
@@ -318,6 +328,7 @@ impl Config {
                         {
                             color_scheme.set_custom();
                         } else if color_scheme.is_custom() {
+                            // 如果颜色不存在或错误，且设置自定义，则更改为跟随系统主题
                             color_scheme.set_follow_system_theme();
                         }
                     }
@@ -337,9 +348,24 @@ impl Config {
                         if has_valid_custom_color {
                             color_scheme.set_custom();
                         } else if color_scheme.is_custom() {
+                            // 如果颜色不存在或错误，且设置自定义，则更改为跟随系统主题
                             color_scheme.set_follow_system_theme();
                         }
                     }
+                    // TrayIconStyle::BatteryIcon {
+                    //     ref mut color_scheme,
+                    //     // ref font_color,
+                    //     ..
+                    // } => {
+                    //     // if font_color
+                    //     //     .as_ref()
+                    //     //     .is_some_and(|c| Color::from_hex_str(c).is_ok())
+                    //     // {
+                    //     //     color_scheme.set_custom();
+                    //     // } else if color_scheme.is_custom() { // 如果颜色不存在或错误，且设置自定义，则更改为跟随系统主题
+                    //     //     color_scheme.set_follow_system_theme();
+                    //     // }
+                    // }
                     _ => (),
                 }
             };
@@ -411,6 +437,7 @@ impl Config {
         match tray_icon_style {
             TrayIconStyle::App => None,
             TrayIconStyle::BatteryCustom { address } => Some(address),
+            TrayIconStyle::BatteryIcon { address, .. } => Some(address),
             TrayIconStyle::BatteryNumber { address, .. } => Some(address),
             TrayIconStyle::BatteryRing { address, .. } => Some(address),
         }

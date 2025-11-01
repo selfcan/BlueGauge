@@ -19,7 +19,7 @@ use crate::single_instance::SingleInstance;
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{
     convert_tray_info, create_tray,
-    icon::{load_app_icon, load_battery_icon},
+    icon::{load_app_icon, load_tray_icon},
     menu_handlers::MenuHandlers,
     menu_item::create_menu,
 };
@@ -223,7 +223,7 @@ impl ApplicationHandler<UserEvent> for App {
                     .get_address();
                 let icon = tray_icon_bt_address
                     .and_then(|address| current_devices_info.get(&address))
-                    .and_then(|info| load_battery_icon(&config, info.battery, info.status).ok())
+                    .and_then(|info| load_tray_icon(&config, info.battery, info.status).ok())
                     .or_else(|| load_app_icon().ok());
                 let _ = tray.set_icon(icon);
             }

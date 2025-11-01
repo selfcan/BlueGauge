@@ -46,6 +46,7 @@ pub enum UserMenuItem {
     //
     OpenConfig,
     //
+    TrayIconStyleBatteryIcon,
     TrayIconStyleNumber,
     TrayIconStyleRing,
     SetIconConnectColor,
@@ -75,6 +76,7 @@ impl UserMenuItem {
             UserMenuItem::OpenConfig => MenuId::new("open_config"),
             //
             UserMenuItem::SetIconConnectColor => MenuId::new("set_icon_connect_color"),
+            UserMenuItem::TrayIconStyleBatteryIcon => MenuId::new("battery_icon"),
             UserMenuItem::TrayIconStyleNumber => MenuId::new("number_icon"),
             UserMenuItem::TrayIconStyleRing => MenuId::new("ring_icon"),
             //
@@ -131,8 +133,9 @@ impl UserMenuItem {
         ]
     }
 
-    pub fn tray_icon_style_menu_id() -> [MenuId; 2] {
+    pub fn tray_icon_style_menu_id() -> [MenuId; 3] {
         [
+            UserMenuItem::TrayIconStyleBatteryIcon.id(),
             UserMenuItem::TrayIconStyleNumber.id(),
             UserMenuItem::TrayIconStyleRing.id(),
         ]
@@ -214,12 +217,18 @@ impl CreateMenuItem {
 
     fn select_tray_icon_style(&mut self, config: &Config) -> Submenu {
         let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
+        let select_battery_icon = matches!(tray_icon_style, TrayIconStyle::BatteryIcon { .. });
         let select_number_icon = matches!(tray_icon_style, TrayIconStyle::BatteryNumber { .. });
         let select_ring_icon = matches!(tray_icon_style, TrayIconStyle::BatteryRing { .. });
 
         let select_tray_icon_style_items = define_check_menu_items!(
             self,
             [
+                (
+                    UserMenuItem::TrayIconStyleBatteryIcon,
+                    "Battery Icon",
+                    select_battery_icon
+                ),
                 (
                     UserMenuItem::TrayIconStyleNumber,
                     LOC.number_icon,

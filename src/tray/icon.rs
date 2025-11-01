@@ -1,5 +1,6 @@
 use crate::{
     config::{Config, TrayIconStyle},
+    notify::notify,
     theme::SystemTheme,
 };
 
@@ -28,16 +29,22 @@ pub fn load_app_icon() -> Result<Icon> {
     load_icon(LOGO_DATA).map_err(|e| anyhow!("Failed to load app icon - {e}"))
 }
 
-pub fn load_battery_icon(
-    config: &Config,
-    battery_level: u8,
-    bluetooth_status: bool,
-) -> Result<Icon> {
+pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool) -> Result<Icon> {
     let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
 
     match tray_icon_style {
         TrayIconStyle::App => load_app_icon(),
         TrayIconStyle::BatteryCustom { .. } => load_custom_icon(battery_level),
+        TrayIconStyle::BatteryIcon {
+            address: _,
+            // color_scheme,
+            font_size,
+            ..
+        } => {
+            let is_low_battery = battery_level <= config.get_low_battery();
+
+            load_battery_icon(battery_level, is_low_battery, font_size)
+        }
         TrayIconStyle::BatteryNumber {
             address: _,
             color_scheme,
@@ -102,6 +109,19 @@ fn load_custom_icon(battery_level: u8) -> Result<Icon> {
     load_icon(&icon_data)
 }
 
+fn load_battery_icon(
+    battery_level: u8,
+    is_low_battery: bool,
+    font_size: Option<u8>,
+) -> Result<Icon> {
+    let (icon_rgba, icon_width, icon_height) =
+        render_battery_icon(battery_level, is_low_battery, font_size).inspect_err(|_| {
+            notify("Please install 'Segoe Fluent Icons' Font");
+        })?;
+    Icon::from_rgba(icon_rgba, icon_width, icon_height)
+        .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
+}
+
 fn load_number_icon(
     battery_level: u8,
     font_name: &str,
@@ -109,7 +129,7 @@ fn load_number_icon(
     font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<Icon> {
-    let (icon_rgba, icon_width, icon_height) = render_battery_font_icon(
+    let (icon_rgba, icon_width, icon_height) = render_number_icon(
         battery_level,
         font_name,
         font_color,
@@ -138,7 +158,76 @@ pub fn load_ring_icon(
         .map_err(|e| anyhow!("Failed to get Icon - {e}"))
 }
 
-fn render_battery_font_icon(
+fn render_battery_icon(
+    battery_level: u8,
+    is_low_battery: bool,
+    font_size: Option<u8>,
+) -> Result<(Vec<u8>, u32, u32)> {
+    if !std::path::Path::new(r"C:\WINDOWS\FONTS\SEGOEICONS.TTF").try_exists()? {
+        return Err(anyhow!("Segoe Fluent Icons font not found"));
+    }
+
+    let indicator = if battery_level == 0 {
+        String::from('\u{e850}')
+    } else {
+        const ICONS: [char; 11] = [
+            '\u{e851}', // 1-10
+            '\u{e852}', // 11-20
+            '\u{e853}', // 21-30
+            '\u{e854}', // 31-40
+            '\u{e855}', // 41-50
+            '\u{e856}', // 51-60
+            '\u{e857}', // 61-70
+            '\u{e858}', // 71-80
+            '\u{e859}', // 81-90
+            '\u{e83f}', // 91-100
+            '\u{e83f}', // fallback (101+)
+        ];
+        ICONS[((battery_level - 1) / 10).min(10) as usize].to_string()
+    };
+
+    let width = 64;
+    let height = 64;
+    let font_name = "Segoe Fluent Icons";
+    let font_size = font_size.and_then(|s| s.ne(&64).then_some(s as f64));
+    let font_color = if is_low_battery {
+        "#FE6666"
+    } else {
+        &SystemTheme::get().get_font_color()
+    };
+
+    let mut device = Device::new().map_err(|e| anyhow!("Failed to get Device - {e}"))?;
+
+    let mut bitmap_target = device
+        .bitmap_target(width, height, 1.0)
+        .map_err(|e| anyhow!("Failed to create a new bitmap target. - {e}"))?;
+
+    let mut piet = bitmap_target.render_context();
+
+    // Dynamically calculated font size
+    let text = piet.text();
+    let fs = font_size.unwrap_or(64.0);
+    let layout = build_text_layout(text, &indicator, font_name, fs, font_color)?;
+
+    let (x, y) = (
+        (width as f64 - layout.size().width) / 2.0,
+        (height as f64 - layout.size().height) / 2.0,
+    );
+
+    piet.draw_text(&layout, (x, y));
+    piet.finish().map_err(|e| anyhow!("{e}"))?;
+    drop(piet);
+
+    let image_buf = bitmap_target.to_image_buf(ImageFormat::RgbaPremul).unwrap();
+
+    Ok((
+        image_buf.raw_pixels().to_vec(),
+        image_buf.width() as u32,
+        image_buf.height() as u32,
+    ))
+}
+
+fn render_number_icon(
     battery_level: u8,
     font_name: &str,
     font_color: Option</* Hex color */ String>,

@@ -5,7 +5,7 @@ pub mod menu_item;
 use std::collections::HashMap;
 
 use super::tray::{
-    icon::{load_app_icon, load_battery_icon},
+    icon::{load_app_icon, load_tray_icon},
     menu_item::create_menu,
 };
 
@@ -37,7 +37,7 @@ pub fn create_tray(
     let icon = tray_icon_bt_address
         .and_then(|address| bluetooth_devices_info.get(&address))
         .map(|info| (info.battery, info.status))
-        .and_then(|(battery, status)| load_battery_icon(config, battery, status).ok())
+        .and_then(|(battery, status)| load_tray_icon(config, battery, status).ok())
         .or_else(|| load_app_icon().ok())
         .expect("Failed to create tray's icon");
 
