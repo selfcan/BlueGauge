@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
@@ -12,35 +12,32 @@ use tray_icon::menu::MenuId;
 
 use crate::tray::menu_item::UserMenuItem;
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ConfigToml {
-    #[serde(rename = "tray")]
-    tray_options: TrayOptionsToml,
+macro_rules! impl_atomic_serde {
+    ($mod_name:ident, $atomic_type:ty, $inner_type:ty) => {
+        mod $mod_name {
+            use serde::{Deserialize, Deserializer, Serializer};
+            use std::sync::atomic::{Ordering, $atomic_type};
 
-    #[serde(rename = "notify")]
-    notify_options: NotifyOptionsToml,
+            pub fn serialize<S>(atomic: &$atomic_type, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.serialize_some(&atomic.load(Ordering::Relaxed))
+            }
 
-    #[serde(default)]
-    device_aliases: HashMap<String, String>,
+            pub fn deserialize<'de, D>(deserializer: D) -> Result<$atomic_type, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let value = <$inner_type>::deserialize(deserializer)?;
+                Ok(<$atomic_type>::new(value))
+            }
+        }
+    };
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct TrayOptionsToml {
-    #[serde(rename = "tooltip")]
-    tray_tooltip: TrayTooltipToml,
-    #[serde(rename = "icon")]
-    tray_icon_style: TrayIconStyle,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct TrayTooltipToml {
-    #[serde(default)]
-    show_disconnected: bool,
-    #[serde(default)]
-    truncate_name: bool,
-    #[serde(default)]
-    prefix_battery: bool,
-}
+impl_atomic_serde!(atomic_u8_serde, AtomicU8, u8);
+impl_atomic_serde!(atomic_bool_serde, AtomicBool, bool);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "style")]
@@ -97,16 +94,6 @@ impl ColorScheme {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct NotifyOptionsToml {
-    low_battery: u8,
-    disconnection: bool,
-    reconnection: bool,
-    added: bool,
-    removed: bool,
-    stay_on_screen: bool,
-}
-
 impl TrayIconStyle {
     pub fn update_address(&mut self, new_address: u64) {
         match self {
@@ -146,13 +133,24 @@ impl TrayIconStyle {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NotifyOptions {
+    #[serde(with = "atomic_u8_serde")]
     pub low_battery: AtomicU8,
+
+    #[serde(with = "atomic_bool_serde")]
     pub disconnection: AtomicBool,
+
+    #[serde(with = "atomic_bool_serde")]
     pub reconnection: AtomicBool,
+
+    #[serde(with = "atomic_bool_serde")]
     pub added: AtomicBool,
+
+    #[serde(with = "atomic_bool_serde")]
     pub removed: AtomicBool,
+
+    #[serde(with = "atomic_bool_serde")]
     pub stay_on_screen: AtomicBool,
 }
 
@@ -192,16 +190,21 @@ impl NotifyOptions {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct TooltipOptions {
+    #[serde(with = "atomic_bool_serde")]
     pub prefix_battery: AtomicBool,
+    #[serde(with = "atomic_bool_serde")]
     pub show_disconnected: AtomicBool,
+    #[serde(with = "atomic_bool_serde")]
     pub truncate_name: AtomicBool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrayOptions {
+    #[serde(rename = "tooltip")]
     pub tooltip_options: TooltipOptions,
+    #[serde(rename = "icon")]
     pub tray_icon_style: Mutex<TrayIconStyle>,
 }
 
@@ -236,211 +239,112 @@ impl TrayOptions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub config_path: PathBuf,
+    #[serde(rename = "tray")]
     pub tray_options: TrayOptions,
+    #[serde(rename = "notify")]
     pub notify_options: NotifyOptions,
     pub device_aliases: HashMap<String, String>,
 }
 
-impl Config {
-    pub fn open() -> Result<Self> {
+impl Default for Config {
+    fn default() -> Self {
         let config_path = env::current_exe()
             .ok()
             .map(|exe_path| exe_path.with_file_name("BlueGauge.toml"))
-            .ok_or_else(|| anyhow!("Failed to get config path"))?;
+            .expect("Failed to get config path");
 
-        if config_path.is_file() {
-            Config::read_toml(config_path.clone()).or_else(|e| {
-                warn!("Failed to read config file: {e}");
-                Config::create_toml(config_path)
-            })
-        } else {
-            Config::create_toml(config_path)
-        }
-    }
-
-    pub fn save(&self) {
-        let tray_icon_style = {
-            let lock = self.tray_options.tray_icon_style.lock().unwrap();
-            lock.clone()
-        };
-        let toml_config = ConfigToml {
-            tray_options: TrayOptionsToml {
-                tray_tooltip: TrayTooltipToml {
-                    show_disconnected: self
-                        .tray_options
-                        .tooltip_options
-                        .show_disconnected
-                        .load(Ordering::Relaxed),
-                    truncate_name: self
-                        .tray_options
-                        .tooltip_options
-                        .truncate_name
-                        .load(Ordering::Relaxed),
-                    prefix_battery: self
-                        .tray_options
-                        .tooltip_options
-                        .prefix_battery
-                        .load(Ordering::Relaxed),
-                },
-                tray_icon_style,
-            },
-            notify_options: NotifyOptionsToml {
-                low_battery: self.notify_options.low_battery.load(Ordering::Relaxed),
-                disconnection: self.notify_options.disconnection.load(Ordering::Relaxed),
-                reconnection: self.notify_options.reconnection.load(Ordering::Relaxed),
-                added: self.notify_options.added.load(Ordering::Relaxed),
-                removed: self.notify_options.removed.load(Ordering::Relaxed),
-                stay_on_screen: self.notify_options.stay_on_screen.load(Ordering::Relaxed),
-            },
-            device_aliases: self.device_aliases.clone(),
-        };
-
-        let toml_str = toml::to_string_pretty(&toml_config)
-            .expect("Failed to serialize ConfigToml structure as a String of TOML.");
-        std::fs::write(&self.config_path, toml_str)
-            .expect("Failed to TOML String to BlueGauge.toml");
-    }
-
-    fn create_toml(config_path: PathBuf) -> Result<Self> {
         let device_aliases =
             HashMap::from([("e.g. WH-1000XM6".to_owned(), "Sony Headphones".to_owned())]);
 
-        let default_config = ConfigToml {
-            tray_options: TrayOptionsToml {
-                tray_tooltip: TrayTooltipToml {
-                    show_disconnected: false,
-                    truncate_name: false,
-                    prefix_battery: false,
-                },
-                tray_icon_style: TrayIconStyle::App,
-            },
-            notify_options: NotifyOptionsToml {
-                low_battery: 15,
-                disconnection: false,
-                reconnection: false,
-                added: false,
-                removed: false,
-                stay_on_screen:false,
-            },
-            device_aliases: device_aliases.clone(),
-        };
-
-        let toml_str = toml::to_string_pretty(&default_config)?;
-        std::fs::write(&config_path, toml_str)?;
-
-        Ok(Config {
+        Self {
             config_path,
-            tray_options: TrayOptions {
-                tray_icon_style: Mutex::new(default_config.tray_options.tray_icon_style),
-                tooltip_options: TooltipOptions {
-                    show_disconnected: AtomicBool::new(
-                        default_config.tray_options.tray_tooltip.show_disconnected,
-                    ),
-                    truncate_name: AtomicBool::new(
-                        default_config.tray_options.tray_tooltip.truncate_name,
-                    ),
-                    prefix_battery: AtomicBool::new(
-                        default_config.tray_options.tray_tooltip.prefix_battery,
-                    ),
-                },
-            },
-            notify_options: NotifyOptions {
-                low_battery: AtomicU8::new(default_config.notify_options.low_battery),
-                disconnection: AtomicBool::new(default_config.notify_options.disconnection),
-                reconnection: AtomicBool::new(default_config.notify_options.reconnection),
-                added: AtomicBool::new(default_config.notify_options.added),
-                removed: AtomicBool::new(default_config.notify_options.removed),
-                stay_on_screen: AtomicBool::new(default_config.notify_options.stay_on_screen),
-            },
+            tray_options: TrayOptions::default(),
+            notify_options: NotifyOptions::default(),
             device_aliases,
+        }
+    }
+}
+
+impl Config {
+    pub fn open() -> Result<Self> {
+        let default_config = Config::default();
+        let config_path = default_config.config_path.clone();
+
+        Config::read_toml(&config_path).or_else(|e| {
+            warn!("Failed to read the config file: {e}\nNow creat a new config file");
+            let toml_str = toml::to_string_pretty(&default_config)?;
+            std::fs::write(config_path, toml_str)?;
+            Ok(default_config)
         })
     }
 
-    fn read_toml(config_path: PathBuf) -> Result<Self> {
+    pub fn save(&self) {
+        let toml_str = toml::to_string_pretty(self)
+            .expect("Failed to serialize ConfigToml structure as a String of TOML.");
+        std::fs::write(&self.config_path, toml_str)
+            .expect("Failed to write TOML String to BlueGauge.toml");
+    }
+
+    fn read_toml(config_path: &Path) -> Result<Self> {
         let content = std::fs::read_to_string(&config_path)?;
-        let toml_config: ConfigToml = toml::from_str(&content)?;
-        let tray_icon_style = if find_custom_icon().is_err() {
-            let mut tray_icon_style = toml_config.tray_options.tray_icon_style;
-            match tray_icon_style {
-                TrayIconStyle::BatteryNumber {
-                    ref mut color_scheme,
-                    ref font_color,
-                    ..
-                } => {
-                    if font_color
-                        .as_ref()
-                        .is_some_and(|c| Color::from_hex_str(c).is_ok())
-                    {
-                        color_scheme.set_custom();
-                    } else if color_scheme.is_custom() {
-                        color_scheme.set_follow_system_theme();
-                    }
+        let toml_config: Config = toml::from_str(&content)?;
 
-                    tray_icon_style
-                }
-                TrayIconStyle::BatteryRing {
-                    ref mut color_scheme,
-                    ref highlight_color,
-                    ref background_color,
-                    ..
-                } => {
-                    let has_valid_custom_color = highlight_color
-                        .as_ref()
-                        .is_some_and(|c| Color::from_hex_str(c).is_ok())
-                        || background_color
-                            .as_ref()
-                            .is_some_and(|c| Color::from_hex_str(c).is_ok());
-
-                    if has_valid_custom_color {
-                        color_scheme.set_custom();
-                    } else if color_scheme.is_custom() {
-                        color_scheme.set_follow_system_theme();
-                    }
-
-                    tray_icon_style
-                }
-                _ => tray_icon_style,
-            }
-        } else {
-            match toml_config.tray_options.tray_icon_style {
-                TrayIconStyle::App => TrayIconStyle::App,
-                TrayIconStyle::BatteryCustom { address }
-                | TrayIconStyle::BatteryNumber { address, .. }
-                | TrayIconStyle::BatteryRing { address, .. } => {
+        {
+            let mut tray_icon_style = toml_config.tray_options.tray_icon_style.lock().unwrap();
+            
+            if find_custom_icon().is_ok() {
+                *tray_icon_style = match &*tray_icon_style {
+                    TrayIconStyle::App => TrayIconStyle::App,
                     TrayIconStyle::BatteryCustom { address }
-                }
-            }
-        };
+                    | TrayIconStyle::BatteryNumber { address, .. }
+                    | TrayIconStyle::BatteryRing { address, .. } => {
+                        TrayIconStyle::BatteryCustom { address: *address }
+                    }
+                };
+            } else {
+                match *tray_icon_style {
+                    TrayIconStyle::BatteryNumber {
+                        ref mut color_scheme,
+                        ref font_color,
+                        ..
+                    } => {
+                        if font_color
+                            .as_ref()
+                            .is_some_and(|c| Color::from_hex_str(c).is_ok())
+                        {
+                            color_scheme.set_custom();
+                        } else if color_scheme.is_custom() {
+                            color_scheme.set_follow_system_theme();
+                        }
+                    }
+                    TrayIconStyle::BatteryRing {
+                        ref mut color_scheme,
+                        ref highlight_color,
+                        ref background_color,
+                        ..
+                    } => {
+                        let has_valid_custom_color = highlight_color
+                            .as_ref()
+                            .is_some_and(|c| Color::from_hex_str(c).is_ok())
+                            || background_color
+                                .as_ref()
+                                .is_some_and(|c| Color::from_hex_str(c).is_ok());
 
-        Ok(Config {
-            config_path,
-            tray_options: TrayOptions {
-                tray_icon_style: Mutex::new(tray_icon_style),
-                tooltip_options: TooltipOptions {
-                    show_disconnected: AtomicBool::new(
-                        toml_config.tray_options.tray_tooltip.show_disconnected,
-                    ),
-                    truncate_name: AtomicBool::new(
-                        toml_config.tray_options.tray_tooltip.truncate_name,
-                    ),
-                    prefix_battery: AtomicBool::new(
-                        toml_config.tray_options.tray_tooltip.prefix_battery,
-                    ),
-                },
-            },
-            notify_options: NotifyOptions {
-                low_battery: AtomicU8::new(toml_config.notify_options.low_battery),
-                disconnection: AtomicBool::new(toml_config.notify_options.disconnection),
-                reconnection: AtomicBool::new(toml_config.notify_options.reconnection),
-                added: AtomicBool::new(toml_config.notify_options.added),
-                removed: AtomicBool::new(toml_config.notify_options.removed),
-                stay_on_screen: AtomicBool::new(toml_config.notify_options.stay_on_screen),
-            },
-            device_aliases: toml_config.device_aliases,
-        })
+                        if has_valid_custom_color {
+                            color_scheme.set_custom();
+                        } else if color_scheme.is_custom() {
+                            color_scheme.set_follow_system_theme();
+                        }
+                    }
+                    _ => (),
+                }
+            };
+        }
+
+        Ok(toml_config)
     }
 }
 
