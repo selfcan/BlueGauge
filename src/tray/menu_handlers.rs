@@ -112,13 +112,8 @@ impl MenuHandlers {
     }
 
     fn open_config(&self) {
-        let config_path = std::env::current_exe()
-            .ok()
-            .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
-            .map(|parent_path| parent_path.join("BlueGauge.toml"))
-            .expect("Failed to get config path");
-        if let Err(e) = std::process::Command::new("notepad.exe")
-            .arg(config_path)
+        if let Err(e) = Command::new("notepad.exe")
+            .arg(&self.config.config_path)
             .spawn()
         {
             notify(format!("Failed to open config file - {e}"));
