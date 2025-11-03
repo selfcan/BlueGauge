@@ -251,6 +251,7 @@ impl TrayOptions {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
+    #[serde(skip)]
     pub config_path: PathBuf,
     #[serde(rename = "tray")]
     pub tray_options: TrayOptions,
