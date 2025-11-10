@@ -368,20 +368,6 @@ impl Config {
                             color_scheme.set_follow_system_theme();
                         }
                     }
-                    // TrayIconStyle::BatteryIcon {
-                    //     ref mut color_scheme,
-                    //     // ref font_color,
-                    //     ..
-                    // } => {
-                    //     // if font_color
-                    //     //     .as_ref()
-                    //     //     .is_some_and(|c| Color::from_hex_str(c).is_ok())
-                    //     // {
-                    //     //     color_scheme.set_custom();
-                    //     // } else if color_scheme.is_custom() { // 如果颜色不存在或错误，且设置自定义，则更改为跟随系统主题
-                    //     //     color_scheme.set_follow_system_theme();
-                    //     // }
-                    // }
                     _ => (),
                 }
             };
