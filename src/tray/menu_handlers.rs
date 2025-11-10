@@ -1,14 +1,14 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::{ffi::OsString, process::Command};
-use std::{ops::Deref, path::Path, sync::atomic::Ordering};
+use std::ffi::OsString;
+use std::ops::Deref;
+use std::process::Command;
+use std::sync::{Arc, atomic::Ordering};
 
 use super::menu_item::UserMenuItem;
 
 use crate::UserEvent;
-use crate::config::ColorScheme;
 use crate::{
-    config::{Config, TrayIconStyle},
+    config::{ASSETS_PATH, CONFIG_PATH, ColorScheme, Config, EXE_PATH, TrayIconStyle},
     notify::notify,
     startup::set_startup,
 };
@@ -74,21 +74,22 @@ impl MenuHandlers {
     }
 
     fn restart(&self) {
-        let exe_path = std::env::current_exe().expect("Failed to get path of app");
         let mut args_os: Vec<OsString> = std::env::args_os().collect();
 
         // 添加重启标志（避免与单实例冲突）
         args_os.push("--restart".into());
 
-        if let Err(e) = Command::new(exe_path).args(args_os.iter().skip(1)).spawn() {
-            error!("Failed to restart app: {e}");
+        if let Err(e) = Command::new(&*EXE_PATH)
+            .args(args_os.iter().skip(1))
+            .spawn()
+        {
+            notify(format!("Failed to restart app: {e}"));
         }
 
         let _ = self.proxy.send_event(UserEvent::Exit);
     }
 
     fn startup(&self) {
-        // let start_up_item = CheckMenuItem::
         if let Some(item) = self.tray_check_menus.get(&self.menu_id) {
             set_startup(item.is_checked()).expect("Failed to set Launch at Startup")
         } else {
@@ -112,10 +113,7 @@ impl MenuHandlers {
     }
 
     fn open_config(&self) {
-        if let Err(e) = Command::new("notepad.exe")
-            .arg(&self.config.config_path)
-            .spawn()
-        {
+        if let Err(e) = Command::new("notepad.exe").arg(&*CONFIG_PATH).spawn() {
             notify(format!("Failed to open config file - {e}"));
         };
     }
@@ -345,28 +343,21 @@ impl MenuHandlers {
 }
 
 fn have_custom_icon() -> bool {
-    std::env::current_exe()
-        .ok()
-        .and_then(|exe_path| exe_path.parent().map(Path::to_path_buf))
-        .map(|p| {
-            let assets_path = p.join("assets");
-            if assets_path.is_dir() {
-                let light_dir = assets_path.join("light");
-                let dark_dir = assets_path.join("dark");
-                match (light_dir.is_dir(), dark_dir.is_dir()) {
-                    (true, true) => [light_dir, dark_dir].into_iter().all(|p| {
-                        (0..=100u32)
-                            .into_iter()
-                            .all(|i| p.join(format!("{i}.png")).is_file())
-                    }), // 有主题图标
-                    (false, false) => (0..=100u32)
-                        .into_iter()
-                        .all(|i| assets_path.join(format!("{i}.png")).is_file()), //无主题图标
-                    _ => false, // 主题图标文件夹缺某一个
-                }
-            } else {
-                false
-            }
-        })
-        .unwrap_or(false)
+    if ASSETS_PATH.is_dir() {
+        let light_dir = ASSETS_PATH.join("light");
+        let dark_dir = ASSETS_PATH.join("dark");
+        match (light_dir.is_dir(), dark_dir.is_dir()) {
+            (true, true) => [light_dir, dark_dir].into_iter().all(|p| {
+                (0..=100u32)
+                    .into_iter()
+                    .all(|i| p.join(format!("{i}.png")).is_file())
+            }), // 有主题图标
+            (false, false) => (0..=100u32)
+                .into_iter()
+                .all(|i| ASSETS_PATH.join(format!("{i}.png")).is_file()), //无主题图标
+            _ => false, // 主题图标文件夹缺某一个
+        }
+    } else {
+        false
+    }
 }

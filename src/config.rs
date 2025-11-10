@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::env;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
@@ -11,6 +11,29 @@ use serde::{Deserialize, Serialize};
 use tray_icon::menu::MenuId;
 
 use crate::tray::menu_item::UserMenuItem;
+
+pub static EXE_PATH: LazyLock<PathBuf> =
+    LazyLock::new(|| std::env::current_exe().expect("Failed to get BlueGauge.exe path"));
+
+pub static EXE_PATH_STRING: LazyLock<String> = LazyLock::new(|| {
+    EXE_PATH
+        .to_str()
+        .map(|s| s.to_string())
+        .expect("Failed to EXE 'Path' to 'String'")
+});
+
+pub static EXE_NAME: LazyLock<String> = LazyLock::new(|| {
+    Path::new(&*EXE_PATH)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(|stem| stem.to_owned())
+        .expect("Failed to get EXE name")
+});
+
+pub static CONFIG_PATH: LazyLock<PathBuf> =
+    LazyLock::new(|| EXE_PATH.with_file_name("BlueGauge.toml"));
+
+pub static ASSETS_PATH: LazyLock<PathBuf> = LazyLock::new(|| EXE_PATH.with_file_name("assets"));
 
 macro_rules! impl_atomic_serde {
     ($mod_name:ident, $atomic_type:ty, $inner_type:ty) => {
@@ -251,8 +274,6 @@ impl TrayOptions {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
-    #[serde(skip)]
-    pub config_path: PathBuf,
     #[serde(rename = "tray")]
     pub tray_options: TrayOptions,
     #[serde(rename = "notify")]
@@ -262,16 +283,10 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let config_path = env::current_exe()
-            .ok()
-            .map(|exe_path| exe_path.with_file_name("BlueGauge.toml"))
-            .expect("Failed to get config path");
-
         let device_aliases =
             HashMap::from([("e.g. WH-1000XM6".to_owned(), "Sony Headphones".to_owned())]);
 
         Self {
-            config_path,
             tray_options: TrayOptions::default(),
             notify_options: NotifyOptions::default(),
             device_aliases,
@@ -282,12 +297,11 @@ impl Default for Config {
 impl Config {
     pub fn open() -> Result<Self> {
         let default_config = Config::default();
-        let config_path = default_config.config_path.clone();
 
-        Config::read_toml(&config_path).or_else(|e| {
+        Config::read_toml(&CONFIG_PATH).or_else(|e| {
             warn!("Failed to read the config file: {e}\nNow creat a new config file");
             let toml_str = toml::to_string_pretty(&default_config)?;
-            std::fs::write(config_path, toml_str)?;
+            std::fs::write(&*CONFIG_PATH, toml_str)?;
             Ok(default_config)
         })
     }
@@ -295,7 +309,7 @@ impl Config {
     pub fn save(&self) {
         let toml_str = toml::to_string_pretty(self)
             .expect("Failed to serialize ConfigToml structure as a String of TOML.");
-        std::fs::write(&self.config_path, toml_str)
+        std::fs::write(&*CONFIG_PATH, toml_str)
             .expect("Failed to write TOML String to BlueGauge.toml");
     }
 

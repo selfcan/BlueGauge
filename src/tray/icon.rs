@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, TrayIconStyle},
+    config::{ASSETS_PATH, Config, TrayIconStyle},
     notify::notify,
     theme::SystemTheme,
 };
@@ -84,27 +84,26 @@ pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool
 }
 
 fn load_custom_icon(battery_level: u8) -> Result<Icon> {
-    let custom_battery_icon_path = std::env::current_exe()
-        .map(|exe_path| exe_path.with_file_name("assets"))
-        .and_then(|icon_dir| {
-            let default_icon_path = icon_dir.join(format!("{battery_level}.png"));
-            if default_icon_path.is_file() {
-                return Ok(default_icon_path);
-            }
-            let theme_icon_path = match SystemTheme::get() {
-                SystemTheme::Light => icon_dir.join(format!("light\\{battery_level}.png")),
-                SystemTheme::Dark => icon_dir.join(format!("dark\\{battery_level}.png")),
-            };
-            if theme_icon_path.is_file() {
-                return Ok(theme_icon_path);
-            }
-            Err(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                format!("Failed to find {battery_level} default/theme PNG in Bluegauge directory"),
-            ))
-        })?;
+    let custom_battery_icon_path = || {
+        let icon_dir = &ASSETS_PATH;
+        let default_icon_path = icon_dir.join(format!("{battery_level}.png"));
+        if default_icon_path.is_file() {
+            return Ok(default_icon_path);
+        }
+        let theme_icon_path = match SystemTheme::get() {
+            SystemTheme::Light => icon_dir.join(format!("light\\{battery_level}.png")),
+            SystemTheme::Dark => icon_dir.join(format!("dark\\{battery_level}.png")),
+        };
+        if theme_icon_path.is_file() {
+            return Ok(theme_icon_path);
+        }
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Failed to find {battery_level} default/theme PNG in Bluegauge directory"),
+        ))
+    };
 
-    let icon_data = std::fs::read(custom_battery_icon_path)?;
+    let icon_data = std::fs::read(custom_battery_icon_path()?)?;
 
     load_icon(&icon_data)
 }
