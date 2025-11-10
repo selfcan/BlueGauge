@@ -45,7 +45,13 @@ pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool
 
             let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
 
-            load_battery_icon(battery_level, is_low_battery, direction, font_size, is_connect_color)
+            load_battery_icon(
+                battery_level,
+                is_low_battery,
+                direction,
+                font_size,
+                is_connect_color,
+            )
         }
         TrayIconStyle::BatteryNumber {
             address: _,
@@ -117,9 +123,14 @@ fn load_battery_icon(
     font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<Icon> {
-    let (icon_rgba, icon_width, icon_height) =
-        render_battery_icon(battery_level, is_low_battery, direction, font_size, is_connect_color)
-            .inspect_err(|_| notify_download_font())?;
+    let (icon_rgba, icon_width, icon_height) = render_battery_icon(
+        battery_level,
+        is_low_battery,
+        direction,
+        font_size,
+        is_connect_color,
+    )
+    .inspect_err(|_| notify_download_font())?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
 }
@@ -193,7 +204,7 @@ fn render_battery_icon(
                 '\u{ebaa}', // fallback (101+)
             ]
         } else {
-                [
+            [
                 '\u{f5f3}', // 1-10
                 '\u{f5f4}', // 11-20
                 '\u{f5f5}', // 21-30

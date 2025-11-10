@@ -77,7 +77,9 @@ impl UserMenuItem {
             UserMenuItem::OpenConfig => MenuId::new("open_config"),
             //
             UserMenuItem::SetIconConnectColor => MenuId::new("set_icon_connect_color"),
-            UserMenuItem::TrayIconStyleHorizontalBatteryIcon => MenuId::new("horizontal_battery_icon"),
+            UserMenuItem::TrayIconStyleHorizontalBatteryIcon => {
+                MenuId::new("horizontal_battery_icon")
+            }
             UserMenuItem::TrayIconStyleVerticalBatteryIcon => MenuId::new("vertical_battery_icon"),
             UserMenuItem::TrayIconStyleNumber => MenuId::new("number_icon"),
             UserMenuItem::TrayIconStyleRing => MenuId::new("ring_icon"),
@@ -222,11 +224,17 @@ impl CreateMenuItem {
         let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
         let select_horizontal_battery_icon = matches!(
             tray_icon_style,
-            TrayIconStyle::BatteryIcon { direction: Direction::Horizontal, .. }
+            TrayIconStyle::BatteryIcon {
+                direction: Direction::Horizontal,
+                ..
+            }
         );
         let select_vertical_battery_icon = matches!(
             tray_icon_style,
-            TrayIconStyle::BatteryIcon { direction: Direction::Vertical, .. }
+            TrayIconStyle::BatteryIcon {
+                direction: Direction::Vertical,
+                ..
+            }
         );
         let select_number_icon = matches!(tray_icon_style, TrayIconStyle::BatteryNumber { .. });
         let select_ring_icon = matches!(tray_icon_style, TrayIconStyle::BatteryRing { .. });
