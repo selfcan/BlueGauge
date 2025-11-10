@@ -9,45 +9,77 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 - [x] Setting：Bluetooth battery level as tray icon  
 
-    - Use number icon (default):  
-        1. check the device that needs to display the battery    
-        2. set font: open tray menu -- `Settings` -- `Open Config`   
-        `font_name` = `"System Font Nmae, e.g. Microsoft YaHei UI"`  
-        `font_color` = `"Hex color code，e.g. #FFFFFF、#00D26A"` (Default font color follows system theme)  
-        `font_size` = `0~255` (Default `64`)   
-        3. restart BlueGauge
-        4. others: set the icon color to the connection color in `Settings`-`Tray Options` (connected as green, disconnected as red)
+<details>
+<summary>Use number icon (default)</summary>
 
-        <div align="center">
-            <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
-            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/connect.png" style="width:45%; display:block;">
-                <img src="screenshots/disconnect.png" style="width:45%; display:block;">
-            </div>
-        </div>
+1. check the device that needs to display the battery    
+2. set font: open tray menu -- `Settings` -- `Open Config`   
+`font_name` = `"System Font Nmae, e.g. Microsoft YaHei UI"`  
+`font_color` = `"Hex color code，e.g. #FFFFFF、#00D26A"` (Default font color follows system theme)  
+`font_size` = `0~255` (Default `64`)   
+3. restart BlueGauge
+4. others: set the icon color to the connection color in `Settings`-`Tray Options` (connected as green, disconnected as red)
 
-    - Use ring icon:
-        1. check the device that needs to display the battery    
-        2. open tray menu - `Settings` - `Tray Options` - `Icon Style` - `Ring Icon`   
-        3. set color, open tray menu -- `Settings` -- `Open Config`  
-        `highlight_color` = `"Hex color code，e.g. #4CD082"`( Default green, highlight color turns red when the device battery is low )    
-        `background_color` = `"Hex color code，e.g. #DADADA"` ( The default gray color is adjusted according to the system theme, and it is not recommended to modify it )   
-        4. restart BlueGauge  
-        5. others: set the icon color to the connection color in `Settings`-`Tray Options`   
+<div align="center">
+    <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
+    <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+        <img src="screenshots/connect.png" style="width:45%; display:block;">
+        <img src="screenshots/disconnect.png" style="width:45%; display:block;">
+    </div>
+</div>
 
-        <div align="center">
-            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/ring.png" style="width:48%; display:block;">
-                <img src="screenshots/ring_low_battery.png" style="width:48%; display:block;">
-            </div>
-            <img src="screenshots/ring_custom.png" style="width=90%; display:block; margin:5 auto 10px;" />
-        </div>
+</details>
 
-    - Use custom icon  
-        1. create an `assets` folder in the BlueGauge directory
-            - Default：add `0.png` to `100.png`   
-            - Follow system theme：In the `assets` folder, create the `dark` and `light` folders respectively, and add `0.png` to `100.png` photos respectively
-        2. restart BlueGauge  
+
+<details>
+<summary>Use ring icon</summary>
+
+1. check the device that needs to display the battery    
+2. open tray menu - `Settings` - `Tray Options` - `Icon Style` - `Ring Icon`   
+3. set color, open tray menu -- `Settings` -- `Open Config`  
+`highlight_color` = `"Hex color code，e.g. #4CD082"`( Default green, highlight color turns red when the device battery is low )    
+`background_color` = `"Hex color code，e.g. #DADADA"` ( The default gray color is adjusted according to the system theme, and it is not recommended to modify it )   
+4. restart BlueGauge  
+5. others: set the icon color to the connection color in `Settings`-`Tray Options`   
+
+<div align="center">
+    <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+        <img src="screenshots/ring.png" style="width:48%; display:block;">
+        <img src="screenshots/ring_low_battery.png" style="width:48%; display:block;">
+    </div>
+    <img src="screenshots/ring_custom.png" style="width=90%; display:block; margin:5 auto 10px;" />
+</div>
+
+</details>
+
+
+<details>
+<summary>Use battery icon</summary>
+
+Note: Windows 10 requires downloading and installing the [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) font to use this icon
+
+1. check the device that needs to display the battery    
+2. open tray menu - `Settings` - `Tray Options` - `Icon Style` - `Battery Icon`   
+3. others: set the icon color to the connection color in `Settings`-`Tray Options`   
+
+<div align="center">
+    <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+        <img src="screenshots/horizontal_battery_icon.png" style="width:48%; display:block;">
+        <img src="screenshots/vertical_battery_icon.png" style="width:48%; display:block;">
+    </div>
+</div>
+
+</details>
+
+<details>
+<summary>Use custom icon</summary>
+
+1. create an `assets` folder in the BlueGauge directory
+    - Default：add `0.png` to `100.png`   
+    - Follow system theme：In the `assets` folder, create the `dark` and `light` folders respectively, and add `0.png` to `100.png` photos respectively
+2. restart BlueGauge  
+
+</details>
 
 - [x] Setting：Auto start
 - [x] Setting：Bluetooth device name aliases
@@ -61,13 +93,6 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
         - e.g. `"Surface Pen" = "Pen"`
         - e.g. `"HUAWEI FreeBuds Pro" = "FreeBuds Pro"`
         - e.g. `"OPPO Enco Air3" = "Enco Air3"`
-
-        <div align="center">
-            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/not_aliases.png" alt="左下图片" style="width:45%; display:block;">
-                <img src="screenshots/aliases.png" alt="右下图片" style="width:45%; display:block;">
-            </div>
-        </div>
 
 - [x] Setting: tooltip
 

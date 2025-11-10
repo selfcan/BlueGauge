@@ -1,5 +1,6 @@
 use super::menu_item::UserMenuItem;
 use crate::UserEvent;
+use crate::config::Direction;
 use crate::{
     config::{ASSETS_PATH, CONFIG_PATH, ColorScheme, Config, EXE_PATH, TrayIconStyle},
     notify::notify,
@@ -210,12 +211,24 @@ impl MenuHandlers {
             let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
             let address = tray_icon_style.get_address();
             if have_new_icon_style_menu_checkd {
-                if self.menu_id == UserMenuItem::TrayIconStyleBatteryIcon.id() // 若勾选电池图标，且当前图标是圆圈图标
+                if self.menu_id == UserMenuItem::TrayIconStyleHorizontalBatteryIcon.id() // 若勾选水平电池图标，且当前图标是圆圈图标
                     && let Some(address) = address
                 {
                     *tray_icon_style = TrayIconStyle::BatteryIcon {
                         address,
                         color_scheme: ColorScheme::FollowSystemTheme,
+                        direction: Direction::Horizontal,
+                        font_size: Some(64),
+                    }
+                }
+
+                if self.menu_id == UserMenuItem::TrayIconStyleVerticalBatteryIcon.id() // 若勾选垂直电池图标，且当前图标是圆圈图标
+                    && let Some(address) = address
+                {
+                    *tray_icon_style = TrayIconStyle::BatteryIcon {
+                        address,
+                        color_scheme: ColorScheme::FollowSystemTheme,
+                        direction: Direction::Vertical,
                         font_size: Some(64),
                     }
                 }

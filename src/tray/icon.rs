@@ -1,5 +1,5 @@
 use crate::{
-    config::{ASSETS_PATH, Config, TrayIconStyle},
+    config::{ASSETS_PATH, Config, Direction, TrayIconStyle},
     notify::notify_download_font,
     theme::SystemTheme,
 };
@@ -38,14 +38,14 @@ pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool
         TrayIconStyle::BatteryIcon {
             address: _,
             color_scheme,
+            direction,
             font_size,
-            ..
         } => {
             let is_low_battery = battery_level <= config.get_low_battery();
 
             let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
 
-            load_battery_icon(battery_level, is_low_battery, font_size, is_connect_color)
+            load_battery_icon(battery_level, is_low_battery, direction, font_size, is_connect_color)
         }
         TrayIconStyle::BatteryNumber {
             address: _,
@@ -113,11 +113,12 @@ fn load_custom_icon(battery_level: u8) -> Result<Icon> {
 fn load_battery_icon(
     battery_level: u8,
     is_low_battery: bool,
+    direction: Direction,
     font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) =
-        render_battery_icon(battery_level, is_low_battery, font_size, is_connect_color)
+        render_battery_icon(battery_level, is_low_battery, direction, font_size, is_connect_color)
             .inspect_err(|_| notify_download_font())?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
@@ -162,6 +163,7 @@ pub fn load_ring_icon(
 fn render_battery_icon(
     battery_level: u8,
     is_low_battery: bool,
+    direction: Direction,
     font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
@@ -170,21 +172,41 @@ fn render_battery_icon(
     }
 
     let indicator = if battery_level == 0 {
-        String::from('\u{eba0}')
+        if direction == Direction::Horizontal {
+            String::from('\u{eba0}')
+        } else {
+            String::from('\u{f5f2}')
+        }
     } else {
-        const ICONS: [char; 11] = [
-            '\u{eba1}', // 1-10
-            '\u{eba2}', // 11-20
-            '\u{eba3}', // 21-30
-            '\u{eba4}', // 31-40
-            '\u{eba5}', // 41-50
-            '\u{eba6}', // 51-60
-            '\u{eba7}', // 61-70
-            '\u{eba8}', // 71-80
-            '\u{eba9}', // 81-90
-            '\u{ebaa}', // 91-100
-            '\u{ebaa}', // fallback (101+)
-        ];
+        let ICONS: [char; 11] = if direction == Direction::Horizontal {
+            [
+                '\u{eba1}', // 1-10
+                '\u{eba2}', // 11-20
+                '\u{eba3}', // 21-30
+                '\u{eba4}', // 31-40
+                '\u{eba5}', // 41-50
+                '\u{eba6}', // 51-60
+                '\u{eba7}', // 61-70
+                '\u{eba8}', // 71-80
+                '\u{eba9}', // 81-90
+                '\u{ebaa}', // 91-100
+                '\u{ebaa}', // fallback (101+)
+            ]
+        } else {
+                [
+                '\u{f5f3}', // 1-10
+                '\u{f5f4}', // 11-20
+                '\u{f5f5}', // 21-30
+                '\u{f5f6}', // 31-40
+                '\u{f5f7}', // 41-50
+                '\u{f5f8}', // 51-60
+                '\u{f5f9}', // 61-70
+                '\u{f5fa}', // 71-80
+                '\u{f5fb}', // 81-90
+                '\u{f5fc}', // 91-100
+                '\u{f5fc}', // fallback (101+)
+            ]
+        };
         ICONS[((battery_level - 1) / 10).min(10) as usize].to_string()
     };
 

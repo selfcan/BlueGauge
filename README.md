@@ -10,46 +10,74 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 ## 功能
 
 - [x] 设置：蓝牙设备电量作为托盘图标    
+<details>
+<summary>使用数字图标（默认）</summary>
 
-    - 使用数字图标（默认）：  
-        1. 勾选需显示电量设备
-        2. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`  
-        `font_name` = `"系统字体名称，如 Microsoft YaHei UI"`（默认 `Arial`）  
-        `font_color` = `"十六进制颜色代码，如 #FFFFFF、#00D26A"`（默认字体颜色跟随系统主题）  
-        `font_size` = `0~255`  （默认 `64`）   
-        3. 重新启动 BlueGauge
-        4. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
+1. 勾选需显示电量设备    
+2. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`  
+`font_name` = `"系统字体名称，如 Microsoft YaHei UI"`（默认 `Arial`）  
+`font_color` = `"十六进制颜色代码，如 #FFFFFF、#00D26A"`（默认字体颜色跟随系统主题）  
+`font_size` = `0~255`  （默认 `64`）   
+3. 重新启动 BlueGauge
+4. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
 
-        <div align="center">
-            <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
-            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/connect.png" style="width:45%; display:block;">
-                <img src="screenshots/disconnect.png" style="width:45%; display:block;">
-            </div>
-        </div>
+<div align="center">
+    <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
+    <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+        <img src="screenshots/connect.png" style="width:45%; display:block;">
+        <img src="screenshots/disconnect.png" style="width:45%; display:block;">
+    </div>
+</div>
 
-    - 使用圆环图标：    
-        1. 勾选需显示电量设备    
-        2. 打开托盘菜单 - `设置` - `托盘选项` - `图标样式` - `圆环图标`
-        3. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`   
-        `highlight_color`（电量颜色） = `"十六进制颜色代码，如 #4CD082"`（默认绿色，当设备低电量时为红色）    
-        `background_color`（无电量颜色） = `"十六进制颜色代码，如 #DADADA"`（默认灰色随系统主题调整）   
-        4. 重新启动 BlueGauge   
-        5. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`
+</details>
+ 
 
-        <div align="center">
-            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/ring.png" style="width:48%; display:block;">
-                <img src="screenshots/ring_low_battery.png" style="width:48%; display:block;">
-            </div>
-            <img src="screenshots/ring_custom.png" style="width=90%; display:block; margin:5 auto 10px;" />
-        </div>
+<details>
+<summary>使用圆环图标</summary>
 
-    - 使用自定义图标 ：  
-        1. 在软件目录下创建一个 `assets` 文件夹，
-            - 跟随系统主题：在 `assets` 文件夹中，分别创建 `dark` 和 `light` 文件夹，并分别添加 `0.png` 至 `100.png` 照片
-            - 不跟随系统主题：在 `assets` 文件夹中添加 `0.png` 至 `100.png` 照片  
-        2. 重新启动 BlueGauge
+1. 勾选需显示电量设备    
+2. 打开托盘菜单 - `设置` - `托盘选项` - `图标样式` - `圆环图标`
+3. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`   
+`highlight_color`（电量颜色） = `"十六进制颜色代码，如 #4CD082"`（默认绿色，当设备低电量时为红色）    
+`background_color`（无电量颜色） = `"十六进制颜色代码，如 #DADADA"`（默认灰色随系统主题调整）   
+4. 重新启动 BlueGauge   
+5. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`
+
+<div align="center">
+    <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+        <img src="screenshots/ring.png" style="width:48%; display:block;">
+        <img src="screenshots/ring_low_battery.png" style="width:48%; display:block;">
+    </div>
+    <img src="screenshots/ring_custom.png" style="width=90%; display:block; margin:5 auto 10px;" />
+</div>
+</details>
+
+
+<details>
+<summary>使用电池图标</summary>
+
+注意：Windows10系统需下载和安装 [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) 字体方能使用该图标
+1. 勾选需显示电量设备    
+2. 打开托盘菜单 - `设置` - `托盘选项` - `图标样式` - `电池图标`
+3. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`
+
+<div align="center">
+    <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
+        <img src="screenshots/horizontal_battery_icon.png" style="width:48%; display:block;">
+        <img src="screenshots/vertical_battery_icon.png" style="width:48%; display:block;">
+    </div>
+</div>
+
+</details>
+
+
+<details>
+<summary>使用自定义图标</summary>
+1. 在软件目录下创建一个 `assets` 文件夹，
+    - 跟随系统主题：在 `assets` 文件夹中，分别创建 `dark` 和 `light` 文件夹，并分别添加 `0.png` 至 `100.png` 照片
+    - 不跟随系统主题：在 `assets` 文件夹中添加 `0.png` 至 `100.png` 照片  
+2. 重新启动 BlueGauge
+</details>
 
 - [x] 设置：开机自启动 
 
@@ -63,13 +91,6 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
         - 例如 `"WH-1000XM6" = "Sony Headphones"`
         - 例如 `"HUAWEI FreeBuds Pro" = "FreeBuds Pro"`
         - 例如 `"OPPO Enco Air3" = "Enco Air3"`
-
-        <div align="center">
-            <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
-                <img src="screenshots/not_aliases.png" alt="左下图片" style="width:45%; display:block;">
-                <img src="screenshots/aliases.png" alt="右下图片" style="width:45%; display:block;">
-            </div>
-        </div>
 
 - [x] 设置：托盘提示
 
@@ -87,7 +108,7 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 ## 下载
 
-默认请下载x86_64版本，特殊系统Windows on ARM下载arm版本
+默认请下载 **x86_64** 版本，特殊系统 Windows on ARM 下载 arm 版本
 
 1. [Github](https://github.com/iKineticate/BlueGauge/releases/latest)
 
@@ -119,11 +140,11 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 ### 4. 托盘电量数字图标被截断一小部分
 
-- **解决方案：**: 打开托盘菜单-`设置`-`打开配置`，然后在 `[tray.icon.font]` 下的 `font_size` 中设置字体大小，可以设置比原来小一号的字体。   
+- **解决方案：**: 打开托盘菜单-`设置`-`打开配置`，然后在 `[tray.icon]` 下的 `font_size` 中设置字体大小，可以设置比原来小一号的字体。   
 
 ### 5. 托盘提示中的连接指示器无颜色
 
-连接指示器只支持在Windows11中显示颜色
+托盘提示中的连接指示器仅支持Windows11
 
 ## 其他蓝牙电量软件
 

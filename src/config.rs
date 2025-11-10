@@ -63,6 +63,12 @@ macro_rules! impl_atomic_serde {
 impl_atomic_serde!(atomic_u8_serde, AtomicU8, u8);
 impl_atomic_serde!(atomic_bool_serde, AtomicBool, bool);
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum Direction {
+    Horizontal,
+    Vertical,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "style")]
 pub enum TrayIconStyle {
@@ -75,8 +81,7 @@ pub enum TrayIconStyle {
         color_scheme: ColorScheme,
         #[serde(rename = "bluetooth_address")]
         address: u64,
-        // #[serde(skip_serializing_if = "Option::is_none")]
-        // font_color: Option</* Hex color */ String>,
+        direction: Direction,
         #[serde(skip_serializing_if = "Option::is_none")]
         font_size: Option<u8>, // Default: 64
     },
