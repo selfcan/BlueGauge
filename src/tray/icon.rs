@@ -1,6 +1,6 @@
 use crate::{
     config::{ASSETS_PATH, Config, TrayIconStyle},
-    notify::notify,
+    notify::notify_download_font,
     theme::SystemTheme,
 };
 
@@ -118,9 +118,7 @@ fn load_battery_icon(
 ) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) =
         render_battery_icon(battery_level, is_low_battery, font_size, is_connect_color)
-            .inspect_err(|_| {
-                notify("Please install 'Segoe Fluent Icons' Font");
-            })?;
+            .inspect_err(|_| notify_download_font())?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
 }
