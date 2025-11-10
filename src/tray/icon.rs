@@ -37,13 +37,15 @@ pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool
         TrayIconStyle::BatteryCustom { .. } => load_custom_icon(battery_level),
         TrayIconStyle::BatteryIcon {
             address: _,
-            // color_scheme,
+            color_scheme,
             font_size,
             ..
         } => {
             let is_low_battery = battery_level <= config.get_low_battery();
 
-            load_battery_icon(battery_level, is_low_battery, font_size)
+            let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
+
+            load_battery_icon(battery_level, is_low_battery, font_size, is_connect_color)
         }
         TrayIconStyle::BatteryNumber {
             address: _,
@@ -112,11 +114,13 @@ fn load_battery_icon(
     battery_level: u8,
     is_low_battery: bool,
     font_size: Option<u8>,
+    is_connect_color: Option<bool>,
 ) -> Result<Icon> {
     let (icon_rgba, icon_width, icon_height) =
-        render_battery_icon(battery_level, is_low_battery, font_size).inspect_err(|_| {
-            notify("Please install 'Segoe Fluent Icons' Font");
-        })?;
+        render_battery_icon(battery_level, is_low_battery, font_size, is_connect_color)
+            .inspect_err(|_| {
+                notify("Please install 'Segoe Fluent Icons' Font");
+            })?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
 }
@@ -161,6 +165,7 @@ fn render_battery_icon(
     battery_level: u8,
     is_low_battery: bool,
     font_size: Option<u8>,
+    is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
     if !std::path::Path::new(r"C:\WINDOWS\FONTS\SEGOEICONS.TTF").try_exists()? {
         return Err(anyhow!("Segoe Fluent Icons font not found"));
@@ -188,25 +193,30 @@ fn render_battery_icon(
     let width = 64;
     let height = 64;
     let font_name = "Segoe Fluent Icons";
-    let font_size = font_size.and_then(|s| s.ne(&64).then_some(s as f64));
-    let font_color = if is_low_battery {
-        "#FE6666"
-    } else {
-        &SystemTheme::get().get_font_color()
+
+    let font_size = font_size.map(|s| s as f64).unwrap_or(64.0);
+
+    let font_color = {
+        let base_color = if is_low_battery {
+            Color::from_rgba32_u32(0xFE6666FF)
+        } else {
+            SystemTheme::get().get_font_color()
+        };
+
+        match is_connect_color {
+            Some(true) => base_color,
+            Some(false) => base_color.with_alpha(0.6),
+            None => base_color,
+        }
     };
 
     let mut device = Device::new().map_err(|e| anyhow!("Failed to get Device - {e}"))?;
-
     let mut bitmap_target = device
         .bitmap_target(width, height, 1.0)
         .map_err(|e| anyhow!("Failed to create a new bitmap target. - {e}"))?;
-
     let mut piet = bitmap_target.render_context();
-
-    // Dynamically calculated font size
     let text = piet.text();
-    let fs = font_size.unwrap_or(64.0);
-    let layout = build_text_layout(text, &indicator, font_name, fs, font_color)?;
+    let layout = build_text_layout(text, &indicator, font_name, font_size, font_color)?;
 
     let (x, y) = (
         (width as f64 - layout.size().width) / 2.0,
@@ -237,36 +247,36 @@ fn render_number_icon(
 
     let width = 64;
     let height = 64;
+
     let font_name = if font_name.trim().is_empty() {
         "Arial"
     } else {
         font_name
     };
+
     let font_size = font_size.and_then(|s| s.ne(&64).then_some(s as f64));
+
     let font_color = if let Some(should) = is_connect_color {
         if should {
-            "#4fc478".to_owned()
+            Color::from_rgba32_u32(0x4FC478FF)
         } else {
-            "#fe6666".to_owned()
+            Color::from_rgba32_u32(0xFE6666FF)
         }
     } else {
         font_color
-            .and_then(|c| Color::from_hex_str(&c).ok().map(|_| c))
+            .and_then(|c| Color::from_hex_str(&c).ok())
             .unwrap_or_else(|| SystemTheme::get().get_font_color())
     };
 
     let mut device = Device::new().map_err(|e| anyhow!("Failed to get Device - {e}"))?;
-
     let mut bitmap_target = device
         .bitmap_target(width, height, 1.0)
         .map_err(|e| anyhow!("Failed to create a new bitmap target. - {e}"))?;
-
     let mut piet = bitmap_target.render_context();
-
-    // Dynamically calculated font size
     let mut layout;
     let text = piet.text();
 
+    // Dynamically calculated font size
     let mut fs = match (font_size, battery_level) {
         (_, 100) => 42.0,
         (Some(size), _) => size,
@@ -276,13 +286,13 @@ fn render_number_icon(
 
     if battery_level == 100 || font_size.is_none() {
         while {
-            layout = build_text_layout(text, &indicator, font_name, fs, &font_color)?;
+            layout = build_text_layout(text, &indicator, font_name, fs, font_color)?;
             !(layout.size().width > width as f64 || layout.size().height > height as f64)
         } {
             fs += 2.0;
         }
     } else {
-        layout = build_text_layout(text, &indicator, font_name, fs, &font_color)?;
+        layout = build_text_layout(text, &indicator, font_name, fs, font_color)?;
     }
 
     let (x, y) = (
@@ -308,11 +318,11 @@ fn build_text_layout(
     indicator: &str,
     font_name: &str,
     font_size: f64,
-    font_color: &str,
+    font_color: Color,
 ) -> Result<D2DTextLayout> {
     text.new_text_layout(indicator.to_string())
         .font(FontFamily::new_unchecked(font_name), font_size)
-        .text_color(Color::from_hex_str(font_color)?)
+        .text_color(font_color)
         .build()
         .map_err(|e| anyhow!("Failed to build text layout - {e}"))
 }
@@ -358,16 +368,16 @@ fn render_ring_icon(
     // 计算每个圆环应该缩短的角度（各分摊一半的间隙）
     let shorten_angle_rad = gap_angle_rad / 2.0;
     let not_custome_color = || {
-        let is_connect = is_connect_color.unwrap_or(true); // None 视为连接（根据你原逻辑）
+        let is_connect = is_connect_color.unwrap_or(true); // None 视为 默认连接
         if is_connect {
             match SystemTheme::get() {
-                SystemTheme::Light => "#919191",
-                SystemTheme::Dark => "#DADADA",
+                SystemTheme::Light => Color::from_rgba32_u32(0x919191FF),
+                SystemTheme::Dark => Color::from_rgba32_u32(0xDADADAFF),
             }
         } else {
             match SystemTheme::get() {
-                SystemTheme::Light => "#C4C4C4",
-                SystemTheme::Dark => "#DADADAA0",
+                SystemTheme::Light => Color::from_rgba32_u32(0xC4C4C4FF),
+                SystemTheme::Dark => Color::from_rgba32_u32(0xDADADAA0),
             }
         }
     };
@@ -376,8 +386,7 @@ fn render_ring_icon(
         2.0 * std::f64::consts::PI - battery_angle_rad - 2.0 * shorten_angle_rad;
     let background_color = background_color
         .and_then(|hex| Color::from_hex_str(&hex).ok()) // 优先配置颜色
-        .or_else(|| Color::from_hex_str(not_custome_color()).ok())
-        .unwrap_or(Color::GRAY);
+        .unwrap_or_else(not_custome_color);
     let background_arc = piet_common::kurbo::Arc {
         center: center.into(),
         radii: piet_common::kurbo::Vec2::new(arc_radius, arc_radius),
@@ -389,21 +398,26 @@ fn render_ring_icon(
 
     // 绘制高亮圆环（表示当前电量）
     let highlight_color = if is_low_battery {
-        // 低电量颜色（不支持配置）
-        let color = is_connect_color
-            .map(|is_connect| if is_connect { "#FE6666" } else { "#FE6666C0" })
-            .unwrap_or("#FE6666");
-        Color::from_hex_str(color).unwrap_or(Color::RED)
+        // 低电量颜色（不支持配置中自定义）
+        is_connect_color
+            .and_then(|is_connect| {
+                is_connect
+                    .then_some(Color::from_rgba32_u32(0xFE6666FF))
+                    .or(Some(Color::from_rgba32_u32(0xFE6666C0)))
+            })
+            .unwrap_or(Color::from_rgba32_u32(0xFE6666FF))
     } else {
         highlight_color
             .and_then(|hex| Color::from_hex_str(&hex).ok()) // 优先配置颜色
-            .or_else(|| {
-                let color = is_connect_color
-                    .map(|is_connect| if is_connect { "#4CD082" } else { "#4CD083A0" })
-                    .unwrap_or("#4CD082");
-                Color::from_hex_str(color).ok()
+            .unwrap_or_else(|| {
+                is_connect_color
+                    .and_then(|is_connect| {
+                        is_connect
+                            .then_some(Color::from_rgba32_u32(0x4CD083FF))
+                            .or(Some(Color::from_rgba32_u32(0x4CD083A0)))
+                    })
+                    .unwrap_or(Color::from_rgba32_u32(0x4CD083FF))
             })
-            .unwrap_or(Color::GREEN)
     };
     let highlight_arc = piet_common::kurbo::Arc {
         center: center.into(),

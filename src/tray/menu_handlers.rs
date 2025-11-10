@@ -216,7 +216,7 @@ impl MenuHandlers {
                     *tray_icon_style = TrayIconStyle::BatteryIcon {
                         address,
                         color_scheme: ColorScheme::FollowSystemTheme,
-                        font_size: Some(74),
+                        font_size: Some(64),
                     }
                 }
 

@@ -313,9 +313,10 @@ impl CreateMenuItem {
 
     fn set_icon_connect_color(&mut self, config: &Config) -> CheckMenuItem {
         let menu_id = UserMenuItem::SetIconConnectColor.id();
-        // 连接配色只支持 数字图标 和 圆环图标
+        // 仅 [数字图标]  [圆环图标] [电池图标] 支持连接配色
         let menu = if let TrayIconStyle::BatteryNumber { color_scheme, .. }
-        | TrayIconStyle::BatteryRing { color_scheme, .. } =
+        | TrayIconStyle::BatteryRing { color_scheme, .. }
+        | TrayIconStyle::BatteryIcon { color_scheme, .. } =
             config.tray_options.tray_icon_style.lock().unwrap().deref()
         {
             CheckMenuItem::with_id(
