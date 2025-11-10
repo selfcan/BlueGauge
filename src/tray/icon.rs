@@ -172,26 +172,27 @@ fn render_battery_icon(
     }
 
     let indicator = if battery_level == 0 {
-        String::from('\u{e850}')
+        String::from('\u{eba0}')
     } else {
         const ICONS: [char; 11] = [
-            '\u{e851}', // 1-10
-            '\u{e852}', // 11-20
-            '\u{e853}', // 21-30
-            '\u{e854}', // 31-40
-            '\u{e855}', // 41-50
-            '\u{e856}', // 51-60
-            '\u{e857}', // 61-70
-            '\u{e858}', // 71-80
-            '\u{e859}', // 81-90
-            '\u{e83f}', // 91-100
-            '\u{e83f}', // fallback (101+)
+            '\u{eba1}', // 1-10
+            '\u{eba2}', // 11-20
+            '\u{eba3}', // 21-30
+            '\u{eba4}', // 31-40
+            '\u{eba5}', // 41-50
+            '\u{eba6}', // 51-60
+            '\u{eba7}', // 61-70
+            '\u{eba8}', // 71-80
+            '\u{eba9}', // 81-90
+            '\u{ebaa}', // 91-100
+            '\u{ebaa}', // fallback (101+)
         ];
         ICONS[((battery_level - 1) / 10).min(10) as usize].to_string()
     };
 
     let width = 64;
     let height = 64;
+
     let font_name = "Segoe Fluent Icons";
 
     let font_size = font_size.map(|s| s as f64).unwrap_or(64.0);
