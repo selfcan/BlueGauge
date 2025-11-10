@@ -11,12 +11,10 @@ use crate::{
     notify::NotifyEvent,
 };
 
-use std::{
-    collections::hash_map::Entry,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
+use std::collections::hash_map::Entry;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use anyhow::{Context, Result, anyhow};

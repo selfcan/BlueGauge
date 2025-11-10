@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::ops::Deref;
-
 use crate::bluetooth::info::BluetoothInfo;
 use crate::config::{Config, TrayIconStyle};
 use crate::language::LOC;
 use crate::startup::get_startup_status;
+
+use std::collections::HashMap;
+use std::ops::Deref;
 
 use anyhow::{Context, Result};
 use tray_icon::menu::{

@@ -4,15 +4,13 @@ use crate::{
     notify::NotifyEvent,
 };
 
-use std::{
-    collections::{
-        HashMap, HashSet,
-        hash_map::Entry::{Occupied, Vacant},
-    },
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
+use std::collections::{
+    HashMap, HashSet,
+    hash_map::Entry::{Occupied, Vacant},
+};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use anyhow::{Context, Result, anyhow};

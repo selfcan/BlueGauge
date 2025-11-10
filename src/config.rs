@@ -1,16 +1,17 @@
+use crate::tray::menu_item::UserMenuItem;
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::{
+    LazyLock, Mutex,
+    atomic::{AtomicBool, AtomicU8, Ordering},
+};
 
 use anyhow::{Result, anyhow};
 use log::warn;
 use piet_common::Color;
 use serde::{Deserialize, Serialize};
 use tray_icon::menu::MenuId;
-
-use crate::tray::menu_item::UserMenuItem;
 
 pub static EXE_PATH: LazyLock<PathBuf> =
     LazyLock::new(|| std::env::current_exe().expect("Failed to get BlueGauge.exe path"));

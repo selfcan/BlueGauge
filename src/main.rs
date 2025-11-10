@@ -11,9 +11,11 @@ mod startup;
 mod theme;
 mod tray;
 
-use crate::bluetooth::info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info};
-use crate::bluetooth::watch::Watcher;
-use crate::config::*;
+use crate::bluetooth::{
+    info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info},
+    watch::Watcher,
+};
+use crate::config::Config;
 use crate::notify::{NotifyEvent, notify};
 use crate::single_instance::SingleInstance;
 use crate::theme::{SystemTheme, listen_system_theme};

@@ -1,17 +1,16 @@
-use std::collections::HashMap;
-use std::ffi::OsString;
-use std::ops::Deref;
-use std::process::Command;
-use std::sync::{Arc, atomic::Ordering};
-
 use super::menu_item::UserMenuItem;
-
 use crate::UserEvent;
 use crate::{
     config::{ASSETS_PATH, CONFIG_PATH, ColorScheme, Config, EXE_PATH, TrayIconStyle},
     notify::notify,
     startup::set_startup,
 };
+
+use std::collections::HashMap;
+use std::ffi::OsString;
+use std::ops::Deref;
+use std::process::Command;
+use std::sync::{Arc, atomic::Ordering};
 
 use log::error;
 use tray_icon::menu::{CheckMenuItem, MenuId};

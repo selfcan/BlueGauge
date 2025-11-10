@@ -2,14 +2,13 @@ pub mod icon;
 pub mod menu_handlers;
 pub mod menu_item;
 
-use std::collections::HashMap;
-
 use super::tray::{
     icon::{load_app_icon, load_tray_icon},
     menu_item::create_menu,
 };
-
 use crate::{bluetooth::info::BluetoothInfo, config::Config};
+
+use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
 use tray_icon::{

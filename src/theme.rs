@@ -1,3 +1,5 @@
+use crate::UserEvent;
+
 use std::sync::{
     Arc, RwLock,
     atomic::{AtomicBool, Ordering},
@@ -8,8 +10,6 @@ use winreg::{
     RegKey,
     enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE},
 };
-
-use crate::UserEvent;
 
 const PERSONALIZE_REGISTRY_KEY: &str =
     r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";

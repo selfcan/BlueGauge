@@ -1,8 +1,10 @@
-use anyhow::{Context, Result, anyhow};
-use winreg::RegKey;
-use winreg::enums::*;
+use super::config::{EXE_NAME, EXE_PATH_STRING};
 
-use crate::{EXE_NAME, EXE_PATH_STRING};
+use anyhow::{Context, Result, anyhow};
+use winreg::{
+    RegKey,
+    enums::{HKEY_CURRENT_USER, KEY_READ},
+};
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 
