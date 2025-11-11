@@ -244,12 +244,12 @@ impl CreateMenuItem {
             [
                 (
                     UserMenuItem::TrayIconStyleHorizontalBatteryIcon,
-                    "Battery Icon (Horizontal)",
+                    LOC.horizontal_battery_icon,
                     select_horizontal_battery_icon
                 ),
                 (
                     UserMenuItem::TrayIconStyleVerticalBatteryIcon,
-                    "Battery Icon (Vertical)",
+                    LOC.vertical_battery_icon,
                     select_vertical_battery_icon
                 ),
                 (
@@ -329,7 +329,7 @@ impl CreateMenuItem {
         define_check_menu_items!(
             self,
             [    // todo: require localization
-                (UserMenuItem::NotifyDeviceStayOnScreen, "stay_on_screen", config.get_stay_on_screen()),
+                (UserMenuItem::NotifyDeviceStayOnScreen, LOC.stay_on_screen, config.get_stay_on_screen()),
             ]
         )
     }
@@ -403,7 +403,7 @@ pub fn create_menu(
                 .iter()
                 .map(|item| item as &dyn IsMenuItem),
         );
-        &Submenu::with_items(LOC.tray_config, true, &menu_tray_options)?
+        &Submenu::with_items(LOC.tray_options, true, &menu_tray_options)?
     };
 
     let menu_notify_options = {
