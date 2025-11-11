@@ -64,8 +64,7 @@ async fn main() -> anyhow::Result<()> {
     }));
 
     let proxy = event_loop.create_proxy();
-    let mut app = App::new().await;
-    app.add_proxy(Some(proxy));
+    let mut app = App::new(proxy).await;
     event_loop.run_app(&mut app)?;
 
     Ok(())
@@ -77,7 +76,7 @@ struct App {
     bluetooth_devcies_info: BluetoothDevicesInfo,
     config: Arc<Config>,
     watcher: Option<Watcher>,
-    event_loop_proxy: Option<EventLoopProxy<UserEvent>>,
+    event_loop_proxy: EventLoopProxy<UserEvent>,
     exit_threads: Arc<AtomicBool>,
     /// 存储已经通知过的低电量设备（地址），避免再次通知
     notified_devices: Arc<Mutex<HashSet<u64>>>,
@@ -88,7 +87,7 @@ struct App {
 }
 
 impl App {
-    async fn new() -> Self {
+    async fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Self {
         let config = Config::open().expect("Failed to open config");
 
         let (btc_devices, ble_devices) = find_bluetooth_devices()
@@ -99,6 +98,15 @@ impl App {
             .await
             .expect("Failed to get bluetooth devices info");
 
+        // 首次打开软件时，若存在低电量设备则发送通知
+        for device in bluetooth_devices_info.values() {
+            let _ = event_loop_proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                device.name.clone(),
+                device.battery,
+                device.address,
+            )));
+        }
+
         let (tray, tray_check_menus) =
             create_tray(&config, &bluetooth_devices_info).expect("Failed to create tray");
 
@@ -106,7 +114,7 @@ impl App {
             bluetooth_devcies_info: Arc::new(Mutex::new(bluetooth_devices_info)),
             config: Arc::new(config),
             watcher: None,
-            event_loop_proxy: None,
+            event_loop_proxy,
             exit_threads: Arc::new(AtomicBool::new(false)),
             notified_devices: Arc::new(Mutex::new(HashSet::new())),
             system_theme: Arc::new(RwLock::new(SystemTheme::get())),
@@ -126,14 +134,9 @@ enum UserEvent {
 }
 
 impl App {
-    fn add_proxy(&mut self, event_loop_proxy: Option<EventLoopProxy<UserEvent>>) -> &mut Self {
-        self.event_loop_proxy = event_loop_proxy;
-        self
-    }
-
     fn start_watch_devices(&mut self, devices_info: BluetoothDevicesInfo) {
         self.stop_watch_devices();
-        let mut watch = Watcher::new(devices_info, self.event_loop_proxy.clone().unwrap());
+        let mut watch = Watcher::new(devices_info, self.event_loop_proxy.clone());
         watch.start();
         self.watcher = Some(watch);
     }
@@ -155,7 +158,7 @@ impl App {
 
 impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        let proxy = self.event_loop_proxy.clone().expect("Failed to get proxy");
+        let proxy = self.event_loop_proxy.clone();
 
         self.start_watch_devices(Arc::clone(&self.bluetooth_devcies_info));
 
@@ -186,7 +189,7 @@ impl ApplicationHandler<UserEvent> for App {
                 let menu_handlers = MenuHandlers::new(
                     menu_id.clone(),
                     Arc::clone(&config),
-                    self.event_loop_proxy.clone().unwrap(),
+                    self.event_loop_proxy.clone(),
                     tray_check_menus,
                 );
                 menu_handlers.run();
