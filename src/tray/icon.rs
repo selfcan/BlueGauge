@@ -237,7 +237,7 @@ fn render_battery_icon(
 
         match is_connect_color {
             Some(true) => base_color,
-            Some(false) => base_color.with_alpha(0.6),
+            Some(false) => base_color.with_alpha(0.5),
             None => base_color,
         }
     };
