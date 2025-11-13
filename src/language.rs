@@ -43,6 +43,7 @@ pub struct Localization {
     // Setting - Tray Options - Set Icon Connect Color
     pub set_icon_connect_color: &'static str,
     // Setting - Tray Options - Tray Tooltip
+    pub tray_tooltip_options: &'static str,
     pub show_disconnected: &'static str,
     pub truncate_name: &'static str,
     pub prefix_battery: &'static str,
@@ -80,6 +81,7 @@ const ZH_CN: Localization = Localization {
     //
     set_icon_connect_color: "设置图标为连接配色",
     //
+    tray_tooltip_options: "托盘提示选项",
     show_disconnected: "显示未连接设备",
     truncate_name: "裁剪设备的名称",
     prefix_battery: "电量显示名称前",
@@ -117,6 +119,7 @@ const ZH_HANT: Localization = Localization {
     //
     set_icon_connect_color: "設定圖示為連線配色",
     //
+    tray_tooltip_options: "托盤提示選項",
     show_disconnected: "顯示未連接設備",
     truncate_name: "裁剪設備的名稱",
     prefix_battery: "電量顯示名稱前",
@@ -154,6 +157,7 @@ const EN_US: Localization = Localization {
     //
     set_icon_connect_color: "Set Icon to Connected Color",
     //
+    tray_tooltip_options: "Tray Tooltip Options",
     show_disconnected: "Show show_disconnected Devices",
     truncate_name: "Truncate Device Name",
     prefix_battery: "Battery Before Name",
@@ -191,6 +195,7 @@ const JA_JP: Localization = Localization {
     //
     set_icon_connect_color: "アイコンを接続状態の配色に設定する",
     //
+    tray_tooltip_options: "トレイツールチップのオプション",
     show_disconnected: "切断されたデバイスを表示",
     truncate_name: "デバイス名を切り捨てる",
     prefix_battery: "電池前に名前",
@@ -228,6 +233,7 @@ const KO_KR: Localization = Localization {
     //
     set_icon_connect_color: "아이콘을 연결 색상으로 설정",
     //
+    tray_tooltip_options: "트레이 툴팁 옵션",
     show_disconnected: "연결 끊긴 장치 표시",
     truncate_name: "장치 이름 자르기",
     prefix_battery: "이름 앞에 배터리",
@@ -265,6 +271,7 @@ const DE_DE: Localization = Localization {
     //
     set_icon_connect_color: "Symbolfarbe auf „Verbunden“ setzen",
     //
+    tray_tooltip_options: "Tray-Tooltip-Optionen",
     show_disconnected: "Getrennte Geräte anzeigen",
     truncate_name: "Gerätenamen kürzen",
     prefix_battery: "Batterie vor Name",
@@ -302,6 +309,7 @@ const RU_RU: Localization = Localization {
     //
     set_icon_connect_color: "Установить цвет значка как при подключении",
     //
+    tray_tooltip_options: "Параметры всплывающей подсказки в трее",
     show_disconnected: "Показать отключенные устройства",
     truncate_name: "Обрезать имя устройства",
     prefix_battery: "Батарея перед именем",
@@ -339,6 +347,7 @@ const AR_SA: Localization = Localization {
     //
     set_icon_connect_color: "Установить цвет значка как при подключении",
     //
+    tray_tooltip_options: "خيارات تلميح علبة النظام",
     show_disconnected: "عرض الأجهزة غير المتصلة",
     truncate_name: "اقتطاع اسم الجهاز",
     prefix_battery: "البطارية قبل الاسم",
@@ -376,6 +385,7 @@ const FR_FR: Localization = Localization {
     //
     set_icon_connect_color: "Définir l’icône avec la couleur de connexion",
     //
+    tray_tooltip_options: "Options d'infobulle de la barre d'état système",
     show_disconnected: "Afficher les appareils déconnectés",
     truncate_name: "Tronquer le nom de l'appareil",
     prefix_battery: "Batterie avant nom",
