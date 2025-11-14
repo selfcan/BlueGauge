@@ -41,6 +41,7 @@ pub enum UserMenuItem {
     Quit,
     Restart,
     Startup,
+    Refresh,
     //
     BluetoothDeviceAddress(u64),
     //
@@ -71,6 +72,7 @@ impl UserMenuItem {
             UserMenuItem::Quit => MenuId::new("quit"),
             UserMenuItem::Restart => MenuId::new("restart"),
             UserMenuItem::Startup => MenuId::new("startup"),
+            UserMenuItem::Refresh => MenuId::new("refresh"),
             //
             UserMenuItem::BluetoothDeviceAddress(u64) => MenuId::from(u64),
             //
@@ -103,6 +105,7 @@ impl UserMenuItem {
             UserMenuItem::Quit.id(),
             UserMenuItem::Restart.id(),
             UserMenuItem::Startup.id(),
+            UserMenuItem::Refresh.id(),
             //
             UserMenuItem::OpenConfig.id(),
             //
@@ -193,6 +196,10 @@ impl CreateMenuItem {
         let menu = CheckMenuItem::with_id(menu_id.clone(), text, true, should_startup, None);
         self.0.insert(menu_id, menu.clone());
         Ok(menu)
+    }
+
+    fn refresh(text: &str) -> MenuItem {
+        MenuItem::with_id(UserMenuItem::Refresh.id(), text, true, None)
     }
 
     fn bluetooth_devices(
@@ -405,6 +412,8 @@ pub fn create_menu(
 
     let menu_about = CreateMenuItem::about(LOC.about);
 
+    let menu_refresh = CreateMenuItem::refresh(LOC.refresh);
+
     let menu_restart = CreateMenuItem::restart(LOC.restart);
 
     let menu_bluetooth_devicess =
@@ -488,7 +497,13 @@ pub fn create_menu(
         .context("Failed to apped 'Separator' to Tray Menu")?;
     tray_menu
         .append(&menu_restart)
-        .context("Failed to apped 'Force Update' to Tray Menu")?;
+        .context("Failed to apped 'Restart' to Tray Menu")?;
+    tray_menu
+        .append(&menu_separator)
+        .context("Failed to apped 'Separator' to Tray Menu")?;
+    tray_menu
+        .append(&menu_refresh)
+        .context("Failed to apped 'Refresh' to Tray Menu")?;
     tray_menu
         .append(&menu_separator)
         .context("Failed to apped 'Separator' to Tray Menu")?;

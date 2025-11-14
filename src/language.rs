@@ -27,6 +27,7 @@ impl Localization {
 pub struct Localization {
     pub quit: &'static str,
     pub about: &'static str,
+    pub refresh: &'static str,
     pub restart: &'static str,
     pub startup: &'static str,
     // Setting
@@ -65,6 +66,7 @@ pub struct Localization {
 const ZH_CN: Localization = Localization {
     quit: "退出",
     about: "关于",
+    refresh: "刷新",
     restart: "重启应用",
     startup: "开机自启",
     //
@@ -103,6 +105,7 @@ const ZH_CN: Localization = Localization {
 const ZH_HANT: Localization = Localization {
     quit: "退出",
     about: "關于",
+    refresh: "刷新",
     restart: "重啟應用",
     startup: "開機自啓",
     //
@@ -141,6 +144,7 @@ const ZH_HANT: Localization = Localization {
 const EN_US: Localization = Localization {
     quit: "Quit",
     about: "About",
+    refresh: "Refresh",
     restart: "Restart App",
     startup: "Launch at Startup",
     //
@@ -179,6 +183,7 @@ const EN_US: Localization = Localization {
 const JA_JP: Localization = Localization {
     quit: "終了",
     about: "約",
+    refresh: "更新する",
     restart: "アプリを再起動する",
     startup: "スタートアップで起動",
     //
@@ -217,6 +222,7 @@ const JA_JP: Localization = Localization {
 const KO_KR: Localization = Localization {
     quit: "종료",
     about: "정보",
+    refresh: "새로 고침",
     restart: "애플리케이션 다시 시작",
     startup: "시작 시 실행",
     //
@@ -255,6 +261,7 @@ const KO_KR: Localization = Localization {
 const DE_DE: Localization = Localization {
     quit: "Beenden",
     about: "Über",
+    refresh: "Aktualisieren",
     restart: "Anwendung neu starten",
     startup: "Beim Start ausführen",
     //
@@ -293,6 +300,7 @@ const DE_DE: Localization = Localization {
 const RU_RU: Localization = Localization {
     quit: "Выход",
     about: "О программе",
+    refresh: "Обновить",
     restart: "Перезапустить приложение",
     startup: "Запуск при старте",
     //
@@ -331,6 +339,7 @@ const RU_RU: Localization = Localization {
 const AR_SA: Localization = Localization {
     quit: "خروج",
     about: "حول",
+    refresh: "تحديث",
     restart: "إعادة تشغيل التطبيق",
     startup: "تشغيل عند بدء التشغيل",
     //
@@ -369,6 +378,7 @@ const AR_SA: Localization = Localization {
 const FR_FR: Localization = Localization {
     quit: "Quitter",
     about: "À propos",
+    refresh: "Rafraîchir",
     restart: "Redémarrer l’application",
     startup: "Lancer au démarrage",
     //

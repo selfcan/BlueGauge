@@ -131,6 +131,7 @@ enum UserEvent {
     MenuEvent(MenuEvent),
     Notify(NotifyEvent),
     UpdateTray,
+    Refresh,
 }
 
 impl App {
@@ -231,6 +232,33 @@ impl ApplicationHandler<UserEvent> for App {
                     .and_then(|info| load_tray_icon(&config, info.battery, info.status).ok())
                     .or_else(|| load_app_icon().ok());
                 let _ = tray.set_icon(icon);
+            }
+            UserEvent::Refresh => {
+                let bluetooth_devices_info = futures::executor::block_on(async {
+                    let (btc_devices, ble_devices) = find_bluetooth_devices()
+                        .await
+                        .expect("Failed to find bluetooth devices");
+
+                    get_bluetooth_devices_info((&btc_devices, &ble_devices))
+                        .await
+                        .expect("Failed to get bluetooth devices info")
+                });
+
+                for device in bluetooth_devices_info.values() {
+                    let _ = self.event_loop_proxy.send_event(UserEvent::Notify(
+                        NotifyEvent::LowBattery(
+                            device.name.clone(),
+                            device.battery,
+                            device.address,
+                        ),
+                    ));
+                }
+
+                {
+                    *self.bluetooth_devcies_info.lock().unwrap() = bluetooth_devices_info;
+                }
+
+                let _ = self.event_loop_proxy.send_event(UserEvent::UpdateTray);
             }
         }
     }

@@ -48,6 +48,8 @@ impl MenuHandlers {
 
         if menu_id == &UserMenuItem::Quit.id() {
             self.quit();
+        } else if menu_id == &UserMenuItem::Refresh.id() {
+            self.refresh();
         } else if menu_id == &UserMenuItem::Restart.id() {
             self.restart();
         } else if menu_id == &UserMenuItem::Startup.id() {
@@ -71,6 +73,10 @@ impl MenuHandlers {
 
     fn quit(&self) {
         let _ = self.proxy.send_event(UserEvent::Exit);
+    }
+
+    fn refresh(&self) {
+        let _ = self.proxy.send_event(UserEvent::Refresh);
     }
 
     fn restart(&self) {
@@ -206,7 +212,7 @@ impl MenuHandlers {
             item.set_checked(should_check);
         });
 
-        // ****************************注意，有新图标样式的时候，请重构这里
+        // WARN: 有新图标样式的时候，请重构这里
         {
             let mut tray_icon_style = self.config.tray_options.tray_icon_style.lock().unwrap();
             let address = tray_icon_style.get_address();
