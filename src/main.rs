@@ -209,26 +209,25 @@ impl ApplicationHandler<UserEvent> for App {
                     .load(Ordering::Relaxed);
 
                 // 要在创建菜单之前，能及时更新设备勾选
-                if should_show_lowest_battery_device {
-                    if let Some((address, info)) = self.bluetooth_devcies_info
+                if should_show_lowest_battery_device
+                    && let Some((address, info)) = self
+                        .bluetooth_devcies_info
                         .lock()
                         .unwrap()
                         .iter()
                         .filter(|(_, v)| v.status)
                         .min_by_key(|(_, v)| v.battery)
-                    {
-                        info!("Show Lowest Battery Device: {}", info.name);
+                {
+                    info!("Show Lowest Battery Device: {}", info.name);
 
-                        self
-                            .config
-                            .tray_options
-                            .tray_icon_style
-                            .lock()
-                            .unwrap()
-                            .update_address(*address);
+                    self.config
+                        .tray_options
+                        .tray_icon_style
+                        .lock()
+                        .unwrap()
+                        .update_address(*address);
 
-                        self.config.save();
-                    }
+                    self.config.save();
                 }
 
                 let tray_menu = match create_menu(&config, &current_devices_info) {

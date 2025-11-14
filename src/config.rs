@@ -394,8 +394,7 @@ impl Config {
     }
 
     pub fn get_show_lowest_battery_device(&self) -> bool {
-        self
-            .tray_options
+        self.tray_options
             .show_lowest_battery_device
             .load(Ordering::Relaxed)
     }
