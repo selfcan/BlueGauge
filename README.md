@@ -17,9 +17,9 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 2. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`  
 `font_name` = `"系统字体名称，如 Microsoft YaHei UI"`（默认 `Arial`）  
 `font_color` = `"十六进制颜色代码，如 #FFFFFF、#00D26A"`（默认字体颜色跟随系统主题）  
-`font_size` = `0~255`  （默认 `64`）   
-3. 重新启动 BlueGauge
-4. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
+`font_size` = `0~255`  （默认 `64`）  
+  更改配置文件后，重新启动 BlueGauge
+3. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
 
 <div align="center">
     <img src="screenshots/battery.png" style="width=90%; display:block; margin:0 auto 10px;" />
@@ -40,8 +40,8 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 3. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`   
 `highlight_color`（电量颜色） = `"十六进制颜色代码，如 #4CD082"`（默认绿色，当设备低电量时为红色）    
 `background_color`（无电量颜色） = `"十六进制颜色代码，如 #DADADA"`（默认灰色随系统主题调整）   
-4. 重新启动 BlueGauge   
-5. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`
+    更改配置文件后，重新启动 BlueGauge 
+4. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`
 
 <div align="center">
     <div style="display:flex; justify-content:space-between; width:100%; margin:0 auto;">
