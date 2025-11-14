@@ -9,7 +9,7 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 ## 功能
 
-- [x] 设置：蓝牙设备电量作为托盘图标    
+1. 设置：蓝牙设备电量作为托盘图标    
 <details>
 <summary>使用数字图标（默认）</summary>
 
@@ -79,9 +79,9 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 2. 重新启动 BlueGauge
 </details>
 
-- [x] 设置：开机自启动 
+2. 设置：开机自启动 
 
-- [x] 设置：蓝牙设备名称别名
+3. 设置：蓝牙设备名称别名
 
     1. 打开托盘菜单-`设置`-`打开配置`   
 
@@ -92,20 +92,20 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
         - 例如 `"HUAWEI FreeBuds Pro" = "FreeBuds Pro"`
         - 例如 `"OPPO Enco Air3" = "Enco Air3"`
 
-- [x] 设置：托盘提示
+4. 设置：托盘提示
 
     - 显示未连接的设备
     - 限制设备名称长度
     - 更改设备电量位置
 
-- [x] 设置：通知
+5. 设置：通知
 
     - 低电量时通知
     - 重新连接时通知
     - 断开连接时通知
     - 添加设备时通知
     - 移除设备时通知
-
+    - 通知常驻屏幕
 ## 下载
 
 默认请下载 **x86_64** 版本，特殊系统 Windows on ARM 下载 arm 版本

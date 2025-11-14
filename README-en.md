@@ -7,7 +7,7 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 ## Function
 
-- [x] Setting：Bluetooth battery level as tray icon  
+1. Setting: Bluetooth battery level as tray icon  
 
 <details>
 <summary>Use number icon (default)</summary>
@@ -81,8 +81,9 @@ Note: Windows 10 requires downloading and installing the [Segoe Fluent Icons](ht
 
 </details>
 
-- [x] Setting：Auto start
-- [x] Setting：Bluetooth device name aliases
+2. Setting: Auto start
+
+3. Setting: Bluetooth device name aliases
 
     1. open tray menu -- `Settings` -- `Open Config`   
 
@@ -94,20 +95,20 @@ Note: Windows 10 requires downloading and installing the [Segoe Fluent Icons](ht
         - e.g. `"HUAWEI FreeBuds Pro" = "FreeBuds Pro"`
         - e.g. `"OPPO Enco Air3" = "Enco Air3"`
 
-- [x] Setting: tooltip
+4. Setting: tooltip
 
     - Shows unconnected devices
     - Truncate devices Name
     - Changing the device power location
 
-- [x] Setting: notice
+5. Setting: notice
 
     - Low battery notice
     - Notification when reconnecting the device
     - Notification when disconnecting the device
     - Notification when adding a new device
     - Notification when moving a new device
-
+    - Notifications stay on the screen
 ## Download: 
 
 
