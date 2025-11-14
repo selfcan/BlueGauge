@@ -1,6 +1,6 @@
 [package]
 name = "BlueGauge"
-version = "0.3.2"
+version = "0.3.4"
 edition = "2024"
 description = "A lightweight tray tool for easy viewing of the battery level of the Bluetooth device."
 authors = ["iKineticate <https://github.com/iKineticate>"]
