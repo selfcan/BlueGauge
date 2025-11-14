@@ -43,6 +43,8 @@ pub struct Localization {
     pub ring_icon: &'static str,
     // Setting - Tray Options - Set Icon Connect Color
     pub set_icon_connect_color: &'static str,
+    // Setting - Tray Options - Show Lowest Battery Device
+    pub show_lowest_battery_device: &'static str,
     // Setting - Tray Options - Tray Tooltip
     pub tray_tooltip_options: &'static str,
     pub show_disconnected: &'static str,
@@ -83,6 +85,8 @@ const ZH_CN: Localization = Localization {
     //
     set_icon_connect_color: "设置图标为连接配色",
     //
+    show_lowest_battery_device: "显示最低电量的设备",
+    //
     tray_tooltip_options: "托盘提示选项",
     show_disconnected: "显示未连接设备",
     truncate_name: "裁剪设备的名称",
@@ -121,6 +125,8 @@ const ZH_HANT: Localization = Localization {
     ring_icon: "圓環圖標",
     //
     set_icon_connect_color: "設定圖示為連線配色",
+    //
+    show_lowest_battery_device: "顯示最低電量的設備",
     //
     tray_tooltip_options: "托盤提示選項",
     show_disconnected: "顯示未連接設備",
@@ -161,6 +167,8 @@ const EN_US: Localization = Localization {
     //
     set_icon_connect_color: "Set Icon to Connected Color",
     //
+    show_lowest_battery_device: "Show Lowest Battery Device",
+    //
     tray_tooltip_options: "Tray Tooltip Options",
     show_disconnected: "Show show_disconnected Devices",
     truncate_name: "Truncate Device Name",
@@ -199,6 +207,8 @@ const JA_JP: Localization = Localization {
     ring_icon: "リングアイコン",
     //
     set_icon_connect_color: "アイコンを接続状態の配色に設定する",
+    //
+    show_lowest_battery_device: "最低バッテリーのデバイスを表示する",
     //
     tray_tooltip_options: "トレイツールチップのオプション",
     show_disconnected: "切断されたデバイスを表示",
@@ -239,6 +249,8 @@ const KO_KR: Localization = Localization {
     //
     set_icon_connect_color: "아이콘을 연결 색상으로 설정",
     //
+    show_lowest_battery_device: "최저 배터리 장치 표시",
+    //
     tray_tooltip_options: "트레이 툴팁 옵션",
     show_disconnected: "연결 끊긴 장치 표시",
     truncate_name: "장치 이름 자르기",
@@ -277,6 +289,8 @@ const DE_DE: Localization = Localization {
     ring_icon: "Ringsymbol",
     //
     set_icon_connect_color: "Symbolfarbe auf „Verbunden“ setzen",
+    //
+    show_lowest_battery_device: "Gerät mit niedrigster Batterie anzeigen",
     //
     tray_tooltip_options: "Tray-Tooltip-Optionen",
     show_disconnected: "Getrennte Geräte anzeigen",
@@ -317,6 +331,8 @@ const RU_RU: Localization = Localization {
     //
     set_icon_connect_color: "Установить цвет значка как при подключении",
     //
+    show_lowest_battery_device: "Показать устройство с низким зарядом батареи",
+    //
     tray_tooltip_options: "Параметры всплывающей подсказки в трее",
     show_disconnected: "Показать отключенные устройства",
     truncate_name: "Обрезать имя устройства",
@@ -356,6 +372,8 @@ const AR_SA: Localization = Localization {
     //
     set_icon_connect_color: "Установить цвет значка как при подключении",
     //
+    show_lowest_battery_device: "إظهار الجهاز ذو البطارية الأقل",
+    //
     tray_tooltip_options: "خيارات تلميح علبة النظام",
     show_disconnected: "عرض الأجهزة غير المتصلة",
     truncate_name: "اقتطاع اسم الجهاز",
@@ -394,6 +412,8 @@ const FR_FR: Localization = Localization {
     ring_icon: "Icône en anneau",
     //
     set_icon_connect_color: "Définir l’icône avec la couleur de connexion",
+    //
+    show_lowest_battery_device: "Afficher l’appareil avec la batterie la plus faible",
     //
     tray_tooltip_options: "Options d'infobulle de la barre d'état système",
     show_disconnected: "Afficher les appareils déconnectés",

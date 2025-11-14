@@ -47,11 +47,14 @@ pub enum UserMenuItem {
     //
     OpenConfig,
     //
+    ShowLowestBatteryDevice,
+    //
+    SetIconConnectColor,
+    //
     TrayIconStyleHorizontalBatteryIcon,
     TrayIconStyleVerticalBatteryIcon,
     TrayIconStyleNumber,
     TrayIconStyleRing,
-    SetIconConnectColor,
     //
     TrayTooltipShowDisconnected,
     TrayTooltipTruncateName,
@@ -78,7 +81,10 @@ impl UserMenuItem {
             //
             UserMenuItem::OpenConfig => MenuId::new("open_config"),
             //
+            UserMenuItem::ShowLowestBatteryDevice => MenuId::new("show_lowest_battery_device"),
+            //
             UserMenuItem::SetIconConnectColor => MenuId::new("set_icon_connect_color"),
+            //
             UserMenuItem::TrayIconStyleHorizontalBatteryIcon => {
                 MenuId::new("horizontal_battery_icon")
             }
@@ -108,6 +114,8 @@ impl UserMenuItem {
             UserMenuItem::Refresh.id(),
             //
             UserMenuItem::OpenConfig.id(),
+            //
+            UserMenuItem::ShowLowestBatteryDevice.id(),
             //
             UserMenuItem::SetIconConnectColor.id(),
         ];
@@ -398,6 +406,21 @@ impl CreateMenuItem {
 
         menu
     }
+
+    fn show_lowest_battery_device(&mut self, config: &Config) -> CheckMenuItem {
+        let menu_id = UserMenuItem::ShowLowestBatteryDevice.id();
+        let menu = CheckMenuItem::with_id(
+            menu_id.clone(),
+            LOC.show_lowest_battery_device,
+            true,
+            config.get_show_lowest_battery_device(),
+            None,
+        );
+
+        self.0.insert(menu_id, menu.clone());
+
+        menu
+    }
 }
 
 pub fn create_menu(
@@ -428,11 +451,13 @@ pub fn create_menu(
     let menu_open_config = &CreateMenuItem::open_config(LOC.open_config);
 
     let menu_tray_options = {
+        let menu_show_lowest_battery_device = create_menu_item.show_lowest_battery_device(config);
         let menu_set_icon_connect_color = create_menu_item.set_icon_connect_color(config);
         let menu_tray_icon_style = create_menu_item.tray_icon_style(config);
         let menu_tray_tooltip_options = create_menu_item.tray_tooltip_options(config);
 
         let menu_tray_options: Vec<&dyn IsMenuItem> = vec![
+            &menu_show_lowest_battery_device as &dyn IsMenuItem,
             &menu_set_icon_connect_color as &dyn IsMenuItem,
             &menu_tray_icon_style as &dyn IsMenuItem,
             &menu_tray_tooltip_options as &dyn IsMenuItem,

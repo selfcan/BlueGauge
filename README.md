@@ -79,7 +79,7 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 2. 重新启动 BlueGauge
 </details>
 
-2. 设置：开机自启动 
+2. 设置：显示最低电量的（已连接）设备
 
 3. 设置：蓝牙设备名称别名
 
@@ -106,6 +106,9 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
     - 添加设备时通知
     - 移除设备时通知
     - 通知常驻屏幕
+
+6. 设置：开机自启动 
+
 ## 下载
 
 默认请下载 **x86_64** 版本，特殊系统 Windows on ARM 下载 arm 版本

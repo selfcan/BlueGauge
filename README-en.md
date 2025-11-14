@@ -81,7 +81,7 @@ Note: Windows 10 requires downloading and installing the [Segoe Fluent Icons](ht
 
 </details>
 
-2. Setting: Auto start
+2. Settings: Show the (connected) devices with the lowest battery
 
 3. Setting: Bluetooth device name aliases
 
@@ -109,6 +109,9 @@ Note: Windows 10 requires downloading and installing the [Segoe Fluent Icons](ht
     - Notification when adding a new device
     - Notification when moving a new device
     - Notifications stay on the screen
+
+6. Setting: Auto start
+
 ## Download: 
 
 

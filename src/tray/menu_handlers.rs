@@ -56,6 +56,8 @@ impl MenuHandlers {
             self.startup();
         } else if menu_id == &UserMenuItem::OpenConfig.id() {
             self.open_config();
+        } else if menu_id == &UserMenuItem::ShowLowestBatteryDevice.id() {
+            self.show_lowest_battery_device();
         } else if menu_id == &UserMenuItem::SetIconConnectColor.id() {
             self.set_icon_connect_color();
         } else if low_battery_menu_id.contains(menu_id) {
@@ -100,6 +102,20 @@ impl MenuHandlers {
             set_startup(item.is_checked()).expect("Failed to set Launch at Startup")
         } else {
             error!("Not find startup menu id")
+        }
+    }
+
+    fn show_lowest_battery_device(&self) {
+        if let Some(item) = self.tray_check_menus.get(&self.menu_id) {
+            self.config
+                .tray_options
+                .show_lowest_battery_device
+                .store(item.is_checked(), Ordering::Relaxed);
+
+            // 在 UserEvent::UpdateTray 中已存在保存配置方法
+            // self.config.save();
+
+            let _ = self.proxy.send_event(UserEvent::UpdateTray);
         }
     }
 

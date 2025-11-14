@@ -245,6 +245,8 @@ pub struct TrayOptions {
     pub tooltip_options: TooltipOptions,
     #[serde(rename = "icon")]
     pub tray_icon_style: Mutex<TrayIconStyle>,
+    #[serde(with = "atomic_bool_serde")]
+    pub show_lowest_battery_device: AtomicBool,
 }
 
 impl Default for TrayOptions {
@@ -252,6 +254,7 @@ impl Default for TrayOptions {
         TrayOptions {
             tooltip_options: TooltipOptions::default(),
             tray_icon_style: Mutex::new(TrayIconStyle::App),
+            show_lowest_battery_device: AtomicBool::new(false),
         }
     }
 }
@@ -388,6 +391,13 @@ impl Config {
             .get(device_name)
             .unwrap_or(device_name)
             .to_owned()
+    }
+
+    pub fn get_show_lowest_battery_device(&self) -> bool {
+        self
+            .tray_options
+            .show_lowest_battery_device
+            .load(Ordering::Relaxed)
     }
 
     pub fn get_stay_on_screen(&self) -> bool {

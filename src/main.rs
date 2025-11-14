@@ -30,11 +30,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
-use log::error;
-use tray_icon::menu::MenuId;
+use log::{error, info};
 use tray_icon::{
     TrayIcon,
-    menu::{CheckMenuItem, MenuEvent},
+    menu::{CheckMenuItem, MenuEvent, MenuId},
 };
 use winit::{
     application::ApplicationHandler,
@@ -204,6 +203,34 @@ impl ApplicationHandler<UserEvent> for App {
 
                 let tray = self.tray.lock().unwrap();
 
+                let should_show_lowest_battery_device = config
+                    .tray_options
+                    .show_lowest_battery_device
+                    .load(Ordering::Relaxed);
+
+                // 要在创建菜单之前，能及时更新设备勾选
+                if should_show_lowest_battery_device {
+                    if let Some((address, info)) = self.bluetooth_devcies_info
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .filter(|(_, v)| v.status)
+                        .min_by_key(|(_, v)| v.battery)
+                    {
+                        info!("Show Lowest Battery Device: {}", info.name);
+
+                        self
+                            .config
+                            .tray_options
+                            .tray_icon_style
+                            .lock()
+                            .unwrap()
+                            .update_address(*address);
+
+                        self.config.save();
+                    }
+                }
+
                 let tray_menu = match create_menu(&config, &current_devices_info) {
                     Ok((tray_menu, new_tray_check_menus)) => {
                         let mut tray_check_menus = self.tray_check_menus.lock().unwrap();
@@ -231,6 +258,7 @@ impl ApplicationHandler<UserEvent> for App {
                     .and_then(|address| current_devices_info.get(&address))
                     .and_then(|info| load_tray_icon(&config, info.battery, info.status).ok())
                     .or_else(|| load_app_icon().ok());
+
                 let _ = tray.set_icon(icon);
             }
             UserEvent::Refresh => {
