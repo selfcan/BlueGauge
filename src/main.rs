@@ -261,12 +261,18 @@ impl ApplicationHandler<UserEvent> for App {
                 {
                     info!("Show Lowest Battery Device: {}", info.name);
 
-                    self.config
+                    if !self
+                        .config
                         .tray_options
                         .tray_icon_style
                         .lock()
                         .unwrap()
-                        .update_address(*address);
+                        .update_address(*address)
+                    {
+                        // 如果默认是 APP 图标，则切换为数字图标
+                        *self.config.tray_options.tray_icon_style.lock().unwrap() =
+                            TrayIconStyle::default_number_icon(*address);
+                    };
 
                     self.config.save();
                 }
