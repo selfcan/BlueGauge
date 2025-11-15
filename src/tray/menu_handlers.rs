@@ -111,8 +111,7 @@ impl MenuHandlers {
                 .show_lowest_battery_device
                 .store(item.is_checked(), Ordering::Relaxed);
 
-            // 在 UserEvent::UpdateTray 中已存在保存配置方法
-            // self.config.save();
+            self.config.save();
 
             let _ = self.proxy.send_event(UserEvent::UpdateTray);
         }
