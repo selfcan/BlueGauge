@@ -34,24 +34,6 @@ fn notify_stay(text: impl AsRef<str>) {
         .expect("Failied to send notification");
 }
 
-pub fn notify_download_font() {
-    Toast::new(BLUETOOTH_APP_ID)
-        .title("BlueGauge")
-        .text1("Please download and install 'Segoe Fluent Icons' font")
-        .text2("Download Url: https://aka.ms/SegoeFluentIcons")
-        .add_button("Download", "download")
-        .on_activated(move |_| {
-            let url = "https://aka.ms/SegoeFluentIcons";
-            let _ = std::process::Command::new("powershell")
-                .arg("-Command")
-                .arg(format!("Start-Process {url}"))
-                .spawn();
-            Ok(())
-        })
-        .show()
-        .expect("Failied to send notification");
-}
-
 #[derive(Debug)]
 pub enum NotifyEvent {
     LowBattery(String, u8, u64),

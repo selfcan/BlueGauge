@@ -1,8 +1,9 @@
 use crate::{
     config::{ASSETS_PATH, Config, Direction, TrayIconStyle},
-    notify::notify_download_font,
     theme::SystemTheme,
 };
+
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
 use piet_common::{
@@ -129,8 +130,7 @@ fn load_battery_icon(
         direction,
         font_size,
         is_connect_color,
-    )
-    .inspect_err(|_| notify_download_font())?;
+    )?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
 }
@@ -178,9 +178,30 @@ fn render_battery_icon(
     font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
-    if !std::path::Path::new(r"C:\WINDOWS\FONTS\SEGOEICONS.TTF").try_exists()? {
-        return Err(anyhow!("Segoe Fluent Icons font not found"));
-    }
+    // Win11 使用 [Segoe Fluent Icons] 字体
+    // Win10 使用 [Segoe MDL2 Assets] 字体，若 win10 用户想要使用 Fluent 电池图标，需自行下载字体
+    let font_name = if !Path::new(r"C:\WINDOWS\FONTS\SEGOEICONS.TTF").is_file() {
+        std::env::var_os("LOCALAPPDATA")
+            .and_then(|local_appdata| {
+                let mut path = PathBuf::from(local_appdata);
+                path.push("Microsoft");
+                path.push("Windows");
+                path.push("Fonts");
+
+                let candidates = [
+                    "Segoe Fluent Icons.ttf",
+                    "SEGOEICONS.TTF",
+                    "SegoeFluentIcons.ttf",
+                ];
+
+                candidates
+                    .iter()
+                    .find_map(|name| path.join(name).is_file().then_some("Segoe Fluent Icons"))
+            })
+            .unwrap_or("Segoe MDL2 Assets")
+    } else {
+        "Segoe Fluent Icons"
+    };
 
     let indicator = if battery_level == 0 {
         if direction == Direction::Horizontal {
@@ -201,7 +222,7 @@ fn render_battery_icon(
                 '\u{eba8}', // 71-80
                 '\u{eba9}', // 81-90
                 '\u{ebaa}', // 91-100
-                '\u{ebaa}', // fallback (101+)
+                '\u{ec02}', // Unknown
             ]
         } else {
             [
@@ -215,7 +236,7 @@ fn render_battery_icon(
                 '\u{f5fa}', // 71-80
                 '\u{f5fb}', // 81-90
                 '\u{f5fc}', // 91-100
-                '\u{f5fc}', // fallback (101+)
+                '\u{f608}', // Unknown
             ]
         };
         ICONS[((battery_level - 1) / 10).min(10) as usize].to_string()
@@ -223,8 +244,6 @@ fn render_battery_icon(
 
     let width = 64;
     let height = 64;
-
-    let font_name = "Segoe Fluent Icons";
 
     let font_size = font_size.map(|s| s as f64).unwrap_or(64.0);
 

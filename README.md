@@ -56,7 +56,7 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 <details>
 <summary>使用电池图标</summary>
 
-注意：Windows10系统需下载和安装 [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) 字体方能使用该图标
+注意：Windows10系统用户需要 Fluent 电池图标，可下载并安装 [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons)
 1. 勾选需显示电量设备    
 2. 打开托盘菜单 - `设置` - `托盘选项` - `图标样式` - `电池图标`
 3. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`

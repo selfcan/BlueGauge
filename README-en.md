@@ -56,7 +56,7 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 <details>
 <summary>Use battery icon</summary>
 
-Note: Windows 10 requires downloading and installing the [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons) font to use this icon
+Note: Windows 10 users need the Fluent battery icon to download and install [Segoe Fluent Icons](https://aka.ms/SegoeFluentIcons)
 
 1. check the device that needs to display the battery    
 2. open tray menu - `Settings` - `Tray Options` - `Icon Style` - `Battery Icon`   
