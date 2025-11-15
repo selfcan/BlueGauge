@@ -6,11 +6,15 @@ use super::tray::{
     icon::{load_app_icon, load_tray_icon},
     menu_item::create_menu,
 };
-use crate::{bluetooth::info::BluetoothInfo, config::Config};
+use crate::{
+    bluetooth::info::BluetoothInfo,
+    config::{Config, TrayIconStyle},
+};
 
 use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
+use log::error;
 use tray_icon::{
     TrayIcon, TrayIconBuilder,
     menu::{CheckMenuItem, MenuId},
@@ -21,24 +25,31 @@ pub fn create_tray(
     config: &Config,
     bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
 ) -> Result<(TrayIcon, HashMap<MenuId, CheckMenuItem>)> {
-    let (tray_menu, tray_check_menus) =
-        create_menu(config, bluetooth_devices_info).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
-
-    let tray_icon_bt_address = {
-        config
-            .tray_options
-            .tray_icon_style
-            .lock()
-            .unwrap()
-            .get_address()
-    };
+    let tray_icon_bt_address = config
+        .tray_options
+        .tray_icon_style
+        .lock()
+        .unwrap()
+        .get_address();
 
     let icon = tray_icon_bt_address
         .and_then(|address| bluetooth_devices_info.get(&address))
         .map(|info| (info.battery, info.status))
-        .and_then(|(battery, status)| load_tray_icon(config, battery, status).ok())
-        .or_else(|| load_app_icon().ok())
+        .and_then(|(battery, status)| {
+            load_tray_icon(config, battery, status)
+                .inspect_err(|e| error!("Failed to load icon - {e}"))
+                .ok()
+        })
+        .or_else(|| {
+            // 载入图标失败时，需更新配置中的图标样式，注意要在创建菜单之前
+            *config.tray_options.tray_icon_style.lock().unwrap() = TrayIconStyle::App;
+            load_app_icon().ok()
+        })
         .expect("Failed to create tray's icon");
+
+    let (tray_menu, tray_check_menus) =
+        create_menu(config, bluetooth_devices_info).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
+
 
     let bluetooth_tooltip_info = convert_tray_info(bluetooth_devices_info, config);
 

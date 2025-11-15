@@ -15,7 +15,7 @@ use crate::bluetooth::{
     info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info},
     watch::Watcher,
 };
-use crate::config::Config;
+use crate::config::{Config, TrayIconStyle};
 use crate::notify::{NotifyEvent, notify};
 use crate::single_instance::SingleInstance;
 use crate::theme::{SystemTheme, listen_system_theme};
@@ -208,7 +208,7 @@ impl ApplicationHandler<UserEvent> for App {
                     .show_lowest_battery_device
                     .load(Ordering::Relaxed);
 
-                // 要在创建菜单之前，能及时更新设备勾选
+                // 要在创建菜单之前，保证能更新到勾选的设备
                 if should_show_lowest_battery_device
                     && let Some((address, info)) = self
                         .bluetooth_devcies_info
@@ -230,6 +230,25 @@ impl ApplicationHandler<UserEvent> for App {
                     self.config.save();
                 }
 
+                let tray_icon_bt_address = config
+                    .tray_options
+                    .tray_icon_style
+                    .lock()
+                    .unwrap()
+                    .get_address();
+                let icon = tray_icon_bt_address
+                    .and_then(|address| current_devices_info.get(&address))
+                    .and_then(|info| {
+                        load_tray_icon(&config, info.battery, info.status)
+                            .inspect_err(|e| error!("Failed to load icon - {e}"))
+                            .ok()
+                    })
+                    .or_else(|| {
+                        // 载入图标失败时，需更新配置中的图标样式，注意要在创建菜单之前
+                        *config.tray_options.tray_icon_style.lock().unwrap() = TrayIconStyle::App;
+                        load_app_icon().ok()
+                    });
+
                 let tray_menu = match create_menu(&config, &current_devices_info) {
                     Ok((tray_menu, new_tray_check_menus)) => {
                         let mut tray_check_menus = self.tray_check_menus.lock().unwrap();
@@ -246,17 +265,6 @@ impl ApplicationHandler<UserEvent> for App {
                 let bluetooth_tooltip_info = convert_tray_info(&current_devices_info, &config);
                 tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")))
                     .expect("Failed to set tray tooltip");
-
-                let tray_icon_bt_address = config
-                    .tray_options
-                    .tray_icon_style
-                    .lock()
-                    .unwrap()
-                    .get_address();
-                let icon = tray_icon_bt_address
-                    .and_then(|address| current_devices_info.get(&address))
-                    .and_then(|info| load_tray_icon(&config, info.battery, info.status).ok())
-                    .or_else(|| load_app_icon().ok());
 
                 let _ = tray.set_icon(icon);
             }
