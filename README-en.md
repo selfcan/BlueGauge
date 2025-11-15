@@ -117,6 +117,11 @@ Note: Windows 10 users need the Fluent battery icon to download and install [Seg
 
 [Github](https://github.com/iKineticate/BlueGauge/releases/latest) ( Please download the x86_64 version by default, and download the ARM version for special systems Windows on ARM. )
 
+## Translation Note
+
+Translations are AI-generated and may contain errors. Please help improve them by [reporting issues](https://github.com/iKineticate/BlueGauge/issues/new/choose) or [submitting corrections](https://github.com/iKineticate/BlueGauge/pulls).
+
+
 ## Known Issues & Suggested Solutions
 
 ### 1. Currently, BlueGauge successfully retrieves battery levels from Bluetooth low-energy devices and Bluetooth Classic devices. However, we are unable to fetch the battery status from devices like AirPods and Xbox controllers, which operate on proprietary communication protocols.
