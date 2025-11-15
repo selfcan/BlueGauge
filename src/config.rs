@@ -133,14 +133,52 @@ impl ColorScheme {
 }
 
 impl TrayIconStyle {
-    pub fn update_address(&mut self, new_address: u64) {
+    pub fn default_number_icon(address: u64) -> Self {
+        TrayIconStyle::BatteryNumber {
+            address,
+            color_scheme: ColorScheme::FollowSystemTheme,
+            font_name: "Arial".to_owned(),
+            font_color: Some(String::new()),
+            font_size: Some(64),
+        }
+    }
+
+    pub fn default_ring_icon(address: u64) -> Self {
+        TrayIconStyle::BatteryRing {
+            address,
+            color_scheme: ColorScheme::FollowSystemTheme,
+            highlight_color: Some(String::new()),
+            background_color: Some(String::new()),
+        }
+    }
+
+    pub fn default_hor_battery_icon(address: u64) -> Self {
+        TrayIconStyle::BatteryIcon {
+            address,
+            color_scheme: ColorScheme::FollowSystemTheme,
+            direction: Direction::Horizontal,
+            font_size: Some(64),
+        }
+    }
+
+    pub fn default_vrt_battery_icon(address: u64) -> Self {
+        TrayIconStyle::BatteryIcon {
+            address,
+            color_scheme: ColorScheme::FollowSystemTheme,
+            direction: Direction::Vertical,
+            font_size: Some(64),
+        }
+    }
+
+    pub fn update_address(&mut self, new_address: u64) -> bool {
         match self {
-            Self::App => (),
+            Self::App => false,
             Self::BatteryCustom { address }
             | Self::BatteryIcon { address, .. }
             | Self::BatteryNumber { address, .. }
             | Self::BatteryRing { address, .. } => {
                 *address = new_address;
+                true
             }
         }
     }
