@@ -51,6 +51,7 @@ pub struct Localization {
     pub truncate_name: &'static str,
     pub prefix_battery: &'static str,
     // Setting - Notify
+    pub never: &'static str,
     pub low_battery: &'static str,
     pub reconnection: &'static str,
     pub disconnection: &'static str,
@@ -92,6 +93,7 @@ const ZH_CN: Localization = Localization {
     truncate_name: "裁剪设备的名称",
     prefix_battery: "电量显示名称前",
     //
+    never: "永不",
     low_battery: "低电量时通知",
     reconnection: "重新连接时通知",
     disconnection: "断开连接时通知",
@@ -133,6 +135,7 @@ const ZH_HANT: Localization = Localization {
     truncate_name: "裁剪設備的名稱",
     prefix_battery: "電量顯示名稱前",
     //
+    never: "永不",
     low_battery: "低電量時通知",
     reconnection: "重新連接時通知",
     disconnection: "斷開連接時通知",
@@ -174,6 +177,7 @@ const EN_US: Localization = Localization {
     truncate_name: "Truncate Device Name",
     prefix_battery: "Battery Before Name",
     //
+    never: "Never",
     low_battery: "Notify on Low Battery",
     reconnection: "Notify on Reconnection",
     disconnection: "Notify on Disconnection",
@@ -215,6 +219,7 @@ const JA_JP: Localization = Localization {
     truncate_name: "デバイス名を切り捨てる",
     prefix_battery: "電池前に名前",
     //
+    never: "通知しない",
     low_battery: "低バッテリー時に通知",
     reconnection: "再接続時に通知",
     disconnection: "切断時に通知",
@@ -256,6 +261,7 @@ const KO_KR: Localization = Localization {
     truncate_name: "장치 이름 자르기",
     prefix_battery: "이름 앞에 배터리",
     //
+    never: "안함",
     low_battery: "배터리 부족 시 알림",
     reconnection: "재연결 시 알림",
     disconnection: "연결 끊김 시 알림",
@@ -297,6 +303,7 @@ const DE_DE: Localization = Localization {
     truncate_name: "Gerätenamen kürzen",
     prefix_battery: "Batterie vor Name",
     //
+    never: "Niemals",
     low_battery: "Bei niedrigem Batteriestand benachrichtigen",
     reconnection: "Bei Wiederverbindung benachrichtigen",
     disconnection: "Bei Trennung benachrichtigen",
@@ -338,6 +345,7 @@ const RU_RU: Localization = Localization {
     truncate_name: "Обрезать имя устройства",
     prefix_battery: "Батарея перед именем",
     //
+    never: "Никогда",
     low_battery: "Уведомлять при низком заряде батареи",
     reconnection: "Уведомлять при повторном подключении",
     disconnection: "Уведомлять при отключении",
@@ -379,6 +387,7 @@ const AR_SA: Localization = Localization {
     truncate_name: "اقتطاع اسم الجهاز",
     prefix_battery: "البطارية قبل الاسم",
     //
+    never: "أبدًا",
     low_battery: "إعلام عند انخفاض البطارية",
     reconnection: "إعلام عند إعادة الاتصال",
     disconnection: "إعلام عند قطع الاتصال",
@@ -420,6 +429,7 @@ const FR_FR: Localization = Localization {
     truncate_name: "Tronquer le nom de l'appareil",
     prefix_battery: "Batterie avant nom",
     //
+    never: "Jamais",
     low_battery: "Notifier en cas de batterie faible",
     reconnection: "Notifier en cas de reconnexion",
     disconnection: "Notifier en cas de déconnexion",

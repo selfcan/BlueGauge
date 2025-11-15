@@ -53,6 +53,11 @@ impl NotifyEvent {
         match self {
             NotifyEvent::LowBattery(name, battery, address) => {
                 let low_threshold = config.get_low_battery() as i32;
+
+                if !config.notify_options.low_battery.should_notify() {
+                    return;
+                }
+
                 let current_battery = *battery as i32;
                 let diff = current_battery - low_threshold;
 

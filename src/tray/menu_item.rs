@@ -128,7 +128,7 @@ impl UserMenuItem {
 
     pub fn low_battery_menu_id() -> [MenuId; 7] {
         [
-            UserMenuItem::NotifyLowBattery(1).id(),
+            UserMenuItem::NotifyLowBattery(0).id(), // 关闭通知
             UserMenuItem::NotifyLowBattery(5).id(),
             UserMenuItem::NotifyLowBattery(10).id(),
             UserMenuItem::NotifyLowBattery(15).id(),
@@ -328,7 +328,11 @@ impl CreateMenuItem {
             let battery = menu_id.as_ref().parse::<u8>().unwrap();
             let menu = CheckMenuItem::with_id(
                 menu_id.clone(),
-                format!("{battery}%"),
+                if battery.eq(&0) {
+                    LOC.never.to_string()
+                } else {
+                    format!("{battery}%")
+                },
                 true,
                 low_battery == battery,
                 None,

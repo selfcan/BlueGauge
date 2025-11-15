@@ -172,9 +172,41 @@ impl TrayIconStyle {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NotifyOptions {
+pub struct LowBattery {
+    #[serde(with = "atomic_bool_serde")]
+    pub notify: AtomicBool,
     #[serde(with = "atomic_u8_serde")]
-    pub low_battery: AtomicU8,
+    pub value: AtomicU8,
+}
+
+impl LowBattery {
+    pub fn value(&self) -> u8 {
+        self.value.load(Ordering::Relaxed)
+    }
+
+    pub fn set_value(&self, val: u8) {
+        self.value.store(val, Ordering::Relaxed)
+    }
+
+    pub fn should_notify(&self) -> bool {
+        self.notify.load(Ordering::Relaxed)
+    }
+
+    pub fn set_notify(&self, should: bool) {
+        self.notify.store(should, Ordering::Relaxed)
+    }
+
+    pub fn set_value_and_notify(&self, value: Option<u8>, should: bool) {
+        if let Some(value) = value {
+            self.set_value(value);
+        }
+        self.set_notify(should);
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NotifyOptions {
+    pub low_battery: LowBattery,
 
     #[serde(with = "atomic_bool_serde")]
     pub disconnection: AtomicBool,
@@ -195,7 +227,10 @@ pub struct NotifyOptions {
 impl Default for NotifyOptions {
     fn default() -> Self {
         NotifyOptions {
-            low_battery: AtomicU8::new(15),
+            low_battery: LowBattery {
+                notify: AtomicBool::new(true),
+                value: AtomicU8::new(15),
+            },
             disconnection: AtomicBool::new(false),
             reconnection: AtomicBool::new(false),
             added: AtomicBool::new(false),
@@ -425,7 +460,7 @@ impl Config {
     }
 
     pub fn get_low_battery(&self) -> u8 {
-        self.notify_options.low_battery.load(Ordering::Relaxed)
+        self.notify_options.low_battery.value()
     }
 
     pub fn get_disconnection(&self) -> bool {

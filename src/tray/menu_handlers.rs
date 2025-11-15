@@ -1,6 +1,5 @@
 use super::menu_item::UserMenuItem;
 use crate::UserEvent;
-use crate::config::Direction;
 use crate::{
     config::{ASSETS_PATH, CONFIG_PATH, ColorScheme, Config, EXE_PATH, TrayIconStyle},
     notify::notify,
@@ -167,21 +166,18 @@ impl MenuHandlers {
 
         // 更新配置
         if let Some(low_battery) = selected_low_battery {
+            let should_notify = low_battery.ne(&0);
             self.config
                 .notify_options
                 .low_battery
-                .store(low_battery, Ordering::Relaxed);
+                .set_value_and_notify(should_notify.then_some(low_battery), should_notify);
         } else {
-            let default_low_battery = 15;
-            self.config
-                .notify_options
-                .low_battery
-                .store(default_low_battery, Ordering::Relaxed);
+            self.config.notify_options.low_battery.set_notify(false);
 
-            // 找到并选中默认项
+            // 设置永不发送低电量通知
             if let Some(default_item) = low_battery_items
                 .iter()
-                .find(|i| i.id() == &UserMenuItem::NotifyLowBattery(15).id())
+                .find(|i| i.id() == &UserMenuItem::NotifyLowBattery(0).id())
             {
                 default_item.set_checked(true);
             }
