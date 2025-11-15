@@ -170,7 +170,7 @@ const EN_US: Localization = Localization {
     show_lowest_battery_device: "Show Lowest Battery Device",
     //
     tray_tooltip_options: "Tray Tooltip Options",
-    show_disconnected: "Show show_disconnected Devices",
+    show_disconnected: "Show Disconnected Devices",
     truncate_name: "Truncate Device Name",
     prefix_battery: "Battery Before Name",
     //
@@ -185,7 +185,7 @@ const EN_US: Localization = Localization {
     bluetooth_device_reconnected: "Bluetooth Device Reconnected",
     new_bluetooth_device_add: "New Bluetooth Device Connected",
     old_bluetooth_device_removed: "Bluetooth Device Removed",
-    bluetooth_device_disconnected: "Bluetooth Device show_disconnected",
+    bluetooth_device_disconnected: "Bluetooth Device Disconnected",
 };
 
 const JA_JP: Localization = Localization {
@@ -263,11 +263,11 @@ const KO_KR: Localization = Localization {
     removed: "장치 제거 시 알림",
     stay_on_screen: "화면에 상시 표시",
     //
-    bluetooth_battery_below: "Bluetooth 배터리 이하",
-    bluetooth_device_reconnected: "Bluetooth 장치가 다시 연결됨",
-    new_bluetooth_device_add: "새 Bluetooth 장치가 연결됨",
-    old_bluetooth_device_removed: "Bluetooth 장치가 제거됨",
-    bluetooth_device_disconnected: "Bluetooth 장치가 연결 끊김",
+    bluetooth_battery_below: "블루투스 배터리 잔량 이하",
+    bluetooth_device_reconnected: "블루투스 장치가 다시 연결됨",
+    new_bluetooth_device_add: "새 블루투스 장치가 연결됨",
+    old_bluetooth_device_removed: "블루투스 장치가 제거됨",
+    bluetooth_device_disconnected: "블루투스 장치가 연결 끊김",
 };
 
 const DE_DE: Localization = Localization {
