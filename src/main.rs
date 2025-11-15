@@ -97,13 +97,54 @@ impl App {
             .await
             .expect("Failed to get bluetooth devices info");
 
-        // 首次打开软件时，若存在低电量设备则发送通知
-        for device in bluetooth_devices_info.values() {
-            let _ = event_loop_proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
-                device.name.clone(),
-                device.battery,
-                device.address,
-            )));
+        let should_show_lowest_battery_device = config
+            .tray_options
+            .show_lowest_battery_device
+            .load(Ordering::Relaxed);
+
+        // 首次打开软件时，检测有无低电量及需显示最低电量设备
+        {
+            let mut should_update_tray_icon_style: Option<(u64, u8)> = None;
+            for device in bluetooth_devices_info.values() {
+                let _ = event_loop_proxy.send_event(UserEvent::Notify(NotifyEvent::LowBattery(
+                    device.name.clone(),
+                    device.battery,
+                    device.address,
+                )));
+
+                if device.status && should_show_lowest_battery_device {
+                    match should_update_tray_icon_style {
+                        Some((ref mut address, ref mut lowest_battery))
+                            if device.battery < *lowest_battery =>
+                        {
+                            *address = device.address;
+                            *lowest_battery = device.battery;
+                        }
+                        None => {
+                            should_update_tray_icon_style = Some((device.address, device.battery));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            if let Some((address, _)) = should_update_tray_icon_style {
+                info!("Show Lowest Battery Device on Startup: {}", address);
+
+                if !config
+                    .tray_options
+                    .tray_icon_style
+                    .lock()
+                    .unwrap()
+                    .update_address(address)
+                {
+                    // 如果默认是 APP 图标，则切换为数字图标
+                    *config.tray_options.tray_icon_style.lock().unwrap() =
+                        TrayIconStyle::default_number_icon(address);
+                };
+
+                config.save();
+            }
         }
 
         let (tray, tray_check_menus) =
