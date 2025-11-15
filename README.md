@@ -141,13 +141,13 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 - **解决方案：**: 另外创建一个文件夹，并复制 `BlueGauge.exe` 和 `BlueGague.toml`到该文件夹，然后重命名 `BlueGauge.exe` 为其他名称（不建议使用中文命名），最后打开并设置显示电量为其他蓝牙设备、开机自启动等设置即可。
 
-### 4. 托盘电量数字图标被截断一小部分
+### 4. 托盘电量数字（或电池）图标被截断一小部分
 
 - **解决方案：**: 打开托盘菜单-`设置`-`打开配置`，然后在 `[tray.icon]` 下的 `font_size` 中设置字体大小，可以设置比原来小一号的字体。   
 
 ### 5. 托盘提示中的连接指示器无颜色
 
-托盘提示中的连接指示器仅支持Windows11
+托盘提示中的连接指示器仅支持 Windows11
 
 ## 其他蓝牙电量软件
 
