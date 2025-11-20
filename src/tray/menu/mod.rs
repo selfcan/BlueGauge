@@ -195,6 +195,5 @@ impl MenuManager {
             .for_each(|(_, check_menu)| check_menu.set_checked(false));
 
         callback(false, Some((Some(is_checked_menu.clone()), Some(group))));
-        println!("MenuManager handler_group_single_select 结束");
     }
 }
