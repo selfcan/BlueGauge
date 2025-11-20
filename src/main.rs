@@ -38,10 +38,7 @@ use std::{
 };
 
 use log::{error, info};
-use tray_icon::{
-    TrayIcon,
-    menu::{MenuEvent, MenuId},
-};
+use tray_icon::{TrayIcon, menu::MenuEvent};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -226,14 +223,6 @@ impl App {
         {
             info!("Show Lowest Battery Device: {}", info.name);
 
-            let original_address = self
-                .config
-                .tray_options
-                .tray_icon_style
-                .lock()
-                .unwrap()
-                .get_address();
-
             if !self
                 .config
                 .tray_options
@@ -247,24 +236,6 @@ impl App {
             }
 
             self.config.save();
-
-            let menu_id = MenuId::from(address);
-
-            if let Some(menu) = self.menu_manager.lock().unwrap().get_menu_by_id(&menu_id) {
-                menu.set_checked(true);
-            }
-
-            if let Some(original_address) = original_address {
-                let original_menu_id = MenuId::from(original_address);
-                if let Some(menu) = self
-                    .menu_manager
-                    .lock()
-                    .unwrap()
-                    .get_menu_by_id(&original_menu_id)
-                {
-                    menu.set_checked(false);
-                }
-            }
         }
     }
 }
@@ -383,10 +354,7 @@ impl ApplicationHandler<UserEvent> for App {
                 let current_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
                 let config = self.config.clone();
 
-                let _ = self.event_loop_proxy.send_event(UserEvent::UpdateIcon);
-                let _ = self
-                    .event_loop_proxy
-                    .send_event(UserEvent::UpdateTrayTooltip);
+                self.handle_show_lowest_battery_device();
 
                 let tray_menu = match create_menu(&config, &current_devices_info) {
                     Ok((tray_menu, new_menu_manager)) => {
@@ -404,6 +372,10 @@ impl ApplicationHandler<UserEvent> for App {
                     .lock()
                     .unwrap()
                     .set_menu(Some(Box::new(tray_menu)));
+                let _ = self.event_loop_proxy.send_event(UserEvent::UpdateIcon);
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(UserEvent::UpdateTrayTooltip);
             }
             UserEvent::Refresh => {
                 let bluetooth_devices_info = futures::executor::block_on(async {
