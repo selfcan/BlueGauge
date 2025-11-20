@@ -83,6 +83,8 @@ Note: Windows 10 users need the Fluent battery icon to download and install [Seg
 
 2. Settings: Show the (connected) devices with the lowest battery
 
+    Note: After setting up, you cannot manually select the device that needs to show the battery level. If you need to manually select the device that needs to show the battery level, please turn off this option.
+
 3. Setting: Bluetooth device name aliases
 
     1. open tray menu -- `Settings` -- `Open Config`   

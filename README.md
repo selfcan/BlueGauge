@@ -81,6 +81,8 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 2. 设置：显示最低电量的（已连接）设备
 
+    注意：设置后无法手动选择需显示电量设备，若需要手动选择需显示电量设备请关闭这个选项
+
 3. 设置：蓝牙设备名称别名
 
     1. 打开托盘菜单-`设置`-`打开配置`   
