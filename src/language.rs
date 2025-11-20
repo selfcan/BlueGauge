@@ -41,6 +41,7 @@ pub struct Localization {
     pub vertical_battery_icon: &'static str,
     pub number_icon: &'static str,
     pub ring_icon: &'static str,
+    pub app_icon: &'static str,
     // Setting - Tray Options - Set Icon Connect Color
     pub set_icon_connect_color: &'static str,
     // Setting - Tray Options - Show Lowest Battery Device
@@ -83,6 +84,7 @@ const ZH_CN: Localization = Localization {
     vertical_battery_icon: "电池图标（垂直）",
     number_icon: "数字图标",
     ring_icon: "圆环图标",
+    app_icon: "软件图标",
     //
     set_icon_connect_color: "设置图标为连接配色",
     //
@@ -125,6 +127,7 @@ const ZH_HANT: Localization = Localization {
     vertical_battery_icon: "電池圖示（垂直）",
     number_icon: "數字圖標",
     ring_icon: "圓環圖標",
+    app_icon: "軟件圖標",
     //
     set_icon_connect_color: "設定圖示為連線配色",
     //
@@ -167,6 +170,7 @@ const EN_US: Localization = Localization {
     vertical_battery_icon: "Battery Icon (Vertical)",
     number_icon: "Number Icon",
     ring_icon: "Ring Icon",
+    app_icon: "App Icon",
     //
     set_icon_connect_color: "Set Icon to Connected Color",
     //
@@ -209,6 +213,7 @@ const JA_JP: Localization = Localization {
     vertical_battery_icon: "バッテリーアイコン（垂直）",
     number_icon: "数字アイコン",
     ring_icon: "リングアイコン",
+    app_icon: "アプリアイコン",
     //
     set_icon_connect_color: "アイコンを接続状態の配色に設定する",
     //
@@ -251,6 +256,7 @@ const KO_KR: Localization = Localization {
     vertical_battery_icon: "배터리 아이콘 (수직)",
     number_icon: "숫자 아이콘",
     ring_icon: "링 아이콘",
+    app_icon: "앱 아이콘",
     //
     set_icon_connect_color: "아이콘을 연결 색상으로 설정",
     //
@@ -293,6 +299,7 @@ const DE_DE: Localization = Localization {
     vertical_battery_icon: "Batteriesymbol (Vertical)",
     number_icon: "Zahlsymbol",
     ring_icon: "Ringsymbol",
+    app_icon: "App-Symbol",
     //
     set_icon_connect_color: "Symbolfarbe auf „Verbunden“ setzen",
     //
@@ -335,6 +342,7 @@ const RU_RU: Localization = Localization {
     vertical_battery_icon: "Иконка батареи (Вертикальная)",
     number_icon: "Числовой значок",
     ring_icon: "Кольцевой значок",
+    app_icon: "Значок приложения",
     //
     set_icon_connect_color: "Установить цвет значка как при подключении",
     //
@@ -377,6 +385,7 @@ const AR_SA: Localization = Localization {
     vertical_battery_icon: "أيقونة البطارية (رأسي)",
     number_icon: "أيقونة رقمية",
     ring_icon: "أيقونة دائرية",
+    app_icon: "أيقونة التطبيق",
     //
     set_icon_connect_color: "Установить цвет значка как при подключении",
     //
@@ -419,6 +428,7 @@ const FR_FR: Localization = Localization {
     vertical_battery_icon: "Icône de la batterie (Vertical)",
     number_icon: "Icône numérique",
     ring_icon: "Icône en anneau",
+    app_icon: "Icône de l’application",
     //
     set_icon_connect_color: "Définir l’icône avec la couleur de connexion",
     //

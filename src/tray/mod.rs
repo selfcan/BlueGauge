@@ -1,10 +1,9 @@
 pub mod icon;
-pub mod menu_handlers;
-pub mod menu_item;
+pub mod menu;
 
 use super::tray::{
     icon::{load_app_icon, load_tray_icon},
-    menu_item::create_menu,
+    menu::{MenuManager, item::create_menu},
 };
 use crate::{
     bluetooth::info::BluetoothInfo,
@@ -15,16 +14,13 @@ use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
 use log::error;
-use tray_icon::{
-    TrayIcon, TrayIconBuilder,
-    menu::{CheckMenuItem, MenuId},
-};
+use tray_icon::{TrayIcon, TrayIconBuilder};
 
 #[rustfmt::skip]
 pub fn create_tray(
     config: &Config,
     bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
-) -> Result<(TrayIcon, HashMap<MenuId, CheckMenuItem>)> {
+) -> Result<(TrayIcon, MenuManager)> {
     let tray_icon_bt_address = config
         .tray_options
         .tray_icon_style
@@ -49,7 +45,6 @@ pub fn create_tray(
 
     let (tray_menu, tray_check_menus) =
         create_menu(config, bluetooth_devices_info).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
-
 
     let bluetooth_tooltip_info = convert_tray_info(bluetooth_devices_info, config);
 

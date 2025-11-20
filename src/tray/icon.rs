@@ -32,6 +32,7 @@ pub fn load_app_icon() -> Result<Icon> {
 
 pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool) -> Result<Icon> {
     let tray_icon_style = config.tray_options.tray_icon_style.lock().unwrap().clone();
+    let is_low_battery = battery_level <= config.get_low_battery();
 
     match tray_icon_style {
         TrayIconStyle::App => load_app_icon(),
@@ -42,8 +43,6 @@ pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool
             direction,
             font_size,
         } => {
-            let is_low_battery = battery_level <= config.get_low_battery();
-
             let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
 
             load_battery_icon(
@@ -77,8 +76,6 @@ pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool
             highlight_color,
             background_color,
         } => {
-            let is_low_battery = battery_level <= config.get_low_battery();
-
             let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
 
             load_ring_icon(

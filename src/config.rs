@@ -1,5 +1,3 @@
-use crate::tray::menu_item::UserMenuItem;
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -11,7 +9,6 @@ use anyhow::{Result, anyhow};
 use log::warn;
 use piet_common::Color;
 use serde::{Deserialize, Serialize};
-use tray_icon::menu::MenuId;
 
 pub static EXE_PATH: LazyLock<PathBuf> =
     LazyLock::new(|| std::env::current_exe().expect("Failed to get BlueGauge.exe path"));
@@ -278,30 +275,6 @@ impl Default for NotifyOptions {
     }
 }
 
-impl NotifyOptions {
-    pub fn update(&self, menu_id: &MenuId, check: bool) {
-        if menu_id == &UserMenuItem::NotifyDeviceChangeDisconnection.id() {
-            self.disconnection.store(check, Ordering::Relaxed)
-        }
-
-        if menu_id == &UserMenuItem::NotifyDeviceChangeReconnection.id() {
-            self.reconnection.store(check, Ordering::Relaxed)
-        }
-
-        if menu_id == &UserMenuItem::NotifyDeviceChangeAdded.id() {
-            self.added.store(check, Ordering::Relaxed)
-        }
-
-        if menu_id == &UserMenuItem::NotifyDeviceChangeRemoved.id() {
-            self.removed.store(check, Ordering::Relaxed)
-        }
-
-        if menu_id == &UserMenuItem::NotifyDeviceStayOnScreen.id() {
-            self.stay_on_screen.store(check, Ordering::Relaxed)
-        }
-    }
-}
-
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct TooltipOptions {
     #[serde(with = "atomic_bool_serde")]
@@ -328,28 +301,6 @@ impl Default for TrayOptions {
             tooltip_options: TooltipOptions::default(),
             tray_icon_style: Mutex::new(TrayIconStyle::App),
             show_lowest_battery_device: AtomicBool::new(false),
-        }
-    }
-}
-
-impl TrayOptions {
-    pub fn update(&self, menu_id: &MenuId, check: bool) {
-        if menu_id == &UserMenuItem::TrayTooltipShowDisconnected.id() {
-            self.tooltip_options
-                .show_disconnected
-                .store(check, Ordering::Relaxed)
-        }
-
-        if menu_id == &UserMenuItem::TrayTooltipTruncateName.id() {
-            self.tooltip_options
-                .truncate_name
-                .store(check, Ordering::Relaxed)
-        }
-
-        if menu_id == &UserMenuItem::TrayTooltipPrefixBattery.id() {
-            self.tooltip_options
-                .prefix_battery
-                .store(check, Ordering::Relaxed)
         }
     }
 }

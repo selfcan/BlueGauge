@@ -15,26 +15,30 @@ use crate::bluetooth::{
     info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info},
     watch::Watcher,
 };
-use crate::config::{Config, TrayIconStyle};
+use crate::config::{Config, EXE_PATH, TrayIconStyle};
 use crate::notify::{NotifyEvent, notify};
 use crate::single_instance::SingleInstance;
 use crate::theme::{SystemTheme, listen_system_theme};
 use crate::tray::{
     convert_tray_info, create_tray,
     icon::{load_app_icon, load_tray_icon},
-    menu_handlers::MenuHandlers,
-    menu_item::create_menu,
+    menu::{
+        MenuGroup, MenuKind, MenuManager,
+        handler::MenuHandler,
+        item::{SET_ICON_CONNECT_COLOR, SHOW_LOWEST_BATTERY_DEVICE, create_menu},
+    },
 };
 
-use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
+use std::{
+    collections::{HashMap, HashSet},
+    ffi::OsString,
+    process::Command,
+};
 
 use log::{error, info};
-use tray_icon::{
-    TrayIcon,
-    menu::{CheckMenuItem, MenuEvent, MenuId},
-};
+use tray_icon::{TrayIcon, menu::MenuEvent};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -81,7 +85,7 @@ struct App {
     notified_devices: Arc<Mutex<HashSet<u64>>>,
     system_theme: Arc<RwLock<SystemTheme>>,
     tray: Mutex<TrayIcon>,
-    tray_check_menus: Mutex<HashMap<MenuId, CheckMenuItem>>,
+    menu_manager: Mutex<MenuManager>,
     worker_threads: Vec<std::thread::JoinHandle<()>>,
 }
 
@@ -147,7 +151,7 @@ impl App {
             }
         }
 
-        let (tray, tray_check_menus) =
+        let (tray, menu_manager) =
             create_tray(&config, &bluetooth_devices_info).expect("Failed to create tray");
 
         Self {
@@ -159,7 +163,7 @@ impl App {
             notified_devices: Arc::new(Mutex::new(HashSet::new())),
             system_theme: Arc::new(RwLock::new(SystemTheme::get())),
             tray: Mutex::new(tray),
-            tray_check_menus: Mutex::new(tray_check_menus),
+            menu_manager: Mutex::new(menu_manager),
             worker_threads: Vec::new(),
         }
     }
@@ -167,11 +171,17 @@ impl App {
 
 #[derive(Debug)]
 enum UserEvent {
+    UnCheckAboutIconMenu,
+    UnCheckDeviceMenu,
     Exit,
     MenuEvent(MenuEvent),
     Notify(NotifyEvent),
+    UpdateIcon,
     UpdateTray,
+    UpdateTrayTooltip,
     Refresh,
+    Restart,
+    ShowLowestBatteryDevice,
 }
 
 impl App {
@@ -218,64 +228,67 @@ impl ApplicationHandler<UserEvent> for App {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
         match event {
+            UserEvent::UnCheckDeviceMenu => {
+                if let Some(menu_map) = self
+                    .menu_manager
+                    .lock()
+                    .unwrap()
+                    .get_menus_by_kind(&MenuKind::GroupSingle(MenuGroup::Device, None))
+                {
+                    menu_map.values().for_each(|m| m.set_checked(false));
+                }
+            }
+            // 取消勾选 [显示最低电量设备] 和 [设置连接配色]
+            UserEvent::UnCheckAboutIconMenu => {
+                if let Some(menu) = self
+                    .menu_manager
+                    .lock()
+                    .unwrap()
+                    .get_menu_by_id(&SHOW_LOWEST_BATTERY_DEVICE)
+                {
+                    menu.set_checked(false);
+                }
+
+                if let Some(menu) = self
+                    .menu_manager
+                    .lock()
+                    .unwrap()
+                    .get_menu_by_id(&SET_ICON_CONNECT_COLOR)
+                {
+                    menu.set_checked(false);
+                }
+            }
             UserEvent::Exit => {
                 self.exit();
                 event_loop.exit();
             }
             UserEvent::MenuEvent(event) => {
-                let config = Arc::clone(&self.config);
-                let tray_check_menus = self.tray_check_menus.lock().unwrap().clone();
-
-                let menu_id = event.id();
-                let menu_handlers = MenuHandlers::new(
-                    menu_id.clone(),
-                    Arc::clone(&config),
-                    self.event_loop_proxy.clone(),
-                    tray_check_menus,
-                );
-                menu_handlers.run();
+                info!("有菜单被点击:{}", event.id().as_ref());
+                let mut menu_manager = self.menu_manager.lock().unwrap().clone();
+                menu_manager.handler(event.id(), |is_normal_menu, check_menu| {
+                    info!("执行中: {}", event.id().as_ref());
+                    let menu_handlers = MenuHandler::new(
+                        event.id().clone(),
+                        is_normal_menu,
+                        check_menu,
+                        Arc::clone(&self.config),
+                        self.event_loop_proxy.clone(),
+                    );
+                    if let Err(e) = menu_handlers.run() {
+                        error!("Failed to handle menu event: {e}")
+                    }
+                });
             }
             UserEvent::Notify(notify_event) => {
                 notify_event.send(&self.config, self.notified_devices.clone())
             }
-            UserEvent::UpdateTray => {
+            UserEvent::UpdateIcon => {
                 let current_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
                 let config = self.config.clone();
 
-                let tray = self.tray.lock().unwrap();
-
-                let should_show_lowest_battery_device = config
-                    .tray_options
-                    .show_lowest_battery_device
-                    .load(Ordering::Relaxed);
-
-                // 要在创建菜单之前，保证能更新到勾选的设备
-                if should_show_lowest_battery_device
-                    && let Some((address, info)) = self
-                        .bluetooth_devcies_info
-                        .lock()
-                        .unwrap()
-                        .iter()
-                        .filter(|(_, v)| v.status)
-                        .min_by_key(|(_, v)| v.battery)
-                {
-                    info!("Show Lowest Battery Device: {}", info.name);
-
-                    if !self
-                        .config
-                        .tray_options
-                        .tray_icon_style
-                        .lock()
-                        .unwrap()
-                        .update_address(*address)
-                    {
-                        // 如果默认是 APP 图标，则切换为数字图标
-                        *self.config.tray_options.tray_icon_style.lock().unwrap() =
-                            TrayIconStyle::default_number_icon(*address);
-                    };
-
-                    self.config.save();
-                }
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(UserEvent::ShowLowestBatteryDevice);
 
                 let tray_icon_bt_address = config
                     .tray_options
@@ -296,10 +309,32 @@ impl ApplicationHandler<UserEvent> for App {
                         load_app_icon().ok()
                     });
 
+                let _ = self.tray.lock().unwrap().set_icon(icon);
+            }
+            UserEvent::UpdateTrayTooltip => {
+                let current_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
+                let bluetooth_tooltip_info = convert_tray_info(&current_devices_info, &self.config);
+                let _ = self
+                    .tray
+                    .lock()
+                    .unwrap()
+                    .set_tooltip(Some(bluetooth_tooltip_info.join("\n")));
+            }
+            UserEvent::UpdateTray => {
+                let current_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
+                let config = self.config.clone();
+
+                let tray = self.tray.lock().unwrap();
+
+                let _ = self.event_loop_proxy.send_event(UserEvent::UpdateIcon);
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(UserEvent::UpdateTrayTooltip);
+
                 let tray_menu = match create_menu(&config, &current_devices_info) {
-                    Ok((tray_menu, new_tray_check_menus)) => {
-                        let mut tray_check_menus = self.tray_check_menus.lock().unwrap();
-                        *tray_check_menus = new_tray_check_menus;
+                    Ok((tray_menu, new_menu_manager)) => {
+                        let mut menu_manager = self.menu_manager.lock().unwrap();
+                        *menu_manager = new_menu_manager;
                         tray_menu
                     }
                     Err(e) => {
@@ -308,12 +343,6 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                 };
                 tray.set_menu(Some(Box::new(tray_menu)));
-
-                let bluetooth_tooltip_info = convert_tray_info(&current_devices_info, &config);
-                tray.set_tooltip(Some(bluetooth_tooltip_info.join("\n")))
-                    .expect("Failed to set tray tooltip");
-
-                let _ = tray.set_icon(icon);
             }
             UserEvent::Refresh => {
                 let bluetooth_devices_info = futures::executor::block_on(async {
@@ -341,6 +370,54 @@ impl ApplicationHandler<UserEvent> for App {
                 }
 
                 let _ = self.event_loop_proxy.send_event(UserEvent::UpdateTray);
+            }
+            UserEvent::Restart => {
+                let mut args_os: Vec<OsString> = std::env::args_os().collect();
+                args_os.push("--restart".into()); // 添加重启标志（避免与单实例冲突）
+
+                if let Err(e) = Command::new(&*EXE_PATH)
+                    .args(args_os.iter().skip(1))
+                    .spawn()
+                {
+                    notify(format!("Failed to restart app: {e}"));
+                }
+
+                let _ = self.event_loop_proxy.send_event(UserEvent::Exit);
+            }
+            UserEvent::ShowLowestBatteryDevice => {
+                let should_show_lowest_battery_device = self
+                    .config
+                    .tray_options
+                    .show_lowest_battery_device
+                    .load(Ordering::Relaxed);
+
+                // 要在创建菜单之前，保证能更新到勾选的设备
+                if should_show_lowest_battery_device
+                    && let Some((address, info)) = self
+                        .bluetooth_devcies_info
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .filter(|(_, v)| v.status)
+                        .min_by_key(|(_, v)| v.battery)
+                {
+                    info!("Show Lowest Battery Device: {}", info.name);
+
+                    if !self
+                        .config
+                        .tray_options
+                        .tray_icon_style
+                        .lock()
+                        .unwrap()
+                        .update_address(*address)
+                    {
+                        // 如果更新未成功则默认是 APP 图标，切换为数字图标
+                        *self.config.tray_options.tray_icon_style.lock().unwrap() =
+                            TrayIconStyle::default_number_icon(*address);
+                    };
+
+                    self.config.save();
+                }
             }
         }
     }
