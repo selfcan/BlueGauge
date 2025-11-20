@@ -38,7 +38,10 @@ use std::{
 };
 
 use log::{error, info};
-use tray_icon::{TrayIcon, menu::MenuEvent};
+use tray_icon::{
+    TrayIcon,
+    menu::{MenuEvent, MenuId},
+};
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -223,6 +226,14 @@ impl App {
         {
             info!("Show Lowest Battery Device: {}", info.name);
 
+            let original_address = self
+                .config
+                .tray_options
+                .tray_icon_style
+                .lock()
+                .unwrap()
+                .get_address();
+
             if !self
                 .config
                 .tray_options
@@ -236,6 +247,24 @@ impl App {
             }
 
             self.config.save();
+
+            let menu_id = MenuId::from(address);
+
+            if let Some(menu) = self.menu_manager.lock().unwrap().get_menu_by_id(&menu_id) {
+                menu.set_checked(true);
+            }
+
+            if let Some(original_address) = original_address {
+                let original_menu_id = MenuId::from(original_address);
+                if let Some(menu) = self
+                    .menu_manager
+                    .lock()
+                    .unwrap()
+                    .get_menu_by_id(&original_menu_id)
+                {
+                    menu.set_checked(false);
+                }
+            }
         }
     }
 }
@@ -371,7 +400,10 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                 };
 
-                self.tray.lock().unwrap().set_menu(Some(Box::new(tray_menu)));
+                self.tray
+                    .lock()
+                    .unwrap()
+                    .set_menu(Some(Box::new(tray_menu)));
             }
             UserEvent::Refresh => {
                 let bluetooth_devices_info = futures::executor::block_on(async {

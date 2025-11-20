@@ -76,10 +76,10 @@ impl MenuHandler {
                             // let device_address = device_menu_id.as_ref().parse::<u64>().expect(
                             //     &format!("The menu isn't device menu: {}", device_menu_id.0),
                             // );
-                            let device_address = device_menu_id
-                                .as_ref()
-                                .parse::<u64>()
-                                .unwrap_or_else(|_| panic!("The menu isn't device menu: {}", device_menu_id.0));
+                            let device_address =
+                                device_menu_id.as_ref().parse::<u64>().unwrap_or_else(|_| {
+                                    panic!("The menu isn't device menu: {}", device_menu_id.0)
+                                });
                             if matches!(*tray_icon_style, TrayIconStyle::App) {
                                 *tray_icon_style =
                                     TrayIconStyle::default_number_icon(device_address);
