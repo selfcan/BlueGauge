@@ -149,6 +149,17 @@ pub async fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8>
         .with_context(|| "Failed to read battery byte")
 }
 
+fn get_ble_devices_address<C: FromIterator<u64>>(
+    bluetooth_devices_info: BluetoothDevicesInfo,
+) -> C {
+    bluetooth_devices_info
+        .lock()
+        .unwrap()
+        .iter()
+        .filter_map(|(addr, info)| info.is_ble().then_some(*addr))
+        .collect()
+}
+
 #[derive(Debug)]
 enum BluetoothLEUpdate {
     BatteryLevel(/* Address */ u64, u8),
@@ -229,13 +240,7 @@ pub async fn watch_ble_devices_async(
 
     let original_ble_devices_address = Arc::new(Mutex::new(HashSet::new()));
 
-    let addresses_to_process = bluetooth_devices_info
-        .lock()
-        .unwrap()
-        .iter()
-        .filter(|(_, info)| info.r#type == BluetoothType::LowEnergy)
-        .map(|(&address, _)| address)
-        .collect::<Vec<_>>();
+    let addresses_to_process: Vec<_> = get_ble_devices_address(bluetooth_devices_info.clone());
 
     let ble_devices = futures::stream::iter(addresses_to_process)
         .filter_map(|address| {
@@ -396,13 +401,7 @@ pub async fn watch_ble_devices_async(
                         info!("Watch BLE restart by restart flag.");
                         local_generation = current_generation;
 
-                        let current_ble_devices_address = bluetooth_devices_info
-                            .lock()
-                            .unwrap()
-                            .iter()
-                            .filter(|(_, info)| matches!(info.r#type, BluetoothType::LowEnergy))
-                            .map(|(&address, _)| address)
-                            .collect::<HashSet<_>>();
+                        let current_ble_devices_address: HashSet<_> = get_ble_devices_address(bluetooth_devices_info.clone());
 
                         let original_ble_devices_address_clone = original_ble_devices_address.lock().await.clone();
 

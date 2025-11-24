@@ -47,6 +47,15 @@ impl BluetoothInfo {
         )
     }
 
+    pub fn is_ble(&self) -> bool {
+        matches!(
+            self,
+            BluetoothInfo {
+                r#type: BluetoothType::LowEnergy,
+                ..
+            }
+        )
+    }
 }
 
 pub async fn find_bluetooth_devices() -> Result<(Vec<BluetoothDevice>, Vec<BluetoothLEDevice>)> {
