@@ -28,6 +28,27 @@ pub struct BluetoothInfo {
     pub r#type: BluetoothType,
 }
 
+impl BluetoothInfo {
+    pub fn get_btc_instance_id(&self) -> Option<String> {
+        if let BluetoothType::Classic(id) = &self.r#type {
+            Some(id.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn is_btc(&self) -> bool {
+        matches!(
+            self,
+            BluetoothInfo {
+                r#type: BluetoothType::Classic(_),
+                ..
+            }
+        )
+    }
+
+}
+
 pub async fn find_bluetooth_devices() -> Result<(Vec<BluetoothDevice>, Vec<BluetoothLEDevice>)> {
     let bt_devices_futrue = find_btc_devices();
     let ble_devices_futrue = find_ble_devices();

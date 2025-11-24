@@ -1,6 +1,6 @@
 [package]
 name = "BlueGauge"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2024"
 description = "A lightweight tray tool for easy viewing of the battery level of the Bluetooth device."
 authors = ["iKineticate <https://github.com/iKineticate>"]
@@ -12,7 +12,7 @@ anyhow = "1.0.100"
 env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "humantime"] }
 futures = "0.3.31"
 log = { version = "0.4.28", features = ["release_max_level_off"] }
-image = { version = "0.25.8", default-features = false, features = ["ico", "png"] }
+image = { version = "0.25.9", default-features = false, features = ["ico", "png"] }
 piet-common = "0.8.0" # 字体渲染
 serde= { version = "1.0.228", features = ["derive"] }
 scopeguard = "1.2.0"

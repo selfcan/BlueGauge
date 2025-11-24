@@ -171,11 +171,11 @@ impl App {
 
 #[derive(Debug)]
 enum UserEvent {
-    UnCheckAboutIconMenu,
-    UnCheckDeviceMenu,
     Exit,
     MenuEvent(MenuEvent),
     Notify(NotifyEvent),
+    UnCheckAboutIconMenu,
+    UnCheckDeviceMenu,
     UpdateIcon,
     UpdateTray,
     UpdateTrayTooltip,
