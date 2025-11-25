@@ -10,10 +10,11 @@ use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
 use tray_icon::menu::{
-    AboutMetadata, CheckMenuItem, IsMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem, Submenu,
+    CheckMenuItem, IsMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem, Submenu,
 };
 
 pub static QUIT: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("quit")); // Normal
+pub static ABOUT: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("about")); // Normal
 pub static RESTART: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("restart")); // Normal
 pub static STARTUP: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("startup")); // CheckSingle
 pub static REFRESH: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("refresh")); // Normal
@@ -110,17 +111,9 @@ impl CreateMenuItem {
         MenuItem::with_id(QUIT.clone(), text, true, None)
     }
 
-    fn about(text: &str) -> PredefinedMenuItem {
-        PredefinedMenuItem::about(
-            Some(text),
-            Some(AboutMetadata {
-                name: Some("BlueGauge".to_owned()),
-                version: Some(env!("CARGO_PKG_VERSION").to_string()),
-                authors: Some(vec!["iKineticate".to_owned()]),
-                website: Some("https://github.com/iKineticate/BlueGauge".to_owned()),
-                ..Default::default()
-            }),
-        )
+    fn about(&mut self, text: &str) -> MenuItem {
+        self.0.insert(ABOUT.clone(), MenuKind::Normal, None);
+        MenuItem::with_id(ABOUT.clone(), text, true, None)
     }
 
     fn restart(&mut self, text: &str) -> MenuItem {
@@ -378,9 +371,9 @@ pub fn create_menu(
 ) -> Result<(Menu, MenuManager)> {
     let menu_separator = CreateMenuItem::separator();
 
-    let menu_about = CreateMenuItem::about(LOC.about);
-
     let mut create_menu_item = CreateMenuItem::new();
+
+    let menu_about = create_menu_item.about(LOC.about);
 
     let menu_quit = create_menu_item.quit(LOC.quit);
 

@@ -65,6 +65,13 @@ pub struct Localization {
     pub new_bluetooth_device_add: &'static str,
     pub old_bluetooth_device_removed: &'static str,
     pub bluetooth_device_disconnected: &'static str,
+    // About
+    pub version: &'static str,
+    pub author: &'static str,
+    pub website: &'static str,
+    pub open_github: &'static str,
+    pub view_updates: &'static str,
+    pub cancel: &'static str,
 }
 
 const ZH_CN: Localization = Localization {
@@ -108,6 +115,13 @@ const ZH_CN: Localization = Localization {
     bluetooth_device_reconnected: "蓝牙设备重新连接",
     old_bluetooth_device_removed: "蓝牙设备被移除",
     bluetooth_device_disconnected: "蓝牙设备断开连接",
+    //
+    version: "版本",
+    author: "作者",
+    website: "网站",
+    open_github: "打开 Github",
+    view_updates: "查看更新",
+    cancel: "取消",
 };
 
 const ZH_HANT: Localization = Localization {
@@ -151,6 +165,13 @@ const ZH_HANT: Localization = Localization {
     new_bluetooth_device_add: "新藍牙設備連接",
     old_bluetooth_device_removed: "藍牙設備被移除",
     bluetooth_device_disconnected: "藍牙設備斷開連接",
+    //
+    version: "版本",
+    author: "作者",
+    website: "網站",
+    open_github: "打開 Github",
+    view_updates: "查看更新",
+    cancel: "取消",
 };
 
 const EN_US: Localization = Localization {
@@ -194,6 +215,13 @@ const EN_US: Localization = Localization {
     new_bluetooth_device_add: "New Bluetooth Device Connected",
     old_bluetooth_device_removed: "Bluetooth Device Removed",
     bluetooth_device_disconnected: "Bluetooth Device Disconnected",
+    //
+    version: "Version",
+    author: "Author",
+    website: "Website",
+    open_github: "Open GitHub",
+    view_updates: "View Updates",
+    cancel: "Cancel",
 };
 
 const JA_JP: Localization = Localization {
@@ -237,6 +265,13 @@ const JA_JP: Localization = Localization {
     new_bluetooth_device_add: "新しいBluetoothデバイスが接続されました",
     old_bluetooth_device_removed: "Bluetoothデバイスが削除されました",
     bluetooth_device_disconnected: "Bluetoothデバイスが切断されました",
+    //
+    version: "バージョン",
+    author: "作者",
+    website: "ウェブサイト",
+    open_github: "GitHub を開く",
+    view_updates: "更新を確認する",
+    cancel: "キャンセル",
 };
 
 const KO_KR: Localization = Localization {
@@ -280,6 +315,13 @@ const KO_KR: Localization = Localization {
     new_bluetooth_device_add: "새 블루투스 장치가 연결됨",
     old_bluetooth_device_removed: "블루투스 장치가 제거됨",
     bluetooth_device_disconnected: "블루투스 장치가 연결 끊김",
+    //
+    version: "버전",
+    author: "작성자",
+    website: "웹사이트",
+    open_github: "GitHub 열기",
+    view_updates: "업데이트 확인",
+    cancel: "취소",
 };
 
 const DE_DE: Localization = Localization {
@@ -323,6 +365,13 @@ const DE_DE: Localization = Localization {
     new_bluetooth_device_add: "Neues Bluetooth-Gerät verbunden",
     old_bluetooth_device_removed: "Bluetooth-Gerät entfernt",
     bluetooth_device_disconnected: "Bluetooth-Gerät getrennt",
+    //
+    version: "Version",
+    author: "Autor",
+    website: "Webseite",
+    open_github: "GitHub öffnen",
+    view_updates: "Updates anzeigen",
+    cancel: "Abbrechen",
 };
 
 const RU_RU: Localization = Localization {
@@ -366,6 +415,13 @@ const RU_RU: Localization = Localization {
     new_bluetooth_device_add: "Новое Bluetooth устройство подключено",
     old_bluetooth_device_removed: "Bluetooth устройство удалено",
     bluetooth_device_disconnected: "Bluetooth устройство отключено",
+    //
+    version: "Версия",
+    author: "Автор",
+    website: "Веб-сайт",
+    open_github: "Открыть GitHub",
+    view_updates: "Просмотреть обновления",
+    cancel: "Отмена",
 };
 
 const AR_SA: Localization = Localization {
@@ -409,6 +465,13 @@ const AR_SA: Localization = Localization {
     new_bluetooth_device_add: "تم توصيل جهاز Bluetooth جديد",
     old_bluetooth_device_removed: "تمت إزالة جهاز Bluetooth",
     bluetooth_device_disconnected: "تم قطع اتصال جهاز Bluetooth",
+    //
+    version: "الإصدار",
+    author: "المؤلف",
+    website: "الموقع الإلكتروني",
+    open_github: "فتح GitHub",
+    view_updates: "عرض التحديثات",
+    cancel: "إلغاء",
 };
 
 const FR_FR: Localization = Localization {
@@ -452,6 +515,13 @@ const FR_FR: Localization = Localization {
     new_bluetooth_device_add: "Nouvel appareil Bluetooth connecté",
     old_bluetooth_device_removed: "Appareil Bluetooth supprimé",
     bluetooth_device_disconnected: "Appareil Bluetooth déconnecté",
+    //
+    version: "Version",
+    author: "Auteur",
+    website: "Site web",
+    open_github: "Ouvrir GitHub",
+    view_updates: "Voir les mises à jour",
+    cancel: "Annuler",
 };
 
 impl Language {

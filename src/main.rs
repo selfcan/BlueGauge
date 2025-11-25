@@ -23,7 +23,7 @@ use crate::tray::{
     convert_tray_info, create_tray,
     icon::{load_app_icon, load_tray_icon},
     menu::{
-        MenuGroup, MenuKind, MenuManager,
+        MenuGroup, MenuKind, MenuManager, about,
         handler::MenuHandler,
         item::{SET_ICON_CONNECT_COLOR, SHOW_LOWEST_BATTERY_DEVICE, create_menu},
     },
@@ -181,6 +181,7 @@ enum UserEvent {
     UpdateTrayTooltip,
     Refresh,
     Restart,
+    ShowAboutDialog,
 }
 
 impl App {
@@ -416,6 +417,10 @@ impl ApplicationHandler<UserEvent> for App {
                 }
 
                 let _ = self.event_loop_proxy.send_event(UserEvent::Exit);
+            }
+            UserEvent::ShowAboutDialog => {
+                let hwnd = self.tray.lock().unwrap().window_handle();
+                about::show_about_dialog(hwnd as isize);
             }
         }
     }

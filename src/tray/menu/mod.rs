@@ -1,3 +1,4 @@
+pub mod about;
 pub mod handler;
 pub mod item;
 

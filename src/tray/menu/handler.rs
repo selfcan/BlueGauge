@@ -47,6 +47,10 @@ impl MenuHandler {
                 proxy
                     .send_event(UserEvent::Exit)
                     .context("Failed to send 'Exit' event")
+            } else if id.eq(&*ABOUT) {
+                proxy
+                    .send_event(UserEvent::ShowAboutDialog)
+                    .context("Failed to send 'Refresh' event")
             } else if id.eq(&*REFRESH) {
                 proxy
                     .send_event(UserEvent::Refresh)
