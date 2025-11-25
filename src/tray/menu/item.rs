@@ -218,7 +218,7 @@ impl CreateMenuItem {
             .map(|item| item as &dyn IsMenuItem)
             .collect();
 
-        Submenu::with_items(LOC.icon_style, true, &menu_tray_icon_style)
+        Submenu::with_items(LOC.icon_style_options, true, &menu_tray_icon_style)
             .expect("Failed to create submenu for tray icon style")
     }
 

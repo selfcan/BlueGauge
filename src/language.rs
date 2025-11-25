@@ -35,8 +35,8 @@ pub struct Localization {
     pub tray_options: &'static str,
     pub notify_options: &'static str,
     pub open_config: &'static str,
-    // Setting - Tray Options - Icon Style
-    pub icon_style: &'static str,
+    // Setting - Tray Options - Icon Style Options
+    pub icon_style_options: &'static str,
     pub horizontal_battery_icon: &'static str,
     pub vertical_battery_icon: &'static str,
     pub number_icon: &'static str,
@@ -86,7 +86,7 @@ const ZH_CN: Localization = Localization {
     tray_options: "托盘选项",
     open_config: "打开配置",
     //
-    icon_style: "图标样式",
+    icon_style_options: "图标样式选项",
     horizontal_battery_icon: "电池图标（水平）",
     vertical_battery_icon: "电池图标（垂直）",
     number_icon: "数字图标",
@@ -136,7 +136,7 @@ const ZH_HANT: Localization = Localization {
     tray_options: "託盤選項",
     open_config: "開啟配置",
     //
-    icon_style: "圖標樣式",
+    icon_style_options: "圖標樣式選項",
     horizontal_battery_icon: "電池圖示（水平）",
     vertical_battery_icon: "電池圖示（垂直）",
     number_icon: "數字圖標",
@@ -186,7 +186,7 @@ const EN_US: Localization = Localization {
     notify_options: "Notification Options",
     open_config: "Open Config",
     //
-    icon_style: "Icon Style",
+    icon_style_options: "Icon Style Options",
     horizontal_battery_icon: "Battery Icon (Horizontal)",
     vertical_battery_icon: "Battery Icon (Vertical)",
     number_icon: "Number Icon",
@@ -236,7 +236,7 @@ const JA_JP: Localization = Localization {
     notify_options: "通知オプション",
     open_config: "設定ファイルを開く",
     //
-    icon_style: "アイコンスタイル",
+    icon_style_options: "アイコンスタイルのオプション",
     horizontal_battery_icon: "バッテリーアイコン（水平）",
     vertical_battery_icon: "バッテリーアイコン（垂直）",
     number_icon: "数字アイコン",
@@ -286,7 +286,7 @@ const KO_KR: Localization = Localization {
     notify_options: "알림 옵션",
     open_config: "구성 열기",
     //
-    icon_style: "아이콘 스타일",
+    icon_style_options: "아이콘 스타일 옵션",
     horizontal_battery_icon: "배터리 아이콘 (수평)",
     vertical_battery_icon: "배터리 아이콘 (수직)",
     number_icon: "숫자 아이콘",
@@ -336,7 +336,7 @@ const DE_DE: Localization = Localization {
     notify_options: "Benachrichtigungsoptionen",
     open_config: "Konfiguration öffnen",
     //
-    icon_style: "Symbolstil",
+    icon_style_options: "Symbolstil-Optionen",
     horizontal_battery_icon: "Batteriesymbol (Horizontal)",
     vertical_battery_icon: "Batteriesymbol (Vertical)",
     number_icon: "Zahlsymbol",
@@ -386,7 +386,7 @@ const RU_RU: Localization = Localization {
     notify_options: "Параметры уведомлений",
     open_config: "Открыть конфигурацию",
     //
-    icon_style: "Стиль значка",
+    icon_style_options: "Параметры стиля значков",
     horizontal_battery_icon: "Иконка батареи (Горизонтальная)",
     vertical_battery_icon: "Иконка батареи (Вертикальная)",
     number_icon: "Числовой значок",
@@ -436,7 +436,7 @@ const AR_SA: Localization = Localization {
     notify_options: "خيارات الإشعارات",
     open_config: "فتح التهيئة",
     //
-    icon_style: "نمط الأيقونة",
+    icon_style_options: "خيارات نمط الأيقونة",
     horizontal_battery_icon: "أيقونة البطارية (أفقي)",
     vertical_battery_icon: "أيقونة البطارية (رأسي)",
     number_icon: "أيقونة رقمية",
@@ -486,7 +486,7 @@ const FR_FR: Localization = Localization {
     notify_options: "Options de notification",
     open_config: "Ouvrir la configurationة",
     //
-    icon_style: "Style d’icône",
+    icon_style_options: "Options de style d’icône",
     horizontal_battery_icon: "Icône de la batterie (Horizontal)",
     vertical_battery_icon: "Icône de la batterie (Vertical)",
     number_icon: "Icône numérique",
