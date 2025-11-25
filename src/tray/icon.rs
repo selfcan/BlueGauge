@@ -5,12 +5,16 @@ use crate::{
 
 use std::path::{Path, PathBuf};
 
+use ab_glyph::{Font, FontVec, Glyph, GlyphId, PxScale, point};
+
 use anyhow::{Context, Result, anyhow};
-use piet_common::{
-    Color, D2DText, D2DTextLayout, Device, FontFamily, ImageFormat, LineCap, RenderContext,
-    StrokeStyle, Text, TextLayout, TextLayoutBuilder,
-};
+use image::Rgba;
+use piet_common::{Color, Device, ImageFormat, LineCap, RenderContext, StrokeStyle};
 use tray_icon::Icon;
+
+static FONT_ARIAL_PATH: &str = r"C:\WINDOWS\FONTS\ARIAL.TTF";
+static FONT_SEGOE_FLUENT_PATH: &str = r"C:\WINDOWS\FONTS\SEGOEICONS.TTF";
+static FONT_SEGOE_MDL2_PATH: &str = r"C:\WINDOWS\FONTS\SEGMDL2.TTF";
 
 const LOGO_DATA: &[u8] = include_bytes!("../../assets/logo.ico");
 
@@ -41,34 +45,20 @@ pub fn load_tray_icon(config: &Config, battery_level: u8, bluetooth_status: bool
             address: _,
             color_scheme,
             direction,
-            font_size,
         } => {
             let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
 
-            load_battery_icon(
-                battery_level,
-                is_low_battery,
-                direction,
-                font_size,
-                is_connect_color,
-            )
+            load_battery_icon(battery_level, is_low_battery, direction, is_connect_color)
         }
         TrayIconStyle::BatteryNumber {
             address: _,
             color_scheme,
             font_name,
             font_color,
-            font_size,
         } => {
             let is_connect_color = color_scheme.is_connect_color().then_some(bluetooth_status);
 
-            load_number_icon(
-                battery_level,
-                &font_name,
-                font_color,
-                font_size,
-                is_connect_color,
-            )
+            load_number_icon(battery_level, &font_name, font_color, is_connect_color)
         }
         TrayIconStyle::BatteryRing {
             address: _,
@@ -118,34 +108,22 @@ fn load_battery_icon(
     battery_level: u8,
     is_low_battery: bool,
     direction: Direction,
-    font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<Icon> {
-    let (icon_rgba, icon_width, icon_height) = render_battery_icon(
-        battery_level,
-        is_low_battery,
-        direction,
-        font_size,
-        is_connect_color,
-    )?;
+    let (icon_rgba, icon_width, icon_height) =
+        render_battery_icon(battery_level, is_low_battery, direction, is_connect_color)?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
-        .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
+        .map_err(|e| anyhow!("Failed to get Battery Icon - {e}"))
 }
 
 fn load_number_icon(
     battery_level: u8,
     font_name: &str,
     font_color: Option<String>,
-    font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<Icon> {
-    let (icon_rgba, icon_width, icon_height) = render_number_icon(
-        battery_level,
-        font_name,
-        font_color,
-        font_size,
-        is_connect_color,
-    )?;
+    let (icon_rgba, icon_width, icon_height) =
+        render_number_icon(battery_level, font_name, font_color, is_connect_color)?;
     Icon::from_rgba(icon_rgba, icon_width, icon_height)
         .map_err(|e| anyhow!("Failed to get Number Icon - {e}"))
 }
@@ -172,32 +150,34 @@ fn render_battery_icon(
     battery_level: u8,
     is_low_battery: bool,
     direction: Direction,
-    font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
     // Win11 使用 [Segoe Fluent Icons] 字体
     // Win10 使用 [Segoe MDL2 Assets] 字体，若 win10 用户想要使用 Fluent 电池图标，需自行下载字体
-    let font_name = if !Path::new(r"C:\WINDOWS\FONTS\SEGOEICONS.TTF").is_file() {
-        std::env::var_os("LOCALAPPDATA")
-            .and_then(|local_appdata| {
-                let mut path = PathBuf::from(local_appdata);
-                path.push("Microsoft");
-                path.push("Windows");
-                path.push("Fonts");
-
-                let candidates = [
-                    "Segoe Fluent Icons.ttf",
-                    "SEGOEICONS.TTF",
-                    "SegoeFluentIcons.ttf",
-                ];
-
-                candidates
-                    .iter()
-                    .find_map(|name| path.join(name).is_file().then_some("Segoe Fluent Icons"))
-            })
-            .unwrap_or("Segoe MDL2 Assets")
+    let font_path = if !Path::new(FONT_SEGOE_FLUENT_PATH).is_file() {
+        // 检查有无手动安装 Segoe Fluent Icons 字体
+        check_font_exists("Segoe Fluent Icons")
+            .or_else(|| check_font_exists("SegoeFluentIcons"))
+            .or_else(|| check_font_exists("SEGOEICONS"))
+            .unwrap_or(FONT_SEGOE_MDL2_PATH.to_owned())
     } else {
-        "Segoe Fluent Icons"
+        FONT_SEGOE_FLUENT_PATH.to_owned()
+    };
+    let font_data = std::fs::read(font_path)?;
+    let font = FontVec::try_from_vec(font_data).context("Failed to parse font")?;
+
+    let font_color = {
+        let base_color = if is_low_battery {
+            Rgba([254, 102, 102, 255])
+        } else {
+            SystemTheme::get().get_font_color()
+        };
+
+        match is_connect_color {
+            Some(true) => base_color,
+            Some(false) => Rgba([base_color[0], base_color[1], base_color[2], 128]),
+            None => base_color,
+        }
     };
 
     let indicator = if battery_level == 0 {
@@ -239,140 +219,42 @@ fn render_battery_icon(
         ICONS[((battery_level - 1) / 10).min(10) as usize].to_string()
     };
 
-    let width = 64;
-    let height = 64;
-
-    let font_size = font_size.map(|s| s as f64).unwrap_or(64.0);
-
-    let font_color = {
-        let base_color = if is_low_battery {
-            Color::from_rgba32_u32(0xFE6666FF)
-        } else {
-            SystemTheme::get().get_font_color()
-        };
-
-        match is_connect_color {
-            Some(true) => base_color,
-            Some(false) => base_color.with_alpha(0.5),
-            None => base_color,
-        }
-    };
-
-    let mut device = Device::new().map_err(|e| anyhow!("Failed to get Device - {e}"))?;
-    let mut bitmap_target = device
-        .bitmap_target(width, height, 1.0)
-        .map_err(|e| anyhow!("Failed to create a new bitmap target. - {e}"))?;
-    let mut piet = bitmap_target.render_context();
-    let text = piet.text();
-    let layout = build_text_layout(text, &indicator, font_name, font_size, font_color)?;
-
-    let (x, y) = (
-        (width as f64 - layout.size().width) / 2.0,
-        (height as f64 - layout.size().height) / 2.0,
-    );
-
-    piet.draw_text(&layout, (x, y));
-    piet.finish().map_err(|e| anyhow!("{e}"))?;
-    drop(piet);
-
-    let image_buf = bitmap_target.to_image_buf(ImageFormat::RgbaPremul).unwrap();
-
-    Ok((
-        image_buf.raw_pixels().to_vec(),
-        image_buf.width() as u32,
-        image_buf.height() as u32,
-    ))
+    render_font(font, font_color, &indicator).map_err(|e| anyhow!("{e}"))
 }
 
 fn render_number_icon(
     battery_level: u8,
     font_name: &str,
     font_color: Option</* Hex color */ String>,
-    font_size: Option<u8>,
     is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
-    let indicator = battery_level.to_string();
-
-    let width = 64;
-    let height = 64;
-
-    let font_name = if font_name.trim().is_empty() {
-        "Arial"
+    let font_path = if font_name.trim().is_empty() {
+        FONT_ARIAL_PATH.to_owned()
     } else {
-        font_name
+        check_font_exists(font_name).unwrap_or(FONT_ARIAL_PATH.to_owned())
     };
-
-    let font_size = font_size.and_then(|s| s.ne(&64).then_some(s as f64));
+    let font_data = std::fs::read(font_path)?;
+    let font = FontVec::try_from_vec(font_data).context("Failed to parse font")?;
 
     let font_color = if let Some(should) = is_connect_color {
         if should {
-            Color::from_rgba32_u32(0x4FC478FF)
+            Rgba([79, 196, 120, 255])
         } else {
-            Color::from_rgba32_u32(0xFE6666FF)
+            Rgba([254, 102, 102, 255])
         }
     } else {
         font_color
             .and_then(|c| Color::from_hex_str(&c).ok())
+            .map(|font_color| {
+                let color = font_color.as_rgba8();
+                Rgba([color.0, color.1, color.2, color.3])
+            })
             .unwrap_or_else(|| SystemTheme::get().get_font_color())
     };
 
-    let mut device = Device::new().map_err(|e| anyhow!("Failed to get Device - {e}"))?;
-    let mut bitmap_target = device
-        .bitmap_target(width, height, 1.0)
-        .map_err(|e| anyhow!("Failed to create a new bitmap target. - {e}"))?;
-    let mut piet = bitmap_target.render_context();
-    let mut layout;
-    let text = piet.text();
+    let indicator = battery_level.to_string();
 
-    // Dynamically calculated font size
-    let mut fs = match (font_size, battery_level) {
-        (_, 100) => 42.0,
-        (Some(size), _) => size,
-        (None, b) if b < 10 => 70.0,
-        (None, _) => 64.0,
-    };
-
-    if battery_level == 100 || font_size.is_none() {
-        while {
-            layout = build_text_layout(text, &indicator, font_name, fs, font_color)?;
-            !(layout.size().width > width as f64 || layout.size().height > height as f64)
-        } {
-            fs += 2.0;
-        }
-    } else {
-        layout = build_text_layout(text, &indicator, font_name, fs, font_color)?;
-    }
-
-    let (x, y) = (
-        (width as f64 - layout.size().width) / 2.0,
-        (height as f64 - layout.size().height) / 2.0,
-    );
-
-    piet.draw_text(&layout, (x, y));
-    piet.finish().map_err(|e| anyhow!("{e}"))?;
-    drop(piet);
-
-    let image_buf = bitmap_target.to_image_buf(ImageFormat::RgbaPremul).unwrap();
-
-    Ok((
-        image_buf.raw_pixels().to_vec(),
-        image_buf.width() as u32,
-        image_buf.height() as u32,
-    ))
-}
-
-fn build_text_layout(
-    text: &mut D2DText,
-    indicator: &str,
-    font_name: &str,
-    font_size: f64,
-    font_color: Color,
-) -> Result<D2DTextLayout> {
-    text.new_text_layout(indicator.to_string())
-        .font(FontFamily::new_unchecked(font_name), font_size)
-        .text_color(font_color)
-        .build()
-        .map_err(|e| anyhow!("Failed to build text layout - {e}"))
+    render_font(font, font_color, &indicator).map_err(|e| anyhow!("{e}"))
 }
 
 fn render_ring_icon(
@@ -486,4 +368,155 @@ fn render_ring_icon(
         image_buf.width() as u32,
         image_buf.height() as u32,
     ))
+}
+
+pub fn render_font(
+    font: FontVec,
+    color: Rgba<u8>,
+    text: &str,
+) -> Result<(Vec<u8>, u32, u32), Box<dyn std::error::Error>> {
+    let font_px = 36.0_f32;
+
+    // --- compute conversion factor from font's "unscaled units" -> px ---
+    // units_per_em is typically 1000 or 2048 depending on font.
+    let units_per_em = font.units_per_em().unwrap_or(1000.0_f32);
+    let scale_factor = font_px / units_per_em; // unscaled_value * scale_factor -> pixels
+
+    // PxScale passed to Glyph (outline renderer) should be in pixels
+    let px_scale = PxScale::from(font_px);
+
+    // ---------- layout (simple horizontal) ----------
+    let mut glyphs: Vec<Glyph> = Vec::new();
+    let mut pen_x: f32 = 0.0;
+    let mut prev_gid: Option<GlyphId> = None;
+
+    for ch in text.chars() {
+        let gid = font.glyph_id(ch);
+
+        // apply kerning (unscaled kern * scale_factor -> px)
+        if let Some(prev) = prev_gid {
+            pen_x += font.kern_unscaled(prev, gid) * scale_factor;
+        }
+        prev_gid = Some(gid);
+
+        // create glyph positioned at pen_x, baseline at ascent (converted to px)
+        let glyph = Glyph {
+            id: gid,
+            scale: px_scale,
+            position: point(pen_x, font.ascent_unscaled() * scale_factor),
+        };
+
+        // advance pen by advance (unscaled * scale_factor -> px)
+        pen_x += font.h_advance_unscaled(gid) * scale_factor;
+
+        glyphs.push(glyph);
+    }
+
+    // ---------- collect outlines & bounding box ----------
+    let mut outlined = Vec::new();
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+
+    for g in &glyphs {
+        if let Some(out) = font.outline_glyph(g.clone()) {
+            let bb = out.px_bounds();
+            min_x = min_x.min(bb.min.x);
+            min_y = min_y.min(bb.min.y);
+            max_x = max_x.max(bb.max.x);
+            max_y = max_y.max(bb.max.y);
+            outlined.push(out);
+        }
+    }
+
+    if !min_x.is_finite() {
+        return Ok((vec![0, 0, 0, 0], 1, 1));
+    }
+
+    // ---------- tight size ----------
+    let width = max_x - min_x;
+    let height = max_y - min_y;
+    let side = width.max(height).ceil().max(1.0) as u32;
+
+    // center offset to make it square
+    let dx = ((side as f32 - width) / 2.0) - min_x;
+    let dy = ((side as f32 - height) / 2.0) - min_y;
+
+    // RGBA32 buffer
+    let mut rgba = vec![0u8; (side * side * 4) as usize];
+
+    // ---------- draw ----------
+    for og in outlined {
+        let bb = og.px_bounds();
+        let x0 = (bb.min.x + dx).floor() as i32;
+        let y0 = (bb.min.y + dy).floor() as i32;
+
+        og.draw(|gx, gy, v| {
+            let px = x0 + gx as i32;
+            let py = y0 + gy as i32;
+            if px < 0 || py < 0 {
+                return;
+            }
+            let px = px as u32;
+            let py = py as u32;
+            if px >= side || py >= side {
+                return;
+            }
+
+            let offset = ((py * side + px) * 4) as usize;
+
+            let src_a = v * (color[3] as f32 / 255.0);
+            if src_a <= 0.0 {
+                return;
+            }
+
+            let dst_r = rgba[offset] as f32;
+            let dst_g = rgba[offset + 1] as f32;
+            let dst_b = rgba[offset + 2] as f32;
+            let dst_a = rgba[offset + 3] as f32 / 255.0;
+
+            let out_a = src_a + dst_a * (1.0 - src_a);
+
+            let blend = |src: u8, dst: f32| -> u8 {
+                ((src as f32 * src_a + dst * dst_a * (1.0 - src_a)) / out_a).clamp(0.0, 255.0) as u8
+            };
+
+            rgba[offset] = blend(color[0], dst_r);
+            rgba[offset + 1] = blend(color[1], dst_g);
+            rgba[offset + 2] = blend(color[2], dst_b);
+            rgba[offset + 3] = (out_a * 255.0).clamp(0.0, 255.0) as u8;
+        });
+    }
+
+    Ok((rgba, side, side))
+}
+
+fn check_font_exists(name: &str) -> Option<String> {
+    let file_name =
+        if Path::new(name).is_file() && (name.ends_with(".ttf") || name.ends_with(".otf")) {
+            return Some(name.to_string());
+        } else if name.ends_with(".ttf") || name.ends_with(".otf") {
+            name.to_string()
+        } else {
+            format!("{}.tff", name.trim())
+        };
+    let windir = std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".to_string());
+    let fonts_dir = Path::new(&windir).join("Fonts");
+    let font_path = fonts_dir.join(&file_name);
+
+    Path::new(&font_path)
+        .is_file()
+        .then_some(font_path)
+        .or_else(|| {
+            std::env::var_os("LOCALAPPDATA").and_then(|local_appdata| {
+                let font_path = PathBuf::from(local_appdata)
+                    .join("Microsoft")
+                    .join("Windows")
+                    .join("Fonts")
+                    .join(file_name);
+                font_path.is_file().then_some(font_path)
+            })
+        })
+        .map(|p| p.to_string_lossy().to_string())
 }

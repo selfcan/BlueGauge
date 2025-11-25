@@ -5,7 +5,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use piet_common::Color;
+use image::Rgba;
 use winit::event_loop::EventLoopProxy;
 use winreg::{
     RegKey,
@@ -38,10 +38,10 @@ impl SystemTheme {
         }
     }
 
-    pub fn get_font_color(&self) -> Color {
+    pub fn get_font_color(&self) -> Rgba<u8> {
         match self {
-            Self::Dark => Color::from_rgba32_u32(0xFFFFFFFF),
-            Self::Light => Color::from_rgba32_u32(0x1F1F1FFF),
+            Self::Dark => Rgba([255, 255, 255, 255]),
+            Self::Light => Rgba([31, 31, 31, 255]),
         }
     }
 }

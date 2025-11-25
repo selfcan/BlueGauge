@@ -6,6 +6,7 @@ version = 4
 name = "BlueGauge"
 version = "0.3.5"
 dependencies = [
+ "ab_glyph",
  "anyhow",
  "embed-resource",
  "env_logger",

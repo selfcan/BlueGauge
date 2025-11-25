@@ -79,8 +79,6 @@ pub enum TrayIconStyle {
         #[serde(rename = "bluetooth_address")]
         address: u64,
         direction: Direction,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        font_size: Option<u8>, // Default: 64
     },
     BatteryNumber {
         color_scheme: ColorScheme,
@@ -89,8 +87,6 @@ pub enum TrayIconStyle {
         font_name: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         font_color: Option</* Hex color */ String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        font_size: Option<u8>, // Default: 64
     },
     BatteryRing {
         color_scheme: ColorScheme,
@@ -136,7 +132,6 @@ impl TrayIconStyle {
             color_scheme: ColorScheme::FollowSystemTheme,
             font_name: "Arial".to_owned(),
             font_color: Some(String::new()),
-            font_size: Some(64),
         }
     }
 
@@ -154,7 +149,6 @@ impl TrayIconStyle {
             address,
             color_scheme: ColorScheme::FollowSystemTheme,
             direction: Direction::Horizontal,
-            font_size: Some(64),
         }
     }
 
@@ -163,7 +157,6 @@ impl TrayIconStyle {
             address,
             color_scheme: ColorScheme::FollowSystemTheme,
             direction: Direction::Vertical,
-            font_size: Some(64),
         }
     }
 

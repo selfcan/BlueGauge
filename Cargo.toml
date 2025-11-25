@@ -14,6 +14,7 @@ futures = "0.3.31"
 log = { version = "0.4.28", features = ["release_max_level_off"] }
 image = { version = "0.25.9", default-features = false, features = ["ico", "png"] }
 piet-common = "0.8.0" # 字体渲染
+ab_glyph = { version = "0.2", default-features = false, features = ["std"] }
 serde= { version = "1.0.228", features = ["derive"] }
 scopeguard = "1.2.0"
 tauri-winrt-notification = "0.7.2"
