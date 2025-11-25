@@ -17,7 +17,6 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 2. 可选设置相关参数，打开托盘菜单 - `设置` - `打开配置`  
 `font_name` = `"系统字体名称，如 Microsoft YaHei UI"`（默认 `Arial`）  
 `font_color` = `"十六进制颜色代码，如 #FFFFFF、#00D26A"`（默认字体颜色跟随系统主题）  
-`font_size` = `0~255`  （默认 `64`）  
   更改配置文件后，重新启动 BlueGauge
 3. 其他：图标颜色支持连接配色，在`设置`-`托盘选项`-`设置图标颜色为连接配色`（已连接为绿色，断开连接为红色）
 

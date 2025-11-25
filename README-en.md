@@ -16,7 +16,6 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 2. set font: open tray menu -- `Settings` -- `Open Config`   
 `font_name` = `"System Font Nmae, e.g. Microsoft YaHei UI"`  
 `font_color` = `"Hex color code，e.g. #FFFFFF、#00D26A"` (Default font color follows system theme)  
-`font_size` = `0~255` (Default `64`)   
     Restart BlueGauge after updating the configuration
 3. others: set the icon color to the connection color in `Settings`-`Tray Options` (connected as green, disconnected as red)
 
