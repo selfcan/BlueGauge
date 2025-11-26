@@ -93,8 +93,7 @@ Note: Windows 10 users need the Fluent battery icon to download and install [Seg
         - e.g. `"Bluetooth device name" = "Bluetooth alias"`
         - e.g. `"WH-1000XM6" = "Sony Headphones"`
         - e.g. `"Surface Pen" = "Pen"`
-        - e.g. `"HUAWEI FreeBuds Pro" = "FreeBuds Pro"`
-        - e.g. `"OPPO Enco Air3" = "Enco Air3"`
+        - e.g. `"HUAWEI FreeBuds Pro 5" = "HUAWEI FreeBuds"`
 
 4. Setting: tooltip
 
@@ -146,11 +145,7 @@ Welcome contributions from developers who can help us extend support for these d
 
 - **Solution:**: Create another folder, copy `BlueGauge.exe` and `BlueGauge.toml` to the folder, then rename `BlueGauge.exe` to another name, and finally turn on and set the display battert level to other Bluetooth device, set the `Launch at Startup`.
 
-### 4. The tray number/battery icon is cut off by a small part
-
-- **Solution::**: Open the tray menu - `Settings`-`Open Config`, and then set the font size in `font_size` under `[tray.icon.font]` to set a font that is one size smaller than the original one.
-
-### 5. Connection indicator in tray tooltip has no color
+### 4. Connection indicator in tray tooltip has no color
 
 Connection indicator only supports displaying colors in Windows 11
 
