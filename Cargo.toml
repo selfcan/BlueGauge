@@ -13,8 +13,8 @@ env_logger = { version = "0.11.8", default-features = false, features = ["auto-c
 futures = "0.3.31"
 log = { version = "0.4.28", features = ["release_max_level_off"] }
 image = { version = "0.25.9", default-features = false, features = ["ico", "png"] }
-piet-common = "0.8.0" # 字体渲染
-ab_glyph = { version = "0.2", default-features = false, features = ["std"] }
+piet-common = "0.8.0" # 图标渲染
+ab_glyph = { version = "0.2.32", default-features = false, features = ["std"] }  # 字体渲染
 serde= { version = "1.0.228", features = ["derive"] }
 scopeguard = "1.2.0"
 tauri-winrt-notification = "0.7.2"
@@ -36,6 +36,7 @@ features = [
     "Win32_Globalization",
     "Win32_Security",
     "Win32_System",
+    "Win32_System_Registry",
     "Win32_System_Threading",
     "Win32_UI_Controls",
     "Win32_UI_Shell",
@@ -56,8 +57,8 @@ features = [
     "Win32_Devices_Bluetooth",
     "Devices_Bluetooth_Rfcomm",
     "Networking_Sockets",
-    "Win32_System_Registry",
     "Win32_Security",
+    "Win32_System_Registry",
     "Win32_System_Threading",
     "Win32_Devices_Properties"
 ]

@@ -1,16 +1,29 @@
-use crate::UserEvent;
+use crate::{UserEvent, util::to_wide};
 
+use std::ptr::null_mut;
 use std::sync::{
     Arc, RwLock,
     atomic::{AtomicBool, Ordering},
 };
 
 use image::Rgba;
-use winit::event_loop::EventLoopProxy;
-use winreg::{
-    RegKey,
-    enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE},
+use log::{error, info};
+use windows::{
+    Win32::{
+        Foundation::{CloseHandle, WAIT_OBJECT_0, WAIT_TIMEOUT},
+        Security::SECURITY_ATTRIBUTES,
+        System::{
+            Registry::{
+                HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_DWORD, REG_NOTIFY_CHANGE_LAST_SET,
+                RRF_RT_REG_DWORD, RegCloseKey, RegGetValueW, RegNotifyChangeKeyValue,
+                RegOpenKeyExW,
+            },
+            Threading::{CreateEventW, WaitForSingleObject},
+        },
+    },
+    core::PCWSTR,
 };
+use winit::event_loop::EventLoopProxy;
 
 const PERSONALIZE_REGISTRY_KEY: &str =
     r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
@@ -24,17 +37,32 @@ pub enum SystemTheme {
 
 impl SystemTheme {
     pub fn get() -> Self {
-        let personalize_reg_key = RegKey::predef(HKEY_CURRENT_USER)
-            .open_subkey_with_flags(PERSONALIZE_REGISTRY_KEY, KEY_READ | KEY_WRITE)
-            .expect("This program requires Windows 10 14393 or above");
+        let path = to_wide(PERSONALIZE_REGISTRY_KEY);
+        let name = to_wide(SYSTEM_USES_LIGHT_THEME_REGISTRY_KEY);
 
-        let theme_reg_value: u32 = personalize_reg_key
-            .get_value(SYSTEM_USES_LIGHT_THEME_REGISTRY_KEY)
-            .expect("This program requires Windows 10 14393 or above");
+        let mut value: u32 = 0;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        let mut reg_dword = REG_DWORD;
 
-        match theme_reg_value {
-            0 => SystemTheme::Dark,
-            _ => SystemTheme::Light,
+        let ret = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                PCWSTR(path.as_ptr()),
+                PCWSTR(name.as_ptr()),
+                RRF_RT_REG_DWORD,
+                Some(&mut reg_dword),
+                Some(&mut value as *mut _ as *mut _),
+                Some(&mut size as *mut _),
+            )
+        };
+
+        if ret.is_err() {
+            SystemTheme::Light
+        } else {
+            match value {
+                0 => SystemTheme::Dark,
+                _ => SystemTheme::Light,
+            }
         }
     }
 
@@ -52,29 +80,87 @@ pub fn listen_system_theme(
     system_theme: Arc<RwLock<SystemTheme>>,
 ) -> std::thread::JoinHandle<()> {
     std::thread::spawn(move || {
-        loop {
-            let original_system_theme = {
-                let system_theme = system_theme.read().unwrap();
-                *system_theme
+        unsafe {
+            let mut hkey: HKEY = HKEY(std::ptr::null_mut());
+            let path = to_wide(PERSONALIZE_REGISTRY_KEY);
+
+            let status = RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                PCWSTR(path.as_ptr()),
+                None,
+                KEY_NOTIFY,
+                &mut hkey,
+            );
+
+            if status.0 != 0 {
+                eprintln!("Failed to open registry key: {}", status.0);
+                return;
+            }
+
+            let registry_event =
+                CreateEventW(Some(null_mut::<SECURITY_ATTRIBUTES>()), true, false, None);
+
+            let Ok(handle) = registry_event else {
+                error!("Failed to create event");
+                return;
             };
 
-            let current_system_theme = SystemTheme::get();
+            loop {
+                let status = RegNotifyChangeKeyValue(
+                    hkey,
+                    false,
+                    REG_NOTIFY_CHANGE_LAST_SET,
+                    Some(handle),
+                    true, // 异步模式
+                );
 
-            if original_system_theme != current_system_theme {
-                let mut system_theme = system_theme.write().unwrap();
-                *system_theme = current_system_theme;
+                if status.is_err() {
+                    error!("RegNotifyChangeKeyValue failed: {}", status.0);
+                    break;
+                }
 
-                proxy
-                    .send_event(UserEvent::UpdateTray)
-                    .expect("Failed to send UpdateTray Event");
-            }
+                let timeout = 1500; // milliseconds
+                let wait_event = WaitForSingleObject(handle, timeout);
 
-            for _ in 0..=5 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if exit_threads.load(Ordering::Relaxed) {
-                    return;
+                match wait_event {
+                    // registry changed
+                    WAIT_OBJECT_0 => {
+                        let original_system_theme = {
+                            let system_theme = system_theme.read().unwrap();
+                            *system_theme
+                        };
+
+                        let current_system_theme = SystemTheme::get();
+
+                        if original_system_theme != current_system_theme {
+                            info!("System Theme changed = {current_system_theme:?}");
+
+                            let mut system_theme = system_theme.write().unwrap();
+                            *system_theme = current_system_theme;
+
+                            proxy
+                                .send_event(UserEvent::UpdateTray)
+                                .expect("Failed to send UpdateTray Event");
+                        }
+                    }
+
+                    // quit_event triggered
+                    WAIT_TIMEOUT => {
+                        if exit_threads.load(Ordering::Relaxed) {
+                            info!("Exit flag detected, stopping watcher...");
+                            break;
+                        }
+                    }
+
+                    other => {
+                        error!("WaitForSingleObject error: {}", other.0);
+                        break;
+                    }
                 }
             }
+
+            let _ = CloseHandle(handle);
+            let _ = RegCloseKey(hkey);
         }
     })
 }
