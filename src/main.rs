@@ -10,6 +10,7 @@ mod single_instance;
 mod startup;
 mod theme;
 mod tray;
+mod util;
 
 use crate::bluetooth::{
     info::{BluetoothInfo, find_bluetooth_devices, get_bluetooth_devices_info},

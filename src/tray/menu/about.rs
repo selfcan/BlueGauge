@@ -1,7 +1,5 @@
 use crate::language::LOC;
-
-use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
+use crate::util::to_wide;
 
 use windows::Win32::Foundation::{HINSTANCE, HWND};
 use windows::Win32::UI::Controls::{
@@ -22,13 +20,6 @@ pub fn show_about_dialog(hwnd: isize) {
 
     std::thread::spawn(move || {
         unsafe {
-            fn to_wide(s: &str) -> Vec<u16> {
-                OsStr::new(s)
-                    .encode_wide()
-                    .chain(std::iter::once(0))
-                    .collect()
-            }
-
             let title_w = to_wide(&title);
 
             let message = format!(
