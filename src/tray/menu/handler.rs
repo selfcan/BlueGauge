@@ -102,7 +102,7 @@ impl MenuHandler {
                         config.save();
 
                         proxy
-                            .send_event(UserEvent::UpdateIcon)
+                            .send_event(UserEvent::UpdateTray)
                             .context("Failed to send 'Update Icon' event")
                     }
                     // GroupMulti
