@@ -1,6 +1,5 @@
 use crate::{UserEvent, util::to_wide};
 
-use std::ptr::null_mut;
 use std::sync::{
     Arc, RwLock,
     atomic::{AtomicBool, Ordering},
@@ -10,15 +9,14 @@ use image::Rgba;
 use log::{error, info};
 use windows::{
     Win32::{
-        Foundation::{CloseHandle, WAIT_OBJECT_0, WAIT_TIMEOUT},
-        Security::SECURITY_ATTRIBUTES,
+        Foundation::{CloseHandle, HANDLE, WAIT_EVENT, WAIT_FAILED, WAIT_OBJECT_0},
         System::{
             Registry::{
                 HKEY, HKEY_CURRENT_USER, KEY_NOTIFY, REG_DWORD, REG_NOTIFY_CHANGE_LAST_SET,
                 RRF_RT_REG_DWORD, RegCloseKey, RegGetValueW, RegNotifyChangeKeyValue,
                 RegOpenKeyExW,
             },
-            Threading::{CreateEventW, WaitForSingleObject},
+            Threading::{CreateEventW, INFINITE, SetEvent, WaitForMultipleObjects},
         },
     },
     core::PCWSTR,
@@ -74,93 +72,137 @@ impl SystemTheme {
     }
 }
 
-pub fn listen_system_theme(
+pub struct ThemeWatcher {
     exit_threads: Arc<AtomicBool>,
     proxy: EventLoopProxy<UserEvent>,
     system_theme: Arc<RwLock<SystemTheme>>,
-) -> std::thread::JoinHandle<()> {
-    std::thread::spawn(move || {
-        unsafe {
-            let mut hkey: HKEY = HKEY(std::ptr::null_mut());
-            let path = to_wide(PERSONALIZE_REGISTRY_KEY);
+    thread_handle: Option<std::thread::JoinHandle<()>>,
+    shut_down_handle: HANDLE,
+}
 
-            let status = RegOpenKeyExW(
-                HKEY_CURRENT_USER,
-                PCWSTR(path.as_ptr()),
-                None,
-                KEY_NOTIFY,
-                &mut hkey,
-            );
+impl ThemeWatcher {
+    pub fn new(
+        exit_threads: Arc<AtomicBool>,
+        proxy: EventLoopProxy<UserEvent>,
+        system_theme: Arc<RwLock<SystemTheme>>,
+    ) -> Self {
+        let shut_down_handle =
+            unsafe { CreateEventW(None, true, false, None).expect("Shutdown event create failed") };
 
-            if status.0 != 0 {
-                eprintln!("Failed to open registry key: {}", status.0);
-                return;
-            }
+        Self {
+            exit_threads,
+            proxy,
+            system_theme,
+            thread_handle: None,
+            shut_down_handle,
+        }
+    }
 
-            let registry_event =
-                CreateEventW(Some(null_mut::<SECURITY_ATTRIBUTES>()), true, false, None);
+    pub fn stop(&mut self) {
+        info!("Stopping the watch theme thread...");
+        let _ = unsafe { SetEvent(self.shut_down_handle) };
+        if let Some(handle) = self.thread_handle.take() {
+            self.exit_threads.store(true, Ordering::Relaxed);
+            handle.join().expect("Failed to join theme watcher thread");
+        }
+        let _ = unsafe { CloseHandle(self.shut_down_handle) };
+    }
 
-            let Ok(handle) = registry_event else {
-                error!("Failed to create event");
-                return;
-            };
+    pub fn start(&mut self) {
+        let shut_down_handle = self.shut_down_handle.0 as isize;
+        let thread_handle = {
+            let exit_threads = self.exit_threads.clone();
+            let system_theme = self.system_theme.clone();
+            let proxy = self.proxy.clone();
 
-            loop {
-                let status = RegNotifyChangeKeyValue(
-                    hkey,
-                    false,
-                    REG_NOTIFY_CHANGE_LAST_SET,
-                    Some(handle),
-                    true, // 异步模式
-                );
+            std::thread::spawn(move || {
+                let mut hkey = HKEY::default();
+                let path = to_wide(PERSONALIZE_REGISTRY_KEY);
 
-                if status.is_err() {
-                    error!("RegNotifyChangeKeyValue failed: {}", status.0);
-                    break;
+                if let Err(e) = unsafe {
+                    RegOpenKeyExW(
+                        HKEY_CURRENT_USER,
+                        PCWSTR(path.as_ptr()),
+                        None,
+                        KEY_NOTIFY,
+                        &mut hkey,
+                    )
+                }
+                .ok()
+                {
+                    error!("Failed to open registry key: {e}");
+                    return;
                 }
 
-                let timeout = 1500; // milliseconds
-                let wait_event = WaitForSingleObject(handle, timeout);
+                while !exit_threads.load(Ordering::Relaxed) {
+                    let registry_event = unsafe { CreateEventW(None, true, false, None) };
 
-                match wait_event {
-                    // registry changed
-                    WAIT_OBJECT_0 => {
-                        let original_system_theme = {
-                            let system_theme = system_theme.read().unwrap();
-                            *system_theme
-                        };
+                    let Ok(watch_handle) = registry_event else {
+                        error!("Failed to create event");
+                        break;
+                    };
 
-                        let current_system_theme = SystemTheme::get();
+                    let status = unsafe {
+                        RegNotifyChangeKeyValue(
+                            hkey,
+                            false,
+                            REG_NOTIFY_CHANGE_LAST_SET,
+                            Some(watch_handle),
+                            true, // 异步模式
+                        )
+                    };
 
-                        if original_system_theme != current_system_theme {
-                            info!("System Theme changed = {current_system_theme:?}");
-
-                            let mut system_theme = system_theme.write().unwrap();
-                            *system_theme = current_system_theme;
-
-                            proxy
-                                .send_event(UserEvent::UpdateTray)
-                                .expect("Failed to send UpdateTray Event");
-                        }
+                    if status.is_err() {
+                        error!("RegNotifyChangeKeyValue failed: {}", status.0);
+                        let _ = unsafe { CloseHandle(watch_handle) };
+                        break;
                     }
 
-                    // quit_event triggered
-                    WAIT_TIMEOUT => {
-                        if exit_threads.load(Ordering::Relaxed) {
-                            info!("Exit flag detected, stopping watcher...");
+                    let handles = [watch_handle, HANDLE(shut_down_handle as _)];
+                    let wait_event = unsafe { WaitForMultipleObjects(&handles, false, INFINITE) };
+
+                    let _ = unsafe { CloseHandle(watch_handle) };
+
+                    match wait_event {
+                        // registry changed
+                        WAIT_OBJECT_0 => {
+                            let original_system_theme = {
+                                let system_theme = system_theme.read().unwrap();
+                                *system_theme
+                            };
+
+                            let current_system_theme = SystemTheme::get();
+
+                            if original_system_theme != current_system_theme {
+                                info!("System Theme changed = {current_system_theme:?}");
+
+                                let mut system_theme = system_theme.write().unwrap();
+                                *system_theme = current_system_theme;
+
+                                proxy
+                                    .send_event(UserEvent::UpdateTray)
+                                    .expect("Failed to send UpdateTray Event");
+                            }
+                        }
+                        // exit
+                        WAIT_EVENT(1) => {
+                            info!("Watcher theme thread has stopped");
+                            let _ = unsafe { RegCloseKey(hkey) };
+                            break;
+                        }
+                        WAIT_FAILED => {
+                            error!("WaitForMultipleObjects failed: {wait_event:?}");
+                            break;
+                        }
+                        _ => {
+                            error!("WaitForMultipleObjects unexpected result: {wait_event:?}");
                             break;
                         }
                     }
-
-                    other => {
-                        error!("WaitForSingleObject error: {}", other.0);
-                        break;
-                    }
                 }
-            }
+            })
+        };
 
-            let _ = CloseHandle(handle);
-            let _ = RegCloseKey(hkey);
-        }
-    })
+        self.thread_handle = Some(thread_handle);
+    }
 }

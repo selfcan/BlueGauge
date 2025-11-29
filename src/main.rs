@@ -19,7 +19,7 @@ use crate::bluetooth::{
 use crate::config::{Config, EXE_PATH, TrayIconStyle};
 use crate::notify::{NotifyEvent, notify};
 use crate::single_instance::SingleInstance;
-use crate::theme::{SystemTheme, listen_system_theme};
+use crate::theme::{SystemTheme, ThemeWatcher};
 use crate::tray::{
     convert_tray_info, create_tray,
     icon::{load_app_icon, load_tray_icon},
@@ -79,15 +79,15 @@ pub type BluetoothDevicesInfo = Arc<Mutex<HashMap<u64, BluetoothInfo>>>;
 struct App {
     bluetooth_devcies_info: BluetoothDevicesInfo,
     config: Arc<Config>,
-    watcher: Option<Watcher>,
-    event_loop_proxy: EventLoopProxy<UserEvent>,
     exit_threads: Arc<AtomicBool>,
+    event_loop_proxy: EventLoopProxy<UserEvent>,
     /// 存储已经通知过的低电量设备（地址），避免再次通知
     notified_devices: Arc<Mutex<HashSet<u64>>>,
-    system_theme: Arc<RwLock<SystemTheme>>,
-    tray: Mutex<TrayIcon>,
     menu_manager: Mutex<MenuManager>,
-    worker_threads: Vec<std::thread::JoinHandle<()>>,
+    system_theme: Arc<RwLock<SystemTheme>>,
+    theme_watcher: Option<ThemeWatcher>,
+    tray: Mutex<TrayIcon>,
+    bluetooth_watcher: Option<Watcher>,
 }
 
 impl App {
@@ -158,14 +158,14 @@ impl App {
         Self {
             bluetooth_devcies_info: Arc::new(Mutex::new(bluetooth_devices_info)),
             config: Arc::new(config),
-            watcher: None,
             event_loop_proxy,
             exit_threads: Arc::new(AtomicBool::new(false)),
             notified_devices: Arc::new(Mutex::new(HashSet::new())),
-            system_theme: Arc::new(RwLock::new(SystemTheme::get())),
-            tray: Mutex::new(tray),
             menu_manager: Mutex::new(menu_manager),
-            worker_threads: Vec::new(),
+            system_theme: Arc::new(RwLock::new(SystemTheme::get())),
+            theme_watcher: None,
+            tray: Mutex::new(tray),
+            bluetooth_watcher: None,
         }
     }
 }
@@ -186,25 +186,39 @@ enum UserEvent {
 }
 
 impl App {
-    fn start_watch_devices(&mut self, devices_info: BluetoothDevicesInfo) {
+    fn start_watch_devices(&mut self) {
         self.stop_watch_devices();
+        let devices_info = Arc::clone(&self.bluetooth_devcies_info);
         let mut watch = Watcher::new(devices_info, self.event_loop_proxy.clone());
         watch.start();
-        self.watcher = Some(watch);
+        self.bluetooth_watcher = Some(watch);
     }
 
     fn stop_watch_devices(&mut self) {
-        if let Some(watcher) = self.watcher.take() {
-            watcher.stop()
+        if let Some(mut bluetooth_watcher) = self.bluetooth_watcher.take() {
+            bluetooth_watcher.stop()
+        }
+    }
+
+    fn start_watch_theme(&mut self) {
+        let exit_threads = Arc::clone(&self.exit_threads);
+        let proxy = self.event_loop_proxy.clone();
+        let system_theme = Arc::clone(&self.system_theme);
+        let mut theme_watcher = ThemeWatcher::new(exit_threads, proxy, system_theme);
+        theme_watcher.start();
+        self.theme_watcher = Some(theme_watcher);
+    }
+
+    fn stop_watch_theme(&mut self) {
+        if let Some(mut theme_watcher) = self.theme_watcher.take() {
+            theme_watcher.stop()
         }
     }
 
     fn exit(&mut self) {
-        self.stop_watch_devices();
         self.exit_threads.store(true, Ordering::Relaxed);
-        self.worker_threads
-            .drain(..)
-            .for_each(|handle| handle.join().expect("Failed to clean thread"));
+        self.stop_watch_devices();
+        self.stop_watch_theme();
     }
 
     fn handle_show_lowest_battery_device(&mut self) {
@@ -244,14 +258,8 @@ impl App {
 
 impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
-        let proxy = self.event_loop_proxy.clone();
-
-        self.start_watch_devices(Arc::clone(&self.bluetooth_devcies_info));
-
-        let exit_threads = Arc::clone(&self.exit_threads);
-        let system_theme = Arc::clone(&self.system_theme);
-        let theme_handle = listen_system_theme(exit_threads, proxy, system_theme);
-        self.worker_threads.push(theme_handle);
+        self.start_watch_devices();
+        self.start_watch_theme();
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
@@ -356,6 +364,7 @@ impl ApplicationHandler<UserEvent> for App {
                 let current_devices_info = self.bluetooth_devcies_info.lock().unwrap().clone();
                 let config = self.config.clone();
 
+                // 不创建UserEvent::HandShowLowestBatteryDevice事件，是因为UserEVent是非同步的，会导致菜单项未得到及时更新
                 self.handle_show_lowest_battery_device();
 
                 let tray_menu = match create_menu(&config, &current_devices_info) {
@@ -370,6 +379,7 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                 };
 
+                // UserEvent发送的事件是异步的，如果在UpdateIcon在创建菜单前，Handle显示最低电量设备可能不及时导致菜单设备项未得到及时更新
                 self.tray
                     .lock()
                     .unwrap()
