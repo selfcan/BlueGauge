@@ -70,20 +70,25 @@ impl Watcher {
     }
 
     pub fn start(&mut self) {
-        info!("Starting the watch thread...");
+        info!("Starting the watch bluetooth thread...");
         let watch_handles = self.watch_loop();
         self.watch_handles = Some(watch_handles);
     }
 
-    pub fn stop(&self) {
-        info!("Stopping the watch thread...");
+    pub fn stop(&mut self) {
+        info!("Stopping the watch bluetooth thread...");
         self.exit_flag.store(true, Ordering::Relaxed);
         self.restart_flag.store(0, Ordering::Relaxed);
+        self.watch_handles
+            .take()
+            .iter()
+            .flatten()
+            .for_each(|h| h.abort());
     }
 
     #[rustfmt::skip]
     fn watch_loop(&self) -> [WatchHandle; 4] {
-        info!("The watch thread is started.");
+        info!("The watch bluetooth thread is started.");
 
         let watch_btc_battery_handle = spawn_watch!(watch_btc_devices_battery, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
         let watch_btc_status_handle = spawn_watch!(watch_btc_devices_status_async, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
