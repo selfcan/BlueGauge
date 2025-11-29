@@ -392,7 +392,7 @@ pub async fn watch_ble_devices_async(
                 let original_ble_devices_address = Arc::clone(&original_ble_devices_address);
                 loop {
                     if exit_flag.load(Ordering::Relaxed) {
-                        info!("Watch BLE was cancelled by exit flag.");
+                        info!("Watch BLE Battery and Status was cancelled by exit flag.");
                         break;
                     }
 
