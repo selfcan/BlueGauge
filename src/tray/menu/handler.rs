@@ -83,7 +83,7 @@ impl MenuHandler {
                                 });
                             if matches!(*tray_icon_style, TrayIconStyle::App) {
                                 *tray_icon_style =
-                                    TrayIconStyle::default_number_icon(device_address);
+                                    TrayIconStyle::default_number_icon(device_address, None);
                             } else {
                                 tray_icon_style.update_address(device_address);
                             }
@@ -198,24 +198,30 @@ impl MenuHandler {
                         let mut have_match = true;
 
                         let Some(address) = tray_icon_style.get_address() else {
-                            // 若App图标，即为无勾选设备，则返回
+                            // 若为App图标，即为无勾选设备，则返回
                             return Ok(());
                         };
 
+                        let color_scheme = tray_icon_style.get_color_scheme();
+
                         if select_menu_id.eq(&*TRAY_ICON_STYLE_HORIZONTAL_BATTERY) {
                             // 若勾选水平电池图标
-                            *tray_icon_style = TrayIconStyle::default_hor_battery_icon(address)
+                            *tray_icon_style =
+                                TrayIconStyle::default_hor_battery_icon(address, color_scheme)
                         } else if select_menu_id.eq(&*TRAY_ICON_STYLE_VERTICAL_BATTERY) {
                             // 若勾选垂直电池图标
-                            *tray_icon_style = TrayIconStyle::default_vrt_battery_icon(address)
+                            *tray_icon_style =
+                                TrayIconStyle::default_vrt_battery_icon(address, color_scheme)
                         } else if select_menu_id.eq(&*TRAY_ICON_STYLE_NUMBER) {
                             // 若勾选数字图标
-                            *tray_icon_style = TrayIconStyle::default_number_icon(address)
+                            *tray_icon_style =
+                                TrayIconStyle::default_number_icon(address, color_scheme)
                         } else if select_menu_id.eq(&*TRAY_ICON_STYLE_RING) {
                             // 若勾选圆圈图标
-                            *tray_icon_style = TrayIconStyle::default_ring_icon(address)
+                            *tray_icon_style =
+                                TrayIconStyle::default_ring_icon(address, color_scheme)
                         } else if select_menu_id.eq(&*TRAY_ICON_STYLE_APP) {
-                            // 若勾选圆圈图标
+                            // 若勾选APP图标
                             *tray_icon_style = TrayIconStyle::App;
                             // 取消勾选所有设备菜单，取消显示最低电量设备选项
                             config

@@ -145,7 +145,7 @@ impl App {
                 {
                     // 如果默认是 APP 图标，则切换为数字图标
                     *config.tray_options.tray_icon_style.lock().unwrap() =
-                        TrayIconStyle::default_number_icon(address);
+                        TrayIconStyle::default_number_icon(address, None);
                 };
 
                 config.save();
@@ -248,7 +248,7 @@ impl App {
                 .update_address(*address)
             {
                 *self.config.tray_options.tray_icon_style.lock().unwrap() =
-                    TrayIconStyle::default_number_icon(*address);
+                    TrayIconStyle::default_number_icon(*address, None);
             }
 
             self.config.save();

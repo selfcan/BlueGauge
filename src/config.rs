@@ -126,36 +126,36 @@ impl ColorScheme {
 }
 
 impl TrayIconStyle {
-    pub fn default_number_icon(address: u64) -> Self {
+    pub fn default_number_icon(address: u64, color_scheme: Option<ColorScheme>) -> Self {
         TrayIconStyle::BatteryNumber {
             address,
-            color_scheme: ColorScheme::FollowSystemTheme,
+            color_scheme: color_scheme.unwrap_or_default(),
             font_name: "Arial".to_owned(),
             font_color: Some(String::new()),
         }
     }
 
-    pub fn default_ring_icon(address: u64) -> Self {
+    pub fn default_ring_icon(address: u64, color_scheme: Option<ColorScheme>) -> Self {
         TrayIconStyle::BatteryRing {
             address,
-            color_scheme: ColorScheme::FollowSystemTheme,
+            color_scheme: color_scheme.unwrap_or_default(),
             highlight_color: Some(String::new()),
             background_color: Some(String::new()),
         }
     }
 
-    pub fn default_hor_battery_icon(address: u64) -> Self {
+    pub fn default_hor_battery_icon(address: u64, color_scheme: Option<ColorScheme>) -> Self {
         TrayIconStyle::BatteryIcon {
             address,
-            color_scheme: ColorScheme::FollowSystemTheme,
+            color_scheme: color_scheme.unwrap_or_default(),
             direction: Direction::Horizontal,
         }
     }
 
-    pub fn default_vrt_battery_icon(address: u64) -> Self {
+    pub fn default_vrt_battery_icon(address: u64, color_scheme: Option<ColorScheme>) -> Self {
         TrayIconStyle::BatteryIcon {
             address,
-            color_scheme: ColorScheme::FollowSystemTheme,
+            color_scheme: color_scheme.unwrap_or_default(),
             direction: Direction::Vertical,
         }
     }
@@ -180,6 +180,15 @@ impl TrayIconStyle {
             | Self::BatteryIcon { address, .. }
             | Self::BatteryNumber { address, .. }
             | Self::BatteryRing { address, .. } => Some(*address),
+        }
+    }
+
+    pub fn get_color_scheme(&self) -> Option<ColorScheme> {
+        match self {
+            Self::App | Self::BatteryCustom { .. } => None,
+            Self::BatteryIcon { color_scheme, .. }
+            | Self::BatteryNumber { color_scheme, .. }
+            | Self::BatteryRing { color_scheme, .. } => Some(color_scheme.clone()),
         }
     }
 
