@@ -82,12 +82,6 @@ Note: Windows 10 users need the Fluent battery icon to download and install [Seg
 
 </details>
 
-
-<div align="center">
-  <img src="screenshots/icon_style.png" alt="App Screenshot" style="width: 100%; max-width: 100%; height: auto; display: block;" />
-</div>
-
-
 2. Settings: Show the (connected) devices with the lowest battery
 
     Note: After setting up, you cannot manually select the device that needs to show the battery level. If you need to manually select the device that needs to show the battery level, please turn off this option.

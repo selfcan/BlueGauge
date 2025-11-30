@@ -81,12 +81,6 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 2. 重新启动 BlueGauge
 </details>
 
-
-<div align="center">
-  <img src="screenshots/icon_style.png" alt="App Screenshot" style="width: 100%; max-width: 100%; height: auto; display: block;" />
-</div>
-
-
 2. 设置：显示最低电量的（已连接）设备
 
     注意：设置后无法手动选择需显示电量的设备，若需要手动选择需显示电量设备请关闭这个选项
