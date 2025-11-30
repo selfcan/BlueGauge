@@ -1,5 +1,5 @@
 use crate::{
-    BluetoothDevicesInfo, UserEvent,
+    BluetoothDeviceMap, UserEvent,
     bluetooth::{
         ble::{process_ble_device, watch_ble_devices_async},
         btc::{
@@ -11,13 +11,13 @@ use crate::{
     notify::NotifyEvent,
 };
 
-use std::collections::hash_map::Entry;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use anyhow::{Context, Result, anyhow};
+use dashmap::Entry;
 use log::{info, warn};
 use tokio::{sync::mpsc::Sender, task::JoinHandle};
 use windows::{
@@ -47,22 +47,19 @@ macro_rules! spawn_watch {
 
 pub struct Watcher {
     watch_handles: Option<[WatchHandle; 4]>,
-    bluetooth_devices_info: BluetoothDevicesInfo,
+    bluetooth_device_map: BluetoothDeviceMap,
     exit_flag: Arc<AtomicBool>,
     restart_flag: Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
 }
 
 impl Watcher {
-    pub fn new(
-        bluetooth_devices_info: BluetoothDevicesInfo,
-        proxy: EventLoopProxy<UserEvent>,
-    ) -> Self {
+    pub fn new(bluetooth_device_map: BluetoothDeviceMap, proxy: EventLoopProxy<UserEvent>) -> Self {
         let exit_flag = Arc::new(AtomicBool::new(false));
         let restart_flag = Arc::new(AtomicUsize::new(0));
         Self {
             watch_handles: None,
-            bluetooth_devices_info,
+            bluetooth_device_map,
             exit_flag,
             restart_flag,
             proxy,
@@ -90,10 +87,10 @@ impl Watcher {
     fn watch_loop(&self) -> [WatchHandle; 4] {
         info!("The watch bluetooth thread is started.");
 
-        let watch_btc_battery_handle = spawn_watch!(watch_btc_devices_battery, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
-        let watch_btc_status_handle = spawn_watch!(watch_btc_devices_status_async, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
-        let watch_ble_handle = spawn_watch!(watch_ble_devices_async, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
-        let watch_bt_presence_handle = spawn_watch!(watch_bt_presence_async, self.bluetooth_devices_info, self.exit_flag, self.restart_flag, self.proxy);
+        let watch_btc_battery_handle = spawn_watch!(watch_btc_devices_battery, self.bluetooth_device_map, self.exit_flag, self.restart_flag, self.proxy);
+        let watch_btc_status_handle = spawn_watch!(watch_btc_devices_status_async, self.bluetooth_device_map, self.exit_flag, self.restart_flag, self.proxy);
+        let watch_ble_handle = spawn_watch!(watch_ble_devices_async, self.bluetooth_device_map, self.exit_flag, self.restart_flag, self.proxy);
+        let watch_bt_presence_handle = spawn_watch!(watch_bt_presence_async, self.bluetooth_device_map, self.exit_flag, self.restart_flag, self.proxy);
 
         [
             watch_ble_handle,
@@ -258,7 +255,7 @@ fn stop_bt_presence_watch(device_watcher: &DeviceWatcher) -> Result<()> {
 
 #[rustfmt::skip]
 async fn watch_bt_presence_async(
-    bluetooth_devices_info: BluetoothDevicesInfo,
+    bluetooth_device_map: BluetoothDeviceMap,
     exit_flag: &Arc<AtomicBool>,
     restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
@@ -335,7 +332,7 @@ async fn watch_bt_presence_async(
                     }
                 };
 
-                if let Entry::Vacant(e) = bluetooth_devices_info.lock().unwrap().entry(info.address) {
+                if let Entry::Vacant(e) = bluetooth_device_map.entry(info.address) {
                     match presence {
                         BluetoothPresence::Removed => (), // 原设备无该设备，且该设备实际不存电量服务但可获取得到该服务
                         BluetoothPresence::Added => {
@@ -348,9 +345,9 @@ async fn watch_bt_presence_async(
                     match presence {
                         BluetoothPresence::Added => (), // 原设备未被移除
                         BluetoothPresence::Removed => {
-                            let removed_info = bluetooth_devices_info.lock().unwrap().remove(&info.address);
+                            let removed_info = bluetooth_device_map.remove(&info.address);
                             let name = match removed_info {
-                                Some(i) if !i.name.is_empty() => i.name,
+                                Some((_, i)) if !i.name.is_empty() => i.name,
                                 _ => "Unknown name".to_owned(),
                             };
                             update_event(presence, name);

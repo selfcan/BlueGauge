@@ -1,7 +1,8 @@
 use crate::{
-    BluetoothDevicesInfo, UserEvent,
+    BluetoothDeviceMap, UserEvent,
     bluetooth::info::{BluetoothInfo, BluetoothType},
     notify::NotifyEvent,
+    util::to_wide,
 };
 
 use std::collections::{HashMap, HashSet};
@@ -11,6 +12,7 @@ use std::sync::{
 };
 
 use anyhow::{Context, Result, anyhow};
+use dashmap::DashMap;
 use futures::StreamExt;
 use log::{error, info, warn};
 use tokio::sync::{Mutex, mpsc::Sender};
@@ -72,7 +74,7 @@ pub async fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice
 
 pub async fn get_btc_devices_info(
     btc_devices: &[BluetoothDevice],
-) -> Result<HashMap<u64, BluetoothInfo>> {
+) -> Result<DashMap<u64, BluetoothInfo>> {
     // [!] 获取Pnp设备可能出错（初始化可能失败），需重试多次避开错误
     let pnp_devices_info = {
         let max_retries = 2;
@@ -98,7 +100,7 @@ pub async fn get_btc_devices_info(
         }
     };
 
-    let mut devices_info: HashMap<u64, BluetoothInfo> = HashMap::new();
+    let devices_info: DashMap<u64, BluetoothInfo> = DashMap::new();
 
     btc_devices.iter().for_each(|btc_device| {
         match process_btc_device(btc_device, &pnp_devices_info) {
@@ -240,7 +242,7 @@ impl CfgRetExt for CONFIGRET {
 
 fn read_pnp_device_battery_from_instance_id(instance_id: String) -> Option<u8> {
     unsafe {
-        let utf16: Vec<u16> = instance_id.encode_utf16().chain([0]).collect();
+        let utf16 = to_wide(&instance_id);
 
         // Find devnode
         let mut devnode = 0u32;
@@ -274,7 +276,7 @@ fn read_pnp_device_battery_from_instance_id(instance_id: String) -> Option<u8> {
 }
 
 pub async fn watch_btc_devices_battery(
-    bluetooth_devices_info: BluetoothDevicesInfo,
+    bluetooth_device_map: BluetoothDeviceMap,
     exit_flag: &Arc<AtomicBool>,
     restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
@@ -282,13 +284,11 @@ pub async fn watch_btc_devices_battery(
     let mut local_generation = 0;
 
     let get_connect_btc_devices_info = || {
-        bluetooth_devices_info
-            .lock()
-            .unwrap()
-            .values()
-            .filter(|info| {
+        bluetooth_device_map
+            .iter()
+            .filter(|entry| {
                 matches!(
-                    info,
+                    entry.value(),
                     BluetoothInfo {
                         status: true,
                         r#type: BluetoothType::Classic(_),
@@ -296,7 +296,6 @@ pub async fn watch_btc_devices_battery(
                     }
                 )
             })
-            .cloned()
             .collect::<Vec<_>>()
     };
 
@@ -312,18 +311,19 @@ pub async fn watch_btc_devices_battery(
         }
 
         let btc_devices = futures::stream::iter(&original_btc_devices_instance_id)
-            .filter_map(|info| async move {
-                info.get_btc_instance_id()
+            .filter_map(|entry| async move {
+                entry
+                    .get_btc_instance_id()
                     .and_then(read_pnp_device_battery_from_instance_id)
-                    .filter(|battery| battery.ne(&info.battery))
-                    .map(|battery| (info.address, battery))
+                    .filter(|battery| battery.ne(&entry.battery))
+                    .map(|battery| (entry.address, battery))
             })
             .collect::<Vec<_>>()
             .await;
 
         let mut need_update = false;
         for (address, new_battery) in btc_devices.into_iter() {
-            if let Some(info) = bluetooth_devices_info.lock().unwrap().get_mut(&address) {
+            if let Some(mut info) = bluetooth_device_map.get_mut(&address) {
                 info!("BTC [{}]: Battery -> {new_battery}", info.name);
                 need_update = true;
                 info.battery = new_battery;
@@ -368,19 +368,15 @@ async fn watch_btc_device_status(
     Ok((btc_device, connection_status_token))
 }
 
-fn get_btc_devices_address<C: FromIterator<u64>>(
-    bluetooth_devices_info: BluetoothDevicesInfo,
-) -> C {
-    bluetooth_devices_info
-        .lock()
-        .unwrap()
+fn get_btc_devices_address<C: FromIterator<u64>>(bluetooth_device_map: BluetoothDeviceMap) -> C {
+    bluetooth_device_map
         .iter()
-        .filter_map(|(addr, info)| info.is_btc().then_some(*addr))
+        .filter_map(|entry| entry.is_btc().then_some(*entry.key()))
         .collect()
 }
 
 pub async fn watch_btc_devices_status_async(
-    bluetooth_devices_info: BluetoothDevicesInfo,
+    bluetooth_device_map: BluetoothDeviceMap,
     exit_flag: &Arc<AtomicBool>,
     restart_flag: &Arc<AtomicUsize>,
     proxy: EventLoopProxy<UserEvent>,
@@ -389,7 +385,7 @@ pub async fn watch_btc_devices_status_async(
 
     let original_btc_devices_address = Arc::new(Mutex::new(HashSet::new()));
 
-    let addresses_to_process: Vec<_> = get_btc_devices_address(bluetooth_devices_info.clone());
+    let addresses_to_process: Vec<_> = get_btc_devices_address(bluetooth_device_map.clone());
 
     let btc_devices = futures::stream::iter(addresses_to_process)
         .filter_map(|address| {
@@ -427,8 +423,7 @@ pub async fn watch_btc_devices_status_async(
                 let Some((address, status)) = maybe_update else {
                     return Err(anyhow!("Channel closed while watching BTC devices status"));
                 };
-                let mut devices = bluetooth_devices_info.lock().unwrap();
-                if let Some(update_device) = devices.get_mut(&address)
+                if let Some(mut update_device) = bluetooth_device_map.get_mut(&address)
                     && update_device.status != status {
                         info!("BTC [{}]: Status -> {status}", update_device.name);
                         let notify_event = if status {
@@ -437,7 +432,7 @@ pub async fn watch_btc_devices_status_async(
                             NotifyEvent::Disconnect(update_device.name.clone())
                         };
                         update_device.status = status;
-                        drop(devices);
+                        drop(update_device);
                         let _ = proxy.send_event(UserEvent::Notify(notify_event));
                         let _ = proxy.send_event(UserEvent::UpdateTray);
                     }
@@ -454,7 +449,7 @@ pub async fn watch_btc_devices_status_async(
                         info!("Watch BTC Status restart by restart flag.");
                         local_generation = current_generation;
 
-                        let current_btc_devices_address: HashSet<_> = get_btc_devices_address(bluetooth_devices_info.clone());
+                        let current_btc_devices_address: HashSet<_> = get_btc_devices_address(Arc::clone(&bluetooth_device_map));
 
                         let original_btc_devices_address_clone = original_btc_devices_address.lock().await.clone();
 
@@ -477,7 +472,7 @@ pub async fn watch_btc_devices_status_async(
                             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                             let Ok(btc_device) = get_btc_device_from_address(added_device_address).await else {
                                 // 移除错误设备
-                                bluetooth_devices_info.lock().unwrap().remove(&added_device_address);
+                                bluetooth_device_map.remove(&added_device_address);
                                 warn!("Failed to get added BTC Device from address");
                                 continue;
                             };
@@ -491,7 +486,7 @@ pub async fn watch_btc_devices_status_async(
                                 },
                                 Err(e) => {
                                     // 移除错误设备
-                                    bluetooth_devices_info.lock().unwrap().remove(&added_device_address);
+                                    bluetooth_device_map.remove(&added_device_address);
                                     warn!("BTC [{name}]: Failed to watch added BTC Device - {e}");
                                 }
                             }

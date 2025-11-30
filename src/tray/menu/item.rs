@@ -4,11 +4,11 @@ use crate::config::{Config, Direction, TrayIconStyle};
 use crate::language::LOC;
 use crate::startup::get_startup_status;
 
-use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
+use dashmap::DashMap;
 use tray_icon::menu::{
     CheckMenuItem, IsMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem, Submenu,
 };
@@ -143,18 +143,19 @@ impl CreateMenuItem {
     fn bluetooth_devices(
         &mut self,
         config: &Config,
-        bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
-    ) -> Result<Vec<CheckMenuItem>> {
+        bluetooth_devices_info: &DashMap<u64, BluetoothInfo>,
+    ) -> Vec<CheckMenuItem> {
         let show_tray_battery_icon_bt_address = config.get_tray_battery_icon_bt_address();
-        let bluetooth_check_items: Vec<CheckMenuItem> = bluetooth_devices_info
-            .values()
-            .map(|info| {
+        bluetooth_devices_info
+            .iter()
+            .map(|entry| {
+                let info = entry.value();
                 let menu_id = MenuId::from(info.address);
                 let menu = CheckMenuItem::with_id(
                     menu_id.clone(),
                     config.get_device_aliases_name(&info.name),
                     true,
-                    show_tray_battery_icon_bt_address.is_some_and(|id| id.eq(&info.address)),
+                    show_tray_battery_icon_bt_address.is_some_and(|addr| addr.eq(&info.address)),
                     None,
                 );
                 self.0.insert(
@@ -164,9 +165,7 @@ impl CreateMenuItem {
                 );
                 menu
             })
-            .collect();
-
-        Ok(bluetooth_check_items)
+            .collect::<Vec<CheckMenuItem>>()
     }
 
     fn tray_icon_style(&mut self, config: &Config) -> Submenu {
@@ -367,7 +366,7 @@ impl CreateMenuItem {
 
 pub fn create_menu(
     config: &Config,
-    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
+    bluetooth_devices_info: &DashMap<u64, BluetoothInfo>,
 ) -> Result<(Menu, MenuManager)> {
     let menu_separator = CreateMenuItem::separator();
 
@@ -385,7 +384,7 @@ pub fn create_menu(
 
     let menu_open_config = create_menu_item.open_config(LOC.open_config);
 
-    let menu_devices = create_menu_item.bluetooth_devices(config, bluetooth_devices_info)?;
+    let menu_devices = create_menu_item.bluetooth_devices(config, bluetooth_devices_info);
     let menu_devices: Vec<&dyn IsMenuItem> = menu_devices
         .iter()
         .map(|item| item as &dyn IsMenuItem)

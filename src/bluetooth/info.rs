@@ -6,9 +6,8 @@ use crate::{
     notify::notify,
 };
 
-use std::collections::HashMap;
-
 use anyhow::{Result, anyhow};
+use dashmap::DashMap;
 use log::{info, warn};
 use windows::Devices::Bluetooth::{BluetoothDevice, BluetoothLEDevice};
 
@@ -68,7 +67,7 @@ pub async fn find_bluetooth_devices() -> Result<(Vec<BluetoothDevice>, Vec<Bluet
 
 pub async fn get_bluetooth_devices_info(
     bt_devices: (&[BluetoothDevice], &[BluetoothLEDevice]),
-) -> Result<HashMap<u64, BluetoothInfo>> {
+) -> Result<DashMap<u64, BluetoothInfo>> {
     let btc_devices = bt_devices.0;
     let ble_devices = bt_devices.1;
     match (btc_devices.len(), ble_devices.len()) {
@@ -79,7 +78,7 @@ pub async fn get_bluetooth_devices_info(
 
             ble_devices_result.or_else(|e| {
                 notify(format!("Warning: Failed to get BLE devices info: {e}"));
-                Ok(HashMap::new())
+                Ok(DashMap::new())
             })
         }
         (_, 0) => {
@@ -88,7 +87,7 @@ pub async fn get_bluetooth_devices_info(
 
             btc_devices_result.or_else(|e| {
                 notify(format!("Warning: Failed to get BTC devices info: {e}"));
-                Ok(HashMap::new())
+                Ok(DashMap::new())
             })
         }
         (_, _) => {

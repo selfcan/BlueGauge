@@ -10,16 +10,15 @@ use crate::{
     config::{Config, TrayIconStyle},
 };
 
-use std::collections::HashMap;
-
 use anyhow::{Result, anyhow};
+use dashmap::DashMap;
 use log::error;
 use tray_icon::{TrayIcon, TrayIconBuilder};
 
 #[rustfmt::skip]
 pub fn create_tray(
     config: &Config,
-    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
+    bluetooth_device_map: &DashMap<u64, BluetoothInfo>,
 ) -> Result<(TrayIcon, MenuManager)> {
     let tray_icon_bt_address = config
         .tray_options
@@ -29,7 +28,7 @@ pub fn create_tray(
         .get_address();
 
     let icon = tray_icon_bt_address
-        .and_then(|address| bluetooth_devices_info.get(&address))
+        .and_then(|address| bluetooth_device_map.get(&address))
         .map(|info| (info.battery, info.status))
         .and_then(|(battery, status)| {
             load_tray_icon(config, battery, status)
@@ -44,9 +43,9 @@ pub fn create_tray(
         .expect("Failed to create tray's icon");
 
     let (tray_menu, tray_check_menus) =
-        create_menu(config, bluetooth_devices_info).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
+        create_menu(config, bluetooth_device_map).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
 
-    let bluetooth_tooltip_info = convert_tray_info(bluetooth_devices_info, config);
+    let bluetooth_tooltip_info = convert_tray_info(bluetooth_device_map, config);
 
     let tray_icon = TrayIconBuilder::new()
         .with_menu_on_left_click(true)
@@ -61,26 +60,26 @@ pub fn create_tray(
 
 /// 返回托盘提示及菜单内容
 pub fn convert_tray_info(
-    bluetooth_devices_info: &HashMap<u64, BluetoothInfo>,
+    bluetooth_device_map: &DashMap<u64, BluetoothInfo>,
     config: &Config,
 ) -> Vec<String> {
     let should_truncate_name = config.get_truncate_name();
     let should_prefix_battery = config.get_prefix_battery();
     let should_show_disconnected = config.get_show_disconnected();
 
-    bluetooth_devices_info
+    bluetooth_device_map
         .iter()
-        .filter_map(|(_, info)| {
+        .filter_map(|entry| {
             // 根据配置和设备状态决定是否包含在提示中
-            let include_in_tooltip = info.status || should_show_disconnected;
+            let include_in_tooltip = entry.status || should_show_disconnected;
 
             if include_in_tooltip {
                 let name = {
-                    let name = config.get_device_aliases_name(&info.name);
+                    let name = config.get_device_aliases_name(&entry.name);
                     truncate_with_ellipsis(should_truncate_name, name, 10)
                 };
-                let battery = info.battery;
-                let status_icon = if info.status { "🟢" } else { "🔴" };
+                let battery = entry.battery;
+                let status_icon = if entry.status { "🟢" } else { "🔴" };
                 let info = if should_prefix_battery {
                     format!("{status_icon}{battery}% - {name}")
                 } else {
