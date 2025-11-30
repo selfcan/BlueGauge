@@ -1,5 +1,4 @@
-use std::ffi::OsString;
-use std::os::windows::ffi::OsStrExt;
+use crate::util::to_wide;
 
 use anyhow::{Context, Result, anyhow};
 use windows::{
@@ -24,14 +23,11 @@ impl SingleInstance {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "BlueGauge".to_owned());
 
-        let mut mutex_name = OsString::from("Global\\");
+        let mut mutex_name = std::ffi::OsString::from("Global\\");
         mutex_name.push(exe_name);
         mutex_name.push("AppMutex");
 
-        let name: Vec<u16> = mutex_name
-            .encode_wide()
-            .chain(std::iter::once(0)) // 结尾 0，C 风格字符串
-            .collect();
+        let name = to_wide(mutex_name);
 
         let handle = unsafe { CreateMutexW(None, false, PCWSTR(name.as_ptr())) }
             .context("Failed to create single instance mutex.")?;
