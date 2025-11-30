@@ -1,7 +1,9 @@
 # BlueGauge
 A lightweight tray tool for easily viewing the battery level of your Bluetooth devices.
 
-![image](screenshots/app.png)
+<div align="center">
+  <img src="screenshots/app.png" alt="App Screenshot" style="width: 100%; max-width: 100%; height: auto; display: block;" />
+</div>
 
 <h3 align="center"> <a href='./README.md'>简体中文</a> | English</h3>
 
@@ -79,6 +81,12 @@ Note: Windows 10 users need the Fluent battery icon to download and install [Seg
 2. restart BlueGauge  
 
 </details>
+
+
+<div align="center">
+  <img src="screenshots/icon_style.png" alt="App Screenshot" style="width: 100%; max-width: 100%; height: auto; display: block;" />
+</div>
+
 
 2. Settings: Show the (connected) devices with the lowest battery
 

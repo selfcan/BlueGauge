@@ -3,13 +3,16 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 一款轻便的托盘工具，可轻松查看蓝牙设备的电池电量。
 
-![image](https://raw.githubusercontent.com/iKineticate/BlueGauge/main/screenshots/app.png)
+<div align="center">
+  <img src="screenshots/app.png" alt="App Screenshot" style="width: 100%; max-width: 100%; height: auto; display: block;" />
+</div>
 
 <h3 align="center"> 简体中文 | <a href='./README-en.md'>English</a></h3>
 
 ## 功能
 
-1. 设置：蓝牙设备电量作为托盘图标    
+1. 设置：蓝牙设备电量作为托盘图标  
+
 <details>
 <summary>使用数字图标（默认）</summary>
 
@@ -77,6 +80,12 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
     - 不跟随系统主题：在 `assets` 文件夹中添加 `0.png` 至 `100.png` 照片  
 2. 重新启动 BlueGauge
 </details>
+
+
+<div align="center">
+  <img src="screenshots/icon_style.png" alt="App Screenshot" style="width: 100%; max-width: 100%; height: auto; display: block;" />
+</div>
+
 
 2. 设置：显示最低电量的（已连接）设备
 
