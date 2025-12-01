@@ -158,8 +158,6 @@ Welcome contributions from developers who can help us extend support for these d
 
 Connection indicator only supports displaying colors in Windows 11
 
-- **Solution::**: Open the tray menu - `Settings`-`Open Config`, and then set the font size in `font_size` under `[tray.icon.font]` to set a font that is one size smaller than the original one.
-
 ## Other Bluetooth battery display software
 
  - Supports more devices：
