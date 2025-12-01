@@ -240,6 +240,9 @@ impl CfgRetExt for CONFIGRET {
     }
 }
 
+/// 没法用 `CM_Register_Notification`，因为 `CM_NOTIFY_ACTION`不支持Pnp设备的属性变化(可能仅支持连接和断开)
+/// https://learn.microsoft.com/zh-cn/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_register_notification
+/// https://learn.microsoft.com/zh-cn/windows/win32/api/cfgmgr32/ne-cfgmgr32-cm_notify_action
 fn read_pnp_device_battery_from_instance_id(instance_id: String) -> Option<u8> {
     unsafe {
         let utf16 = to_wide(&instance_id);
@@ -339,7 +342,7 @@ pub async fn watch_btc_devices_battery(
             let _ = proxy.send_event(UserEvent::UpdateTray);
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
     }
 
     Ok(())
