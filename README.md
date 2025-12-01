@@ -1,7 +1,16 @@
 # BlueGauge
+
 A lightweight tray tool for easily viewing the battery level of your Bluetooth devices.
 
 一款轻便的托盘工具，可轻松查看蓝牙设备的电池电量。
+
+<p align="center">
+	<a href="https://github.com/iKineticate/BlueGauge/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/iKineticate/BlueGauge?"></a>
+	<a href="https://github.com/iKineticate/BlueGauge/releases/latest"><img alt="Github Downloads" src="https://img.shields.io/github/downloads/iKineticate/BlueGauge/total?logo=github"></a>
+    <a href="https://wwxv.lanzoul.com/b009hchxrc"><img alt="Static Badge" src="https://img.shields.io/badge/蓝奏云-2K%2B-blue?logo=icloud"></a>
+    <img alt="Language" src="https://img.shields.io/badge/Language-Rust-yellow?logo=rust">
+    <a href="https://github.com/iKineticate/BlueGauge#"><img alt="GitHub License" src="https://img.shields.io/github/license/iKineticate/BlueGauge"></a>
+</p>
 
 <div align="center">
   <img src="screenshots/app.png" alt="App Screenshot" style="width: 100%; max-width: 100%; height: auto; display: block;" />
