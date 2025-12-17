@@ -412,11 +412,8 @@ impl Config {
 }
 
 impl Config {
-    pub fn get_device_aliases_name(&self, device_name: &String) -> String {
-        self.device_aliases
-            .get(device_name)
-            .unwrap_or(device_name)
-            .to_owned()
+    pub fn get_device_aliases_name(&self, device_name: &String) -> Option<&String> {
+        self.device_aliases.get(device_name)
     }
 
     pub fn get_show_lowest_battery_device(&self) -> bool {
