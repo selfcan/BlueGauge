@@ -23,7 +23,7 @@ pub static OPEN_CONFIG: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("open_co
 // CheckSingle
 pub static SHOW_LOWEST_BATTERY_DEVICE: LazyLock<MenuId> =
     LazyLock::new(|| MenuId::new("show_lowest_battery_device"));
-// GroupSingle
+// CheckSingle
 pub static SET_ICON_CONNECT_COLOR: LazyLock<MenuId> =
     LazyLock::new(|| MenuId::new("set_icon_connect_color"));
 // GroupSingle
@@ -146,14 +146,39 @@ impl CreateMenuItem {
         bluetooth_devices_info: &DashMap<u64, BluetoothInfo>,
     ) -> Vec<CheckMenuItem> {
         let show_tray_battery_icon_bt_address = config.get_tray_battery_icon_bt_address();
-        bluetooth_devices_info
+
+        let mut sorted_devices_info = bluetooth_devices_info
             .iter()
-            .map(|entry| {
-                let info = entry.value();
+            .map(|entry| entry.value().clone())
+            .collect::<Vec<_>>();
+
+        sorted_devices_info.sort_by(|a, b| {
+            // 1. 先按状态排序（🟢在前，🔴在后）
+            match (a.status, b.status) {
+                (true, false) => std::cmp::Ordering::Less, // true 在 false 前
+                (false, true) => std::cmp::Ordering::Greater, // false 在 true 后
+                _ => {
+                    // 2. 同组内按名称字母顺序排序（A-Z）
+                    a.name.cmp(&b.name)
+                }
+            }
+        });
+
+        sorted_devices_info
+            .iter()
+            .map(|info| {
                 let menu_id = MenuId::from(info.address);
+                let name = config
+                    .get_device_aliases_name(&info.name)
+                    .unwrap_or(&info.name);
+                let text = format!(
+                    "{} - {name} - {}%",
+                    if info.status { '🚀' } else { '🚫' },
+                    info.battery
+                );
                 let menu = CheckMenuItem::with_id(
                     menu_id.clone(),
-                    config.get_device_aliases_name(&info.name),
+                    text,
                     true,
                     show_tray_battery_icon_bt_address.is_some_and(|addr| addr.eq(&info.address)),
                     None,
