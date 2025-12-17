@@ -67,19 +67,36 @@ pub fn convert_tray_info(
     let should_prefix_battery = config.get_prefix_battery();
     let should_show_disconnected = config.get_show_disconnected();
 
-    bluetooth_device_map
+    let mut sorted_devices_info = bluetooth_device_map
         .iter()
-        .filter_map(|entry| {
-            // 根据配置和设备状态决定是否包含在提示中
-            let include_in_tooltip = entry.status || should_show_disconnected;
+        .map(|entry| entry.value().clone())
+        .collect::<Vec<_>>();
 
+    sorted_devices_info.sort_by(|a, b| {
+        // 1. 先按状态排序（🟢在前，🔴在后）
+        match (a.status, b.status) {
+            (true, false) => std::cmp::Ordering::Less, // true 在 false 前
+            (false, true) => std::cmp::Ordering::Greater, // false 在 true 后
+            _ => {
+                // 2. 同组内按名称字母顺序排序（A-Z）
+                a.name.cmp(&b.name)
+            }
+        }
+    });
+
+    sorted_devices_info
+        .into_iter()
+        .filter_map(|info| {
+            let include_in_tooltip = info.status || should_show_disconnected;
             if include_in_tooltip {
                 let name = {
-                    let name = config.get_device_aliases_name(&entry.name);
+                    let name = config
+                        .get_device_aliases_name(&info.name)
+                        .unwrap_or(&info.name);
                     truncate_with_ellipsis(should_truncate_name, name, 10)
                 };
-                let battery = entry.battery;
-                let status_icon = if entry.status { "🟢" } else { "🔴" };
+                let battery = info.battery;
+                let status_icon = if info.status { "🟢" } else { "🔴" };
                 let info = if should_prefix_battery {
                     format!("{status_icon}{battery}% - {name}")
                 } else {
@@ -93,7 +110,7 @@ pub fn convert_tray_info(
         .collect()
 }
 
-fn truncate_with_ellipsis(truncate_device_name: bool, name: String, max_chars: usize) -> String {
+fn truncate_with_ellipsis(truncate_device_name: bool, name: &str, max_chars: usize) -> String {
     if truncate_device_name && name.chars().count() > max_chars {
         let mut result = name.chars().take(max_chars).collect::<String>();
         result.push('…');
