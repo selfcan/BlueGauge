@@ -3,7 +3,10 @@ use crate::{
     theme::SystemTheme,
 };
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::LazyLock,
+};
 
 use ab_glyph::{Font, FontVec, Glyph, GlyphId, PxScale, point};
 
@@ -15,6 +18,19 @@ use tray_icon::Icon;
 static FONT_ARIAL_PATH: &str = r"C:\WINDOWS\FONTS\ARIAL.TTF";
 static FONT_SEGOE_FLUENT_PATH: &str = r"C:\WINDOWS\FONTS\SEGOEICONS.TTF";
 static FONT_SEGOE_MDL2_PATH: &str = r"C:\WINDOWS\FONTS\SEGMDL2.TTF";
+static BATTERY_ICON_FONT_PATH: LazyLock<String> = LazyLock::new(|| {
+    // Win11 使用 [Segoe Fluent Icons] 字体
+    // Win10 使用 [Segoe MDL2 Assets] 字体
+    // 若 win10 用户想要使用 Fluent 电池图标，需自行下载字体
+    if !Path::new(FONT_SEGOE_FLUENT_PATH).is_file() {
+        check_font_exists("Segoe Fluent Icons")
+            .or_else(|| check_font_exists("SegoeFluentIcons"))
+            .or_else(|| check_font_exists("SEGOEICONS"))
+            .unwrap_or(FONT_SEGOE_MDL2_PATH.to_owned())
+    } else {
+        FONT_SEGOE_FLUENT_PATH.to_owned()
+    }
+});
 
 const LOGO_DATA: &[u8] = include_bytes!("../../assets/logo.ico");
 
@@ -152,17 +168,7 @@ fn render_battery_icon(
     direction: Direction,
     is_connect_color: Option<bool>,
 ) -> Result<(Vec<u8>, u32, u32)> {
-    // Win11 使用 [Segoe Fluent Icons] 字体
-    // Win10 使用 [Segoe MDL2 Assets] 字体，若 win10 用户想要使用 Fluent 电池图标，需自行下载字体
-    let font_path = if !Path::new(FONT_SEGOE_FLUENT_PATH).is_file() {
-        // 检查有无手动安装 Segoe Fluent Icons 字体
-        check_font_exists("Segoe Fluent Icons")
-            .or_else(|| check_font_exists("SegoeFluentIcons"))
-            .or_else(|| check_font_exists("SEGOEICONS"))
-            .unwrap_or(FONT_SEGOE_MDL2_PATH.to_owned())
-    } else {
-        FONT_SEGOE_FLUENT_PATH.to_owned()
-    };
+    let font_path = BATTERY_ICON_FONT_PATH.as_str();
     let font_data = std::fs::read(font_path)?;
     let font = FontVec::try_from_vec(font_data).context("Failed to parse font")?;
 
