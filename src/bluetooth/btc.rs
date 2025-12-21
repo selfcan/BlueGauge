@@ -303,6 +303,7 @@ pub async fn watch_btc_devices_battery(
     };
 
     let mut original_btc_devices_instance_id = get_connect_btc_devices_info();
+    let mut original_btc_devices_instance_id = get_btc_devices_info();
 
     while !exit_flag.load(Ordering::Relaxed) {
         let current_generation = restart_flag.load(Ordering::Relaxed);
@@ -310,16 +311,16 @@ pub async fn watch_btc_devices_battery(
             info!("Watch BTC Batttery restart by restart flag.");
             local_generation = current_generation;
             original_btc_devices_instance_id = get_connect_btc_devices_info();
+            original_btc_devices_instance_id = get_btc_devices_info();
             continue;
         }
 
         let btc_devices = futures::stream::iter(&original_btc_devices_instance_id)
-            .filter_map(|entry| async move {
-                entry
-                    .get_btc_instance_id()
+            .filter_map(|info| async move {
+                info.get_btc_instance_id()
                     .and_then(read_pnp_device_battery_from_instance_id)
-                    .filter(|battery| battery.ne(&entry.battery))
-                    .map(|battery| (entry.address, battery))
+                    .filter(|battery| battery.ne(&info.battery))
+                    .map(|battery| (info.address, battery))
             })
             .collect::<Vec<_>>()
             .await;
@@ -342,7 +343,7 @@ pub async fn watch_btc_devices_battery(
             let _ = proxy.send_event(UserEvent::UpdateTray);
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 
     Ok(())
