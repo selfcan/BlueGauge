@@ -363,7 +363,7 @@ impl ApplicationHandler<UserEvent> for App {
                 let current_devices_info = Arc::clone(&self.bluetooth_devcies_info);
                 let config = self.config.clone();
 
-                // 不创建UserEvent::HandShowLowestBatteryDevice事件，是因为UserEVent是非同步的，会导致菜单项未得到及时更新
+                // 不创建 UserEvent::HandShowLowestBatteryDevice 事件，是因为 UserEVent 是非同步的，会导致菜单项未得到及时更新
                 self.handle_show_lowest_battery_device();
 
                 let tray_menu = match create_menu(&config, &current_devices_info) {

@@ -137,7 +137,7 @@ async fn check_presence_async(
                     let btc_address = btc_device.BluetoothAddress()?;
                     let btc_status =
                         btc_device.ConnectionStatus()? == BluetoothConnectionStatus::Connected;
-                    // [!] 等待Pnp设备初始化后方可获取经典蓝牙信息
+                    // NOTE: 等待Pnp设备初始化后方可获取经典蓝牙信息
                     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                     get_btc_info_device_frome_address(btc_name.clone(), btc_address, btc_status)
                         .await

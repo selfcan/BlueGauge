@@ -84,10 +84,12 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 <details>
 <summary>使用自定义图标</summary>
+
 1. 在软件目录下创建一个 `assets` 文件夹，
     - 跟随系统主题：在 `assets` 文件夹中，分别创建 `dark` 和 `light` 文件夹，并分别添加 `0.png` 至 `100.png` 照片
     - 不跟随系统主题：在 `assets` 文件夹中添加 `0.png` 至 `100.png` 照片  
 2. 重新启动 BlueGauge
+
 </details>
 
 2. 设置：显示最低电量的（已连接）设备

@@ -41,7 +41,7 @@ pub async fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
 
     let ble_devices_info = DeviceInformation::FindAllAsyncAqsFilter(&ble_aqs_filter)?
         .await
-        .with_context(|| "Failed to find BLE from AqsFilter")?;
+        .with_context(|| "Failed to find BLE devices info from AqsFilter")?;
 
     let ble_devices = futures::stream::iter(ble_devices_info)
         .filter_map(|device_info| async move {
@@ -387,12 +387,7 @@ pub async fn watch_ble_devices_async(
             },
             _ = async {
                 let original_ble_devices_address = Arc::clone(&original_ble_devices_address);
-                loop {
-                    if exit_flag.load(Ordering::Relaxed) {
-                        info!("Watch BLE Battery and Status was cancelled by exit flag.");
-                        break;
-                    }
-
+                while !exit_flag.load(Ordering::Relaxed) {
                     let current_generation = restart_flag.load(Ordering::Relaxed);
                     if local_generation < current_generation {
                         info!("Watch BLE restart by restart flag.");
@@ -444,6 +439,8 @@ pub async fn watch_ble_devices_async(
 
                     sleep(Duration::from_secs(1)).await;
                 }
+
+                info!("Watch BLE Battery and Status was cancelled by exit flag.");
             } => return Ok(()),
         }
     }
