@@ -173,7 +173,7 @@ impl CreateMenuItem {
                     .unwrap_or(&info.name);
                 let text = format!(
                     "{} - {name} - {}%",
-                    if info.status { '🚀' } else { '🚫' },
+                    if info.status { '♾' } else { '🚫' },
                     info.battery
                 );
                 let menu = CheckMenuItem::with_id(
