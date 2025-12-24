@@ -177,7 +177,7 @@ enum UserEvent {
     Notify(NotifyEvent),
     UnCheckAboutIconMenu,
     UnCheckDeviceMenu,
-    UpdateIcon,
+    UpdateTrayIcon,
     UpdateTray,
     UpdateTrayTooltip,
     Refresh,
@@ -322,7 +322,7 @@ impl ApplicationHandler<UserEvent> for App {
             UserEvent::Notify(notify_event) => {
                 notify_event.send(&self.config, self.notified_devices.clone())
             }
-            UserEvent::UpdateIcon => {
+            UserEvent::UpdateTrayIcon => {
                 let current_devices_info = Arc::clone(&self.bluetooth_devcies_info);
                 let config = self.config.clone();
 
@@ -378,12 +378,12 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                 };
 
-                // UserEvent发送的事件是异步的，如果在UpdateIcon在创建菜单前，Handle显示最低电量设备可能不及时导致菜单设备项未得到及时更新
+                // UserEvent发送的事件是异步的，如果在UpdateTrayIcon在创建菜单前，Handle显示最低电量设备可能不及时导致菜单设备项未得到及时更新
                 self.tray
                     .lock()
                     .unwrap()
                     .set_menu(Some(Box::new(tray_menu)));
-                let _ = self.event_loop_proxy.send_event(UserEvent::UpdateIcon);
+                let _ = self.event_loop_proxy.send_event(UserEvent::UpdateTrayIcon);
                 let _ = self
                     .event_loop_proxy
                     .send_event(UserEvent::UpdateTrayTooltip);

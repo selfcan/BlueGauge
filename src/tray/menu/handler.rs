@@ -240,7 +240,7 @@ impl MenuHandler {
                         if have_match {
                             config.save();
                             proxy
-                                .send_event(UserEvent::UpdateIcon)
+                                .send_event(UserEvent::UpdateTrayIcon)
                                 .context("Failed to send 'Update Tray' event")
                         } else {
                             Err(anyhow!("No match set tray icon style menu: {}", id.0))
@@ -265,7 +265,7 @@ impl MenuHandler {
                         config.save();
                         // 更新托盘是因为某些设备低于
                         proxy
-                            .send_event(UserEvent::UpdateIcon)
+                            .send_event(UserEvent::UpdateTrayIcon)
                             .context("Failed to send 'Update Tray' event")
                     }
                 }
@@ -302,7 +302,7 @@ impl MenuHandler {
                     config.save();
 
                     self.proxy
-                        .send_event(UserEvent::UpdateIcon)
+                        .send_event(UserEvent::UpdateTrayIcon)
                         .context("Failed to send 'Update Tray' event")
                 } else {
                     Err(anyhow!("No match single check menu: {}", id.0))
