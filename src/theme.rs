@@ -206,3 +206,9 @@ impl ThemeWatcher {
         self.thread_handle = Some(thread_handle);
     }
 }
+
+impl Drop for ThemeWatcher {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}

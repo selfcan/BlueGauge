@@ -101,6 +101,12 @@ impl Watcher {
     }
 }
 
+impl Drop for Watcher {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
 #[derive(PartialEq, Eq)]
 enum BluetoothPresence {
     Added,
