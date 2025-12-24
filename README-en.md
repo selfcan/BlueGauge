@@ -158,6 +158,14 @@ Welcome contributions from developers who can help us extend support for these d
 
 Connection indicator only supports displaying colors in Windows 11
 
+### 5. The battery level of the device does not match expectations
+
+It could be that there is a problem with the device reporting (such as a cheap device) that causes only specific values to be reported, such as:
+
+- Only displays multiples of 10%, such as 10%, 20%, 30%...
+
+- Only specific values such as 0%, 50%, and 100% are displayed regularly
+
 ## Other Bluetooth battery display software
 
  - Supports more devices：

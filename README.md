@@ -158,7 +158,15 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 
 ### 4. 托盘提示中的连接指示器无颜色
 
-托盘提示中的连接指示器仅支持 Windows11
+托盘提示中的带颜色连接指示器仅支持 Windows11
+
+### 5. 设备电量与预期不符
+
+可能是设备报告存在问题（如廉价设备），导致只能报告特定值，例如：
+
+ - 仅显示10%的倍数，如10%、20%、30%...
+
+ - 只固定显示0%、50%、100%这几个特定数值
 
 ## 其他蓝牙电量软件
 
