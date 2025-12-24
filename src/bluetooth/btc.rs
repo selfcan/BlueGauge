@@ -293,18 +293,18 @@ pub async fn watch_btc_devices_battery(
             .collect::<Vec<_>>()
     };
 
-    let mut original_btc_devices_instance_id = get_btc_devices_info();
+    let mut original_btc_devices_info = get_btc_devices_info();
 
     while !exit_flag.load(Ordering::Relaxed) {
         let current_generation = restart_flag.load(Ordering::Relaxed);
         if local_generation < current_generation {
             info!("Watch BTC Batttery restart by restart flag.");
             local_generation = current_generation;
-            original_btc_devices_instance_id = get_btc_devices_info();
+            original_btc_devices_info = get_btc_devices_info();
             continue;
         }
 
-        let btc_devices = futures::stream::iter(&original_btc_devices_instance_id)
+        let btc_devices = futures::stream::iter(&original_btc_devices_info)
             .filter_map(|info| async move {
                 info.get_btc_instance_id()
                     .and_then(read_pnp_device_battery_from_instance_id)
@@ -329,6 +329,7 @@ pub async fn watch_btc_devices_battery(
         }
 
         if need_update {
+            original_btc_devices_info = get_btc_devices_info();
             let _ = proxy.send_event(UserEvent::UpdateTray);
         }
 
