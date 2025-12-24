@@ -66,7 +66,7 @@ pub async fn find_btc_devices() -> Result<Vec<BluetoothDevice>> {
     Ok(btc_devices)
 }
 
-pub async fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice> {
+async fn get_btc_device_from_address(address: u64) -> Result<BluetoothDevice> {
     BluetoothDevice::FromBluetoothAddressAsync(address)?
         .await
         .with_context(|| format!("Failed to find BTC device from ({address})"))
@@ -173,7 +173,7 @@ pub async fn get_btc_info_device_frome_address(
     })
 }
 
-pub async fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
+async fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
     tokio::task::spawn_blocking(move || {
         PnpEnumerator::enumerate_present_devices_and_filter_by_device_setup_class(
             GUID_DEVCLASS_SYSTEM,
@@ -184,7 +184,7 @@ pub async fn get_pnp_devices() -> Result<Vec<PnpDeviceNodeInfo>> {
     .await?
 }
 
-pub async fn get_pnp_devices_info(
+async fn get_pnp_devices_info(
     pnp_devices_node_info: Vec<PnpDeviceNodeInfo>,
 ) -> Result<HashMap<u64, PnpDeviceInfo>> {
     let mut pnp_devices_info: HashMap<u64, PnpDeviceInfo> = HashMap::new();
@@ -431,12 +431,7 @@ pub async fn watch_btc_devices_status_async(
                     }
             },
             _ = async {
-                loop {
-                    if exit_flag.load(Ordering::Relaxed) {
-                        info!("Watch BTC Status was cancelled by exit flag.");
-                        break;
-                    }
-
+                while !exit_flag.load(Ordering::Relaxed) {
                     let current_generation = restart_flag.load(Ordering::Relaxed);
                     if local_generation < current_generation {
                         info!("Watch BTC Status restart by restart flag.");
@@ -488,6 +483,8 @@ pub async fn watch_btc_devices_status_async(
 
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
+
+                info!("Watch BTC Status was cancelled by exit flag.");
             } => return Ok(()),
         }
     }

@@ -19,7 +19,7 @@ use futures::{StreamExt, future::join_all};
 use log::{info, warn};
 use tokio::{
     sync::{Mutex, mpsc::Sender},
-    time::{Duration, Instant, sleep},
+    time::{Duration, Instant},
 };
 use windows::{
     Devices::Bluetooth::{
@@ -54,7 +54,7 @@ pub async fn find_ble_devices() -> Result<Vec<BluetoothLEDevice>> {
     Ok(ble_devices)
 }
 
-pub async fn get_ble_device_from_address(address: u64) -> Result<BluetoothLEDevice> {
+async fn get_ble_device_from_address(address: u64) -> Result<BluetoothLEDevice> {
     BluetoothLEDevice::FromBluetoothAddressAsync(address)?
         .await
         .with_context(|| format!("Failed to get BLE Device from Address({address})"))
@@ -141,7 +141,7 @@ async fn get_ble_battery_gatt_char(ble_device: &BluetoothLEDevice) -> Result<Gat
     }
 }
 
-pub async fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
+async fn get_ble_battery_level(ble_device: &BluetoothLEDevice) -> Result<u8> {
     let battery_gatt_char = get_ble_battery_gatt_char(ble_device).await?;
     let buffer = battery_gatt_char.ReadValueAsync()?.await?.Value()?;
     let reader = DataReader::FromBuffer(&buffer)?;
@@ -413,7 +413,7 @@ pub async fn watch_ble_devices_async(
                         }
 
                         for added_device_address in added_devices {
-                            sleep(Duration::from_secs(1)).await;
+                            tokio::time::sleep(Duration::from_secs(1)).await;
                             let Ok(ble_device) = get_ble_device_from_address(added_device_address).await else {
                                 // 移除错误设备
                                 warn!("Failed to get added BLE Device from address");
@@ -437,7 +437,7 @@ pub async fn watch_ble_devices_async(
                         }
                     }
 
-                    sleep(Duration::from_secs(1)).await;
+                    tokio::time::sleep(Duration::from_secs(1)).await;
                 }
 
                 info!("Watch BLE Battery and Status was cancelled by exit flag.");
