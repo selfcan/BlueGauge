@@ -1,14 +1,16 @@
-use super::{MenuGroup, MenuKind, MenuManager};
+use super::MenuGroup;
 use crate::bluetooth::info::BluetoothInfo;
 use crate::config::{Config, Direction, TrayIconStyle};
 use crate::language::LOC;
 use crate::startup::get_startup_status;
 
 use std::ops::Deref;
+use std::rc::Rc;
 use std::sync::LazyLock;
 
 use anyhow::{Context, Result};
 use dashmap::DashMap;
+use tray_controls::{CheckMenuKind, MenuControl, MenuManager};
 use tray_icon::menu::{
     CheckMenuItem, IsMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem, Submenu,
 };
@@ -60,42 +62,7 @@ pub static NOTIFY_DEVICE_CHANGE_REMOVED: LazyLock<MenuId> =
 pub static NOTIFY_DEVICE_STAY_ON_SCREEN: LazyLock<MenuId> =
     LazyLock::new(|| MenuId::new("stay_on_screen"));
 
-/// 定义 CheckMenuItem
-/// # 参数
-/// - `self`: Stuct `CreateMenu`
-/// - `kind`: enum `MenuKind`
-/// - `menu_variant`: `MenuId`
-/// - `label`: Set `CheckMenu` Text Content
-/// - `checked`: Set `CheckMenu` State
-/// - `enabled`: Set `CheckMenu` Enable (Default: `true`)
-macro_rules! define_check_menu_items {
-    // 提供 enabled（总共6个参数）
-    (
-        $self:expr,
-        $kind:expr,
-        [$(($menu_variant:expr, $label:expr, $checked:expr, $enabled:expr)),+ $(,)?]
-    ) => {{
-        let mut menus = Vec::new();
-        $(
-            let id = $menu_variant.clone();
-            let menu = CheckMenuItem::with_id(id.clone(), $label, $enabled, $checked, None);
-            $self.0.insert(id, $kind, Some(menu.clone()));
-            menus.push(menu);
-        )+
-        menus
-    }};
-
-    // 未提供 enabled（总共5个参数），菜单允许勾选选项默认为 true
-    (
-        $self:expr,
-        $kind:expr,
-        [$(($menu_variant:expr, $label:expr, $checked:expr)),+ $(,)?]
-    ) => {{
-        define_check_menu_items!($self, $kind, [$(($menu_variant, $label, $checked, true)),+])
-    }};
-}
-
-struct CreateMenuItem(MenuManager);
+struct CreateMenuItem(MenuManager<MenuGroup>);
 
 impl CreateMenuItem {
     fn new() -> Self {
@@ -107,37 +74,45 @@ impl CreateMenuItem {
     }
 
     fn quit(&mut self, text: &str) -> MenuItem {
-        self.0.insert(QUIT.clone(), MenuKind::Normal, None);
-        MenuItem::with_id(QUIT.clone(), text, true, None)
+        let menu_item = MenuItem::with_id(QUIT.clone(), text, true, None);
+        self.0.insert(MenuControl::MenuItem(menu_item.clone()));
+        menu_item
     }
 
     fn about(&mut self, text: &str) -> MenuItem {
-        self.0.insert(ABOUT.clone(), MenuKind::Normal, None);
-        MenuItem::with_id(ABOUT.clone(), text, true, None)
+        let menu_item = MenuItem::with_id(ABOUT.clone(), text, true, None);
+        self.0.insert(MenuControl::MenuItem(menu_item.clone()));
+        menu_item
     }
 
     fn restart(&mut self, text: &str) -> MenuItem {
-        self.0.insert(RESTART.clone(), MenuKind::Normal, None);
-        MenuItem::with_id(RESTART.clone(), text, true, None)
+        let menu_item = MenuItem::with_id(RESTART.clone(), text, true, None);
+        self.0.insert(MenuControl::MenuItem(menu_item.clone()));
+        menu_item
     }
 
     fn open_config(&mut self, text: &str) -> MenuItem {
-        self.0.insert(OPEN_CONFIG.clone(), MenuKind::Normal, None);
-        MenuItem::with_id(OPEN_CONFIG.clone(), text, true, None)
+        let menu_item = MenuItem::with_id(OPEN_CONFIG.clone(), text, true, None);
+        self.0.insert(MenuControl::MenuItem(menu_item.clone()));
+        menu_item
     }
 
     fn startup(&mut self, text: &str) -> Result<CheckMenuItem> {
         let should_startup = get_startup_status()?;
         let menu_id = STARTUP.clone();
-        let menu = CheckMenuItem::with_id(menu_id.clone(), text, true, should_startup, None);
+        let check_menu_item =
+            CheckMenuItem::with_id(menu_id.clone(), text, true, should_startup, None);
         self.0
-            .insert(STARTUP.clone(), MenuKind::CheckSingle, Some(menu.clone()));
-        Ok(menu)
+            .insert(MenuControl::CheckMenu(CheckMenuKind::Separate(Rc::new(
+                check_menu_item.clone(),
+            ))));
+        Ok(check_menu_item)
     }
 
     fn refresh(&mut self, text: &str) -> MenuItem {
-        self.0.insert(REFRESH.clone(), MenuKind::Normal, None);
-        MenuItem::with_id(REFRESH.clone(), text, true, None)
+        let menu_item = MenuItem::with_id(REFRESH.clone(), text, true, None);
+        self.0.insert(MenuControl::MenuItem(menu_item.clone()));
+        menu_item
     }
 
     fn bluetooth_devices(
@@ -183,11 +158,11 @@ impl CreateMenuItem {
                     show_tray_battery_icon_bt_address.is_some_and(|addr| addr.eq(&info.address)),
                     None,
                 );
-                self.0.insert(
-                    menu_id,
-                    MenuKind::GroupSingle(MenuGroup::Device, None),
-                    Some(menu.clone()),
-                );
+                self.0.insert(MenuControl::CheckMenu(CheckMenuKind::Radio(
+                    Rc::new(menu.clone()),
+                    None,
+                    MenuGroup::RadioDevice,
+                )));
                 menu
             })
             .collect::<Vec<CheckMenuItem>>()
@@ -214,65 +189,82 @@ impl CreateMenuItem {
         let select_ring_icon = matches!(tray_icon_style, TrayIconStyle::BatteryRing { .. });
         let select_app_icon = matches!(tray_icon_style, TrayIconStyle::App);
 
-        let tray_icon_style_items = define_check_menu_items!(
-            self,
-            MenuKind::GroupSingle(
-                MenuGroup::TrayIconStyle,
-                Some(TRAY_ICON_STYLE_NUMBER.clone())
-            ),
-            [
-                (
-                    TRAY_ICON_STYLE_HORIZONTAL_BATTERY,
-                    LOC.horizontal_battery_icon,
-                    select_horizontal_battery_icon
-                ),
-                (
-                    TRAY_ICON_STYLE_VERTICAL_BATTERY,
-                    LOC.vertical_battery_icon,
-                    select_vertical_battery_icon
-                ),
-                (TRAY_ICON_STYLE_NUMBER, LOC.number_icon, select_number_icon),
-                (TRAY_ICON_STYLE_RING, LOC.ring_icon, select_ring_icon),
-                (TRAY_ICON_STYLE_APP, LOC.app_icon, select_app_icon),
-            ]
-        );
+        let mut menus = Vec::new();
 
-        let menu_tray_icon_style: Vec<&dyn IsMenuItem> = tray_icon_style_items
-            .iter()
-            .map(|item| item as &dyn IsMenuItem)
-            .collect();
+        [
+            (
+                TRAY_ICON_STYLE_HORIZONTAL_BATTERY.clone(),
+                LOC.horizontal_battery_icon,
+                select_horizontal_battery_icon,
+            ),
+            (
+                TRAY_ICON_STYLE_VERTICAL_BATTERY.clone(),
+                LOC.vertical_battery_icon,
+                select_vertical_battery_icon,
+            ),
+            (
+                TRAY_ICON_STYLE_NUMBER.clone(),
+                LOC.number_icon,
+                select_number_icon,
+            ),
+            (
+                TRAY_ICON_STYLE_RING.clone(),
+                LOC.ring_icon,
+                select_ring_icon,
+            ),
+            (TRAY_ICON_STYLE_APP.clone(), LOC.app_icon, select_app_icon),
+        ]
+        .into_iter()
+        .for_each(|(menu_id, text, checked)| {
+            let menu = CheckMenuItem::with_id(menu_id, text, true, checked, None);
+            self.0.insert(MenuControl::CheckMenu(CheckMenuKind::Radio(
+                Rc::new(menu.clone()),
+                Some(Rc::new(TRAY_ICON_STYLE_NUMBER.clone())),
+                MenuGroup::RadioTrayIconStyle,
+            )));
+            menus.push(menu);
+        });
+
+        let menu_tray_icon_style: Vec<&dyn IsMenuItem> =
+            menus.iter().map(|item| item as &dyn IsMenuItem).collect();
 
         Submenu::with_items(LOC.icon_style_options, true, &menu_tray_icon_style)
             .expect("Failed to create submenu for tray icon style")
     }
 
     fn tray_tooltip_options(&mut self, config: &Config) -> Submenu {
-        let tray_tooltip_options_items = define_check_menu_items!(
-            self,
-            MenuKind::GroupMulti(MenuGroup::TrayTooltip),
-            [
-                (
-                    TRAY_TOOLTIP_SHOW_DISCONNECTED,
-                    LOC.show_disconnected,
-                    config.get_show_disconnected()
-                ),
-                (
-                    TRAY_TOOLTIP_TRUNCATE_NAME,
-                    LOC.truncate_name,
-                    config.get_truncate_name()
-                ),
-                (
-                    TRAY_TOOLTIP_PREFIX_BATTERY,
-                    LOC.prefix_battery,
-                    config.get_prefix_battery()
-                ),
-            ]
-        );
+        let mut menus = Vec::new();
 
-        let menu_tray_tooltip_options: Vec<&dyn IsMenuItem> = tray_tooltip_options_items
-            .iter()
-            .map(|item| item as &dyn IsMenuItem)
-            .collect();
+        [
+            (
+                TRAY_TOOLTIP_SHOW_DISCONNECTED.clone(),
+                LOC.show_disconnected,
+                config.get_show_disconnected(),
+            ),
+            (
+                TRAY_TOOLTIP_TRUNCATE_NAME.clone(),
+                LOC.truncate_name,
+                config.get_truncate_name(),
+            ),
+            (
+                TRAY_TOOLTIP_PREFIX_BATTERY.clone(),
+                LOC.prefix_battery,
+                config.get_prefix_battery(),
+            ),
+        ]
+        .into_iter()
+        .for_each(|(menu_id, text, checked)| {
+            let menu = CheckMenuItem::with_id(menu_id, text, true, checked, None);
+            self.0
+                .insert(MenuControl::CheckMenu(CheckMenuKind::CheckBox(
+                    Rc::new(menu.clone()),
+                    MenuGroup::CheckBoxTrayTooltip,
+                )));
+            menus.push(menu);
+        });
+
+        let menu_tray_tooltip_options: Vec<&dyn IsMenuItem> =
+            menus.iter().map(|item| item as &dyn IsMenuItem).collect();
 
         Submenu::with_items(LOC.tray_tooltip_options, true, &menu_tray_tooltip_options)
             .expect("Failed to create submenu for tray tooltip options")
@@ -302,43 +294,59 @@ impl CreateMenuItem {
                 low_battery == battery,
                 None,
             );
-            self.0.insert(
-                menu_id,
-                MenuKind::GroupSingle(MenuGroup::LowBattery, Some(dafault_menu_id)),
-                Some(menu.clone()),
-            );
+
+            self.0.insert(MenuControl::CheckMenu(CheckMenuKind::Radio(
+                Rc::new(menu.clone()),
+                Some(Rc::new(dafault_menu_id)),
+                MenuGroup::RadioLowBattery,
+            )));
+
             menu
         })
     }
 
     fn notify_device_change(&mut self, config: &Config) -> Vec<CheckMenuItem> {
-        define_check_menu_items!(
-            self,
-            MenuKind::GroupMulti(MenuGroup::Notify),
-            [
-                (
-                    NOTIFY_DEVICE_CHANGE_DISCONNECTION,
-                    LOC.disconnection,
-                    config.get_disconnection()
-                ),
-                (
-                    NOTIFY_DEVICE_CHANGE_RECONNECTION,
-                    LOC.reconnection,
-                    config.get_reconnection()
-                ),
-                (NOTIFY_DEVICE_CHANGE_ADDED, LOC.added, config.get_added()),
-                (
-                    NOTIFY_DEVICE_CHANGE_REMOVED,
-                    LOC.removed,
-                    config.get_removed()
-                ),
-                (
-                    NOTIFY_DEVICE_STAY_ON_SCREEN,
-                    LOC.stay_on_screen,
-                    config.get_stay_on_screen()
-                )
-            ]
-        )
+        let mut menus = Vec::new();
+
+        [
+            (
+                NOTIFY_DEVICE_CHANGE_DISCONNECTION.clone(),
+                LOC.disconnection,
+                config.get_disconnection(),
+            ),
+            (
+                NOTIFY_DEVICE_CHANGE_RECONNECTION.clone(),
+                LOC.reconnection,
+                config.get_reconnection(),
+            ),
+            (
+                NOTIFY_DEVICE_CHANGE_ADDED.clone(),
+                LOC.added,
+                config.get_added(),
+            ),
+            (
+                NOTIFY_DEVICE_CHANGE_REMOVED.clone(),
+                LOC.removed,
+                config.get_removed(),
+            ),
+            (
+                NOTIFY_DEVICE_STAY_ON_SCREEN.clone(),
+                LOC.stay_on_screen,
+                config.get_stay_on_screen(),
+            ),
+        ]
+        .into_iter()
+        .for_each(|(menu_id, text, checked)| {
+            let menu = CheckMenuItem::with_id(menu_id, text, true, checked, None);
+            self.0
+                .insert(MenuControl::CheckMenu(CheckMenuKind::CheckBox(
+                    Rc::new(menu.clone()),
+                    MenuGroup::CheckBoxNotify,
+                )));
+            menus.push(menu);
+        });
+
+        menus
     }
 
     fn set_icon_connect_color(&mut self, config: &Config) -> CheckMenuItem {
@@ -367,7 +375,9 @@ impl CreateMenuItem {
         };
 
         self.0
-            .insert(menu_id, MenuKind::CheckSingle, Some(menu.clone()));
+            .insert(MenuControl::CheckMenu(CheckMenuKind::Separate(Rc::new(
+                menu.clone(),
+            ))));
 
         menu
     }
@@ -383,7 +393,9 @@ impl CreateMenuItem {
         );
 
         self.0
-            .insert(menu_id, MenuKind::CheckSingle, Some(menu.clone()));
+            .insert(MenuControl::CheckMenu(CheckMenuKind::Separate(Rc::new(
+                menu.clone(),
+            ))));
 
         menu
     }
@@ -392,7 +404,8 @@ impl CreateMenuItem {
 pub fn create_menu(
     config: &Config,
     bluetooth_devices_info: &DashMap<u64, BluetoothInfo>,
-) -> Result<(Menu, MenuManager)> {
+    menu_manager: &mut MenuManager<MenuGroup>,
+) -> Result<Menu> {
     let menu_separator = CreateMenuItem::separator();
 
     let mut create_menu_item = CreateMenuItem::new();
@@ -459,6 +472,8 @@ pub fn create_menu(
     ];
     let menu_setting = Submenu::with_items(LOC.settings, true, settings_items)?;
 
+    *menu_manager = create_menu_item.0;
+
     let tray_menu = Menu::new();
     tray_menu
         .prepend_items(&menu_devices)
@@ -500,5 +515,5 @@ pub fn create_menu(
         .append(&menu_quit)
         .context("Failed to apped 'Quit' to Tray Menu")?;
 
-    Ok((tray_menu, create_menu_item.0))
+    Ok(tray_menu)
 }

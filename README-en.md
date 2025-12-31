@@ -4,7 +4,7 @@ A lightweight tray tool for easily viewing the battery level of your Bluetooth d
 <p align="center">
 	<a href="https://github.com/iKineticate/BlueGauge/releases/latest"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/iKineticate/BlueGauge?"></a>
 	<a href="https://github.com/iKineticate/BlueGauge/releases/latest"><img alt="Github Downloads" src="https://img.shields.io/github/downloads/iKineticate/BlueGauge/total?logo=github"></a>
-    <img alt="Language" src="https://img.shields.io/badge/Build-Rust-yellow?logo=rust">
+    <img alt="Language" src="https://img.shields.io/badge/build-Rust-yellow?logo=rust">
     <a href="https://github.com/iKineticate/BlueGauge#"><img alt="GitHub License" src="https://img.shields.io/github/license/iKineticate/BlueGauge"></a>
 </p>
 

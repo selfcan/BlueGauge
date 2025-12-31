@@ -87,7 +87,9 @@ pub async fn process_ble_device(ble_device: &BluetoothLEDevice) -> Result<Blueto
         .map(|status| status == BluetoothConnectionStatus::Connected)
         .with_context(|| "Failed to get BLE connected status")?;
 
-    let address = ble_device.BluetoothAddress()?;
+    let address = ble_device
+        .BluetoothAddress()
+        .with_context(|| "Failed to get BLE address")?;
 
     let battery = get_ble_battery_level(ble_device)
         .await
@@ -387,6 +389,7 @@ pub async fn watch_ble_devices_async(
             },
             _ = async {
                 let original_ble_devices_address = Arc::clone(&original_ble_devices_address);
+
                 while !exit_flag.load(Ordering::Relaxed) {
                     let current_generation = restart_flag.load(Ordering::Relaxed);
                     if local_generation < current_generation {

@@ -1,4 +1,4 @@
-use crate::util::to_wide;
+use crate::{config::EXE_NAME, util::to_wide};
 
 use anyhow::{Context, Result, anyhow};
 use windows::{
@@ -17,11 +17,7 @@ impl SingleInstance {
     /// Creates a new system-wide mutex to ensure that only one instance of
     /// the application is running.
     pub fn new() -> Result<Self> {
-        let exe_name = std::env::current_exe()
-            .ok()
-            .and_then(|p| p.file_stem().map(|n| n.to_owned()))
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "BlueGauge".to_owned());
+        let exe_name = EXE_NAME.as_str();
 
         let mut mutex_name = std::ffi::OsString::from("Global\\");
         mutex_name.push(exe_name);

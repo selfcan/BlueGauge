@@ -20,6 +20,7 @@ dependencies = [
  "tauri-winrt-notification",
  "tokio",
  "toml 0.9.10+spec-1.1.0",
+ "tray-controls",
  "tray-icon",
  "windows 0.62.2",
  "windows-sys 0.61.2",
@@ -2681,6 +2682,15 @@ name = "tracing-core"
 version = "0.1.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9d12581f227e93f094d3af2ae690a574abb8a2b9b7a96e7cfe9647b2b617678"
+
+[[package]]
+name = "tray-controls"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9aadf6f5cc6d52fa891e65d0b9b88cf68593611d209b6d7c8979fdc65ffaaca2"
+dependencies = [
+ "tray-icon",
+]
 
 [[package]]
 name = "tray-icon"

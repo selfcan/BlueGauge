@@ -3,23 +3,26 @@ pub mod menu;
 
 use super::tray::{
     icon::{load_app_icon, load_tray_icon},
-    menu::{MenuManager, item::create_menu},
+    menu::item::create_menu,
 };
 use crate::{
     bluetooth::info::BluetoothInfo,
     config::{Config, TrayIconStyle},
+    tray::menu::MenuGroup,
 };
 
 use anyhow::{Result, anyhow};
 use dashmap::DashMap;
 use log::error;
+use tray_controls::MenuManager;
 use tray_icon::{TrayIcon, TrayIconBuilder};
 
 #[rustfmt::skip]
 pub fn create_tray(
     config: &Config,
     bluetooth_device_map: &DashMap<u64, BluetoothInfo>,
-) -> Result<(TrayIcon, MenuManager)> {
+    menu_manager: &mut MenuManager<MenuGroup>,
+) -> Result<TrayIcon> {
     let tray_icon_bt_address = config
         .tray_options
         .tray_icon_style
@@ -42,8 +45,8 @@ pub fn create_tray(
         })
         .expect("Failed to create tray's icon");
 
-    let (tray_menu, tray_check_menus) =
-        create_menu(config, bluetooth_device_map).map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
+    let tray_menu =  create_menu(config, bluetooth_device_map, menu_manager)
+        .map_err(|e| anyhow!("Failed to create menu. - {e}"))?;
 
     let bluetooth_tooltip_info = convert_tray_info(bluetooth_device_map, config);
 
@@ -55,7 +58,7 @@ pub fn create_tray(
         .build()
         .map_err(|e| anyhow!("Failed to build tray - {e}"))?;
 
-    Ok((tray_icon, tray_check_menus))
+    Ok(tray_icon)
 }
 
 /// 返回托盘提示及菜单内容

@@ -24,7 +24,7 @@ use crate::tray::{
     convert_tray_info, create_tray,
     icon::{load_app_icon, load_tray_icon},
     menu::{
-        MenuGroup, MenuKind, MenuManager, about,
+        MenuGroup, about,
         handler::MenuHandler,
         item::{SET_ICON_CONNECT_COLOR, SHOW_LOWEST_BATTERY_DEVICE, create_menu},
     },
@@ -38,6 +38,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use dashmap::DashMap;
 use log::{error, info};
+use tray_controls::MenuManager;
 use tray_icon::{TrayIcon, menu::MenuEvent};
 use winit::{
     application::ApplicationHandler,
@@ -82,7 +83,7 @@ struct App {
     event_loop_proxy: EventLoopProxy<UserEvent>,
     /// 存储已经通知过的低电量设备（地址），避免再次通知
     notified_devices: Arc<Mutex<HashSet<u64>>>,
-    menu_manager: Mutex<MenuManager>,
+    menu_manager: Mutex<MenuManager<MenuGroup>>,
     system_theme: Arc<RwLock<SystemTheme>>,
     theme_watcher: Option<ThemeWatcher>,
     tray: Mutex<TrayIcon>,
@@ -152,8 +153,10 @@ impl App {
             }
         }
 
-        let (tray, menu_manager) =
-            create_tray(&config, &bluetooth_devices_info).expect("Failed to create tray");
+        let mut menu_manager = MenuManager::new();
+
+        let tray = create_tray(&config, &bluetooth_devices_info, &mut menu_manager)
+            .expect("Failed to create tray");
 
         Self {
             bluetooth_devcies_info: Arc::new(bluetooth_devices_info),
@@ -275,29 +278,29 @@ impl ApplicationHandler<UserEvent> for App {
                     .menu_manager
                     .lock()
                     .unwrap()
-                    .get_menus_by_kind(&MenuKind::GroupSingle(MenuGroup::Device, None))
+                    .get_check_items_from_grouped(&MenuGroup::RadioDevice)
                 {
                     menu_map.values().for_each(|m| m.set_checked(false));
                 }
             }
             // 取消勾选 [显示最低电量设备] 和 [设置连接配色]
             UserEvent::UnCheckAboutIconMenu => {
-                if let Some(menu) = self
+                if let Some(menu_control) = self
                     .menu_manager
                     .lock()
                     .unwrap()
-                    .get_menu_by_id(&SHOW_LOWEST_BATTERY_DEVICE)
+                    .get_menu_item_from_id(&SHOW_LOWEST_BATTERY_DEVICE)
                 {
-                    menu.set_checked(false);
+                    menu_control.set_checked(false);
                 }
 
-                if let Some(menu) = self
+                if let Some(menu_control) = self
                     .menu_manager
                     .lock()
                     .unwrap()
-                    .get_menu_by_id(&SET_ICON_CONNECT_COLOR)
+                    .get_menu_item_from_id(&SET_ICON_CONNECT_COLOR)
                 {
-                    menu.set_checked(false);
+                    menu_control.set_checked(false);
                 }
             }
             UserEvent::Exit => {
@@ -306,14 +309,18 @@ impl ApplicationHandler<UserEvent> for App {
             }
             UserEvent::MenuEvent(event) => {
                 let mut menu_manager = self.menu_manager.lock().unwrap();
-                menu_manager.handler(event.id(), |is_normal_menu, check_menu| {
+                menu_manager.update(event.id(), |menu_control| {
+                    let Some(menu_control) = menu_control else {
+                        error!("Failed to get menu control");
+                        return;
+                    };
+
                     let menu_handlers = MenuHandler::new(
-                        event.id().clone(),
-                        is_normal_menu,
-                        check_menu,
+                        menu_control.clone(),
                         Arc::clone(&self.config),
                         self.event_loop_proxy.clone(),
                     );
+
                     if let Err(e) = menu_handlers.run() {
                         error!("Failed to handle menu event: {e}")
                     }
@@ -366,15 +373,14 @@ impl ApplicationHandler<UserEvent> for App {
                 // 不创建 UserEvent::HandShowLowestBatteryDevice 事件，是因为 UserEVent 是非同步的，会导致菜单项未得到及时更新
                 self.handle_show_lowest_battery_device();
 
-                let tray_menu = match create_menu(&config, &current_devices_info) {
-                    Ok((tray_menu, new_menu_manager)) => {
-                        let mut menu_manager = self.menu_manager.lock().unwrap();
-                        *menu_manager = new_menu_manager;
-                        tray_menu
-                    }
-                    Err(e) => {
-                        notify(format!("Failed to create tray menu - {e}"));
-                        return;
+                let tray_menu = {
+                    let mut menu_manager = self.menu_manager.lock().unwrap();
+                    match create_menu(&config, &current_devices_info, &mut menu_manager) {
+                        Ok(tray_menu) => tray_menu,
+                        Err(e) => {
+                            notify(format!("Failed to create tray menu - {e}"));
+                            return;
+                        }
                     }
                 };
 
